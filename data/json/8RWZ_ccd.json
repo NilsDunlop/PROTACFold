@@ -1,0 +1,26 @@
+{
+    "name": "8RWZ_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SSKVSEQLKCCSGILKEMFAKKHAAYAWPFYKPVDVEALGLHDYCDIIKHPMDMSTIKSKLEAREYRDAQEFGADVRLMFSNCYKYNPPDHEVVAMARKLQDVFEMRFAKMPDE"
+        }
+      },
+      {
+        "protein": {
+          "id": "B",
+          "sequence": "MEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "ligand": {
+          "id": "G",
+          "ccdCodes": ["759"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

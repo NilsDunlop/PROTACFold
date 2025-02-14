@@ -1,0 +1,20 @@
+{
+    "name": "8OKB_smiles",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICTSEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKVDTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIKGSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYGPFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLNDFNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNGMNGRTILGSALLEDEFTPFDVVRQCSGVTFQ"
+        }
+      },
+      {
+        "ligand": {
+          "id": "B",
+          "smiles": "CC(C)C[C@@H](C(=O)N[C@@H](CCC(=O)OC)C[C@@H]1CCNC1=O)NC(=O)OCc2ccccc2"
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
