@@ -1,0 +1,20 @@
+{
+    "name": "6HM0",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SMLKLSAENESTPIQQLLEHFLRQLQRKDPHGFFAFPVTDAIAPGYSMIIKHPMDFGTMKDKIVANEYKSVTEFKADFKLMCDNAMTYNRPDTVYYKLAKKILHAGFKMMSKERLLALKRSMS"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "smiles": "Cc1c(scn1)c2ccc(cc2)CNC(=O)[C@@H]3C[C@@H](CN3C(=O)[C@H](C(C)(C)C)NC(=O)COCCOCCN4CCN(CC4)Cc5c(cc(cc5OC)C6=CN(C(=O)c7c6ccnc7)C)OC)O"
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
