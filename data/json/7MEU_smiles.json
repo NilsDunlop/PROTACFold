@@ -1,0 +1,20 @@
+{
+    "name": "7MEU_smiles",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "MEVANPEHYIKHPLQNRWALWFFKNDKSKTWQANLRLISKFDTVEDFWALYNHIQLSSNLMPGCDYSLFKDGIEPMWEDEKNKRGGRWLITLNKQQRRSDLDRFWLETLLCLIGESFDDYSDDVCGAVVNVRAKGDKIAIWTTECENREAVTHIGRVYKERLGLPPKIVIGYQSHADTATKSGSTTKNRFVV"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "smiles": "C[n+]1cn(c2c1C(=O)NC(=N2)N)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@@](=O)(O)OP(=O)(O)O)O)O"
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

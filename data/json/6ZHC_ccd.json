@@ -1,0 +1,26 @@
+{
+    "name": "6ZHC_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "PRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "protein": {
+          "id": "D",
+          "sequence": "MSMAMSQSNRELVVDFLSYKLSQKGYSWSQFSDVEENRTEAPEGTESEMETPSAINGNPSWHLADSPAVNGATGHSSSLDAREVIPMAAVKQALREAGDEFELRYRRAFSDLTSQLHITPGTAYQSFEQVVNELFRDGVNWGRIVAFFSFGGALCVESVDKEMQVLVSRIAAWMATYLNDHLEPWIQENGGWDTFVELYGNNAAAESRKGQERLEHHHHHH"
+        }
+      },
+      {
+        "ligand": {
+          "id": "E",
+          "ccdCodes": ["QL8"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

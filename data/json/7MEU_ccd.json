@@ -1,0 +1,20 @@
+{
+    "name": "7MEU_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "MEVANPEHYIKHPLQNRWALWFFKNDKSKTWQANLRLISKFDTVEDFWALYNHIQLSSNLMPGCDYSLFKDGIEPMWEDEKNKRGGRWLITLNKQQRRSDLDRFWLETLLCLIGESFDDYSDDVCGAVVNVRAKGDKIAIWTTECENREAVTHIGRVYKERLGLPPKIVIGYQSHADTATKSGSTTKNRFVV"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "ccdCodes": ["MGP"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
