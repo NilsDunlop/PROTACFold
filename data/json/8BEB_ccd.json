@@ -1,0 +1,26 @@
+{
+    "name": "8BEB_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "D",
+          "sequence": "SMNPPPPETSNPNKPKRQTNQLQYLLRVVLKTLWKHQFAWPFQQPVDAVKLNLPDYYKIIKTPMDMGTIKKRLENNYYWNAQECIQDFNTMFTNCYIYNKPGDDIVLMAEALEKLFLQKINELPTEE"
+        }
+      },
+      {
+        "protein": {
+          "id": "C",
+          "sequence": "GSMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "ligand": {
+          "id": "F",
+          "ccdCodes": ["QIK"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
