@@ -1,0 +1,20 @@
+{
+    "name": "8PDF_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "GVQVETISPGDGRTFPKRGQTVVVHYTGMLEDGKKFDSSRDRNKPFKFMLGKQEVIRGWEEGVAQMSVGQRAKLTISPDYAYGATGHPGIIPPHATLVFDVELLKLE"
+        }
+      },
+      {
+        "ligand": {
+          "id": "B",
+          "ccdCodes": ["Y5Q"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

@@ -1,0 +1,26 @@
+{
+    "name": "8DSO_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SAPSTAGLGYGSWEIDPKDLTFLKELGTGQFGVVKYGKWRGQYDVAIKMIKEGSMSEDEFIEEAKVMMNLSHEKLVQLYGVCTKQRPIFIITEYMANGCLLNYLREMRHRFQTQQLLEMCKDVCEAMEYLESKQFLHRDLAARNCLVNDQGVVKVSDFGLSRYVLDDEYTSSVGSKFPVRWSPPEVLMYSKFSSKSDIWAFGVLMWEIYSLGKMPYERFTNSETAEHIAQGLRLYRPHLASEKVYTIMYSCWHEKADERPTFKILLSNILDVMDEES"
+        }
+      },
+      {
+        "protein": {
+          "id": "B",
+          "sequence": "GSGPGSSISNLSMQTHAARMRTFMYWPSSVPVQPEQLASAGFYYVGRNDDVKCFCCDGGLRCWESGDDPWVEHAKWFPRCEFLIRMKGQEFVDEIQGRY"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "ccdCodes": ["TOO"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

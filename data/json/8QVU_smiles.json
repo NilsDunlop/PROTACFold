@@ -1,0 +1,26 @@
+{
+    "name": "8QVU_smiles",
+    "sequences": [
+      {
+        "protein": {
+          "id": "C",
+          "sequence": "MPRRAENWDEAEVGAEEAGVEEYGPEEDGGEESGAEESGPEESGPEELGAEEEMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "protein": {
+          "id": "G",
+          "sequence": "MTEYKLVVVGADGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAGQEEYSAMRDQYMRTGEGFLCVFAINNTKSFEDIHHYREQIKRVKDSEDVPMVLVGNKSDLPSRTVDTKQAQDLARSYGIPFIETSAKTRQGVDDAFYTLVREIRKHKEKMSKDGKKKKKKSKTKCVIM"
+        }
+      },
+      {
+        "ligand": {
+          "id": "J",
+          "smiles": "Cc1c(scn1)c2ccc(cc2)[C@H](CO)NC(=O)[C@@H]3C[C@H](CN3C(=O)[C@H](C(C)C)n4cc(nn4)OCCCCN5CCCN([C@H](C5)C)c6nccc(n6)c7nc(on7)[C@]8(CCCc9c8c(c(s9)N)C#N)C)O"
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
