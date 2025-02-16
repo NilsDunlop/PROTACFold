@@ -1,0 +1,20 @@
+{
+    "name": "8C13_smiles",
+    "sequences": [
+      {
+        "protein": {
+          "id": "C",
+          "sequence": "MEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "ligand": {
+          "id": "D",
+          "smiles": "Cc1c(scn1)c2ccc(cc2)CNC(=O)[C@@H]3C[C@H](CN3C(=O)[C@H](C(C)(C)C)NC(=O)CCOCCOCCOc4ccc(cc4CNC(=O)C)c5cn6c(n5)CCC6)O"
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}
