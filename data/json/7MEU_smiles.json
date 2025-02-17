@@ -9,8 +9,8 @@
       },
       {
         "ligand": {
-          "id": "C",
-          "smiles": "C[n+]1cn(c2c1C(=O)NC(=N2)N)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@@](=O)(O)OP(=O)(O)O)O)O"
+          "id": "D",
+          "smiles": "OC(=O)/C(Cc1ccccc1[N+]([O-])=O)=N/Nc2scc(n2)c3ccc(cc3)c4ccccc4"
         }
       }
     ],
