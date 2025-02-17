@@ -16,7 +16,7 @@
       {
         "ligand": {
           "id": "I",
-          "smiles": "Cc1cc(on1)[C@@H](C(C)C)C(=O)N2C[C@@H](C[C@H]2C(=O)N[C@@H](CC(=O)NCCOCCOCCOCCNC(=O)C[C@H]3c4nnc(n4-c5c(c(c(s5)C)C)C(=[NH2]3)c6ccc(cc6)Cl)C)c7ccc(cc7)Cl)O"
+          "smiles": "CC(C)[C@@H](C(=O)N1C[C@H](O)C[C@H]1C(=O)N[C@@H](CC(=O)NCCOCCOCCOCCNC(=O)C[C@@H]2[NH2]=C(c3ccc(Cl)cc3)c4c(C)c(C)sc4n5c(C)nnc25)c6ccc(Cl)cc6)c7onc(C)c7"
         }
       }
     ],
