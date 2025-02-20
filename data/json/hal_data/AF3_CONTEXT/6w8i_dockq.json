@@ -1,0 +1,37 @@
+{
+    "GlobalDockQ": 0.0642418725191644,
+    "best_dockq": 0.0642418725191644,
+    "best_mapping": {
+        "B": "A",
+        "D": "B"
+    },
+    "best_mapping_str": "AB:BD",
+    "best_result": {
+        "BD": {
+            "DockQ": 0.0642418725191644,
+            "F1": 0.0392156862745098,
+            "LRMSD": 22.72627639094384,
+            "chain1": "A",
+            "chain2": "B",
+            "chain_map": {
+                "B": "A",
+                "D": "B"
+            },
+            "clashes": 0,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0.05555555555555555,
+            "fnonnat": 0.9696969696969697,
+            "iRMSD": 12.388292907460022,
+            "is_het": false,
+            "len1": 251,
+            "len2": 92,
+            "model_total": 33,
+            "nat_correct": 1,
+            "nat_total": 18,
+            "nonnat_count": 32
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\AF3\\with_context\\6w8i_ranked_0.pdb",
+    "native": "6w8i.pdb"
+}

@@ -1,0 +1,37 @@
+{
+    "GlobalDockQ": 0.020266276035852886,
+    "best_dockq": 0.020266276035852886,
+    "best_mapping": {
+        "A": "B",
+        "L": "A"
+    },
+    "best_mapping_str": "AB:LA",
+    "best_result": {
+        "LA": {
+            "DockQ": 0.020266276035852886,
+            "F1": 0.0,
+            "LRMSD": 49.088034196923786,
+            "chain1": "A",
+            "chain2": "B",
+            "chain_map": {
+                "A": "B",
+                "L": "A"
+            },
+            "clashes": 0,
+            "class1": "ligand",
+            "class2": "receptor",
+            "fnat": 0,
+            "fnonnat": 0,
+            "iRMSD": 8.291865895217198,
+            "is_het": false,
+            "len1": 1,
+            "len2": 155,
+            "model_total": 0,
+            "nat_correct": 0,
+            "nat_total": 4,
+            "nonnat_count": 0
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models_v3\\AF3\\fold_7pi4_model_0.pdb",
+    "native": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\PDB\\7pi4.pdb"
+}

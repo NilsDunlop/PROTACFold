@@ -1,0 +1,37 @@
+{
+    "GlobalDockQ": 0.05756620894759885,
+    "best_dockq": 0.05756620894759885,
+    "best_mapping": {
+        "E": "A",
+        "F": "B"
+    },
+    "best_mapping_str": "AB:EF",
+    "best_result": {
+        "EF": {
+            "DockQ": 0.05756620894759885,
+            "F1": 0.03773584905660377,
+            "LRMSD": 26.11636825626295,
+            "chain1": "A",
+            "chain2": "B",
+            "chain_map": {
+                "E": "A",
+                "F": "B"
+            },
+            "clashes": 0,
+            "class1": "ligand",
+            "class2": "receptor",
+            "fnat": 0.05555555555555555,
+            "fnonnat": 0.9714285714285714,
+            "iRMSD": 10.152994691694017,
+            "is_het": false,
+            "len1": 115,
+            "len2": 151,
+            "model_total": 35,
+            "nat_correct": 1,
+            "nat_total": 18,
+            "nonnat_count": 34
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models_v3\\AF3\\fold_6hay_model_0.pdb",
+    "native": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\PDB\\6hay.pdb"
+}
