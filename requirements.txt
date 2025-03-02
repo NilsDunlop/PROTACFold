@@ -1,0 +1,23 @@
+# Core dependencies
+numpy>=1.20.0
+pandas>=1.3.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+scipy>=1.7.0
+jupyter>=1.0.0
+
+# Structural biology tools
+biopython>=1.79
+prody>=2.0.0
+
+# Chemistry toolkit
+rdkit>=2022.03.1
+
+# Data handling and processing
+scikit-learn>=1.0.0
+tqdm>=4.62.0
+
+# Visualization
+ipywidgets>=7.6.0
+nglview>=3.0.0
+py3Dmol>=1.8.0 
