@@ -2,7 +2,9 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
-![PROTACFold Workflow](docs/images/PROTACFold.png)
+<div align="center">
+  <img src="docs/images/PROTACFold.png" alt="PROTACFold Workflow" width="80%">
+</div>
 
 ## Overview
 
