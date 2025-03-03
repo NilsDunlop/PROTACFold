@@ -9,8 +9,8 @@
 <a href="https://github.com/google-deepmind/alphafold3" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/AlphaFold-3-brightgreen.svg" alt="AlphaFold 3">
 </a>
-<a href="https://doi.org/10.5281/zenodo.14959719" target="_blank" rel="noopener noreferrer">
-  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14959719.svg" alt="DOI">
+<a href="https://zenodo.org/records/14961640" target="_blank" rel="noopener noreferrer">
+  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14961640.svg" alt="DOI">
 </a>
 
 
@@ -141,7 +141,7 @@ PROTACFold evaluates predictions using multiple metrics:
 
 ## Predicted Structures
 
-All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14959719). See below an example of the predicted structure of complex 7PI4, with the ground truth in grey and the AF3 prediction in gold.
+All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14961640). See below an example of the predicted structure of complex 7PI4, with the ground truth in grey and the AF3 prediction in gold.
 
 <div align="center">
   <img src="docs/images/7PI4.png" alt="PDB ID 7PI4" width="80%">
