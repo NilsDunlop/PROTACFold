@@ -2,6 +2,8 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
+![PROTACFold Workflow](docs/images/PROTACFold.png)
+
 ## Overview
 
 PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis Targeting Chimera (PROTAC) structures using AlphaFold 3 and related tools. This project focuses on understanding PROTAC-mediated ternary complexes between target proteins and E3 ligases, enabling better insights into protein degradation mechanisms.

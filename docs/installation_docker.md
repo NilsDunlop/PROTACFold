@@ -1,4 +1,4 @@
-# Install AlphaFold 3 with Docker (Ubuntu Desktop CUDA Driver 535- Cuda Version 12.2)
+# Install AlphaFold 3 with Docker (Ubuntu Desktop CUDA Driver 535 - Cuda Version 12.2)
 
 ## 1\. System Requirements Check
 
