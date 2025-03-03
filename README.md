@@ -1,7 +1,7 @@
 # PROTACFold
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![AlphaFold 3](https://img.shields.io/badge/AlphaFold-3-brightgreen.svg)](https://github.com/google-deepmind/alphafold3)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14959719.svg)](https://doi.org/10.5281/zenodo.14959719)
 
@@ -28,13 +28,15 @@ PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis T
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - CUDA-compatible GPU (for AlphaFold 3)
 - Docker (recommended for AlphaFold 3 setup)
 
 ### Using Docker (Recommended)
 
-Detailed instructions for setting up AlphaFold 3 using Docker can be found in the [installation guide](docs/installation_docker.md).
+We use AlphaFold 3 inference code available from [Google DeepMind](https://github.com/google-deepmind/alphafold3).
+
+Our detailed instructions for setting up AlphaFold 3 using Docker can be found in the [installation guide](docs/installation_docker.md). For reference, you can also consult the official [AlphaFold 3 documentation](https://github.com/google-deepmind/alphafold3/blob/main/docs/docker.md), though our guide provides comprehensive step-by-step instructions tailored more for PROTACFold users.
 
 ### Manual Installation
 
@@ -52,13 +54,10 @@ pip install -r requirements.txt
 ## Directory Structure
 
 - `data/`: Contains datasets and analysis results
-  - `protacdb/`: PROTAC database files
-  - `protacpedia/`: ProtacPedia database files
   - `af3_input/`: Input files for AlphaFold 3 (SMILES and CCD formats)
   - `af3_results/`: Consolidated results from AlphaFold 3 predictions
-  - `protac_degradation_data/`: PROTAC degradation activity data
   - `plots/`: Generated visualizations
-  - `hal_04732948/`: Comparison data with HAL paper results
+  - `hal_04732948/`: Data from [Pereira et al., 2024](https://www.biorxiv.org/content/10.1101/2024.03.19.585735v2) for comparison
 - `utils/`: Utility scripts for structure analysis and property calculation
 - `notebooks/`: Jupyter notebooks for analysis and visualization
 - `docs/`: Documentation including installation guides and images
@@ -110,6 +109,10 @@ PROTACFold evaluates predictions using multiple metrics:
 - **RMSD**: Root Mean Square Deviation between predicted and experimental structures
 - **pTM/ipTM**: AlphaFold confidence metrics for overall and interface quality
 - **Molecular Descriptors**: Physicochemical properties of PROTAC molecules
+
+## Predicted Structures
+
+All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14959719).
 
 ## Tools
 
