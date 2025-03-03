@@ -1,8 +1,10 @@
 # PROTACFold
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![AlphaFold 3](https://img.shields.io/badge/AlphaFold-3-brightgreen.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![AlphaFold 3](https://img.shields.io/badge/AlphaFold-3-brightgreen.svg)](https://github.com/google-deepmind/alphafold3)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14959719.svg)](https://doi.org/10.5281/zenodo.14959719)
+
 
 <div align="center">
   <img src="docs/images/PROTACFold.png" alt="PROTACFold Workflow" width="80%">
