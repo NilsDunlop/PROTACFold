@@ -112,7 +112,11 @@ PROTACFold evaluates predictions using multiple metrics:
 
 ## Predicted Structures
 
-All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14959719).
+All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14959719). See below an example of the predicted structure of complex 7PI4, with the ground truth in grey and the AF3 prediction in gold.
+
+<div align="center">
+  <img src="docs/images/7PI4.png" alt="PDB ID 7PI4" width="80%">
+</div>
 
 ## Tools
 
