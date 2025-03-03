@@ -1,9 +1,17 @@
 # PROTACFold
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![AlphaFold 3](https://img.shields.io/badge/AlphaFold-3-brightgreen.svg)](https://github.com/google-deepmind/alphafold3)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14959719.svg)](https://doi.org/10.5281/zenodo.14959719)
+<a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
+</a>
+<a href="https://www.python.org/" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python 3.8+">
+</a>
+<a href="https://github.com/google-deepmind/alphafold3" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/AlphaFold-3-brightgreen.svg" alt="AlphaFold 3">
+</a>
+<a href="https://doi.org/10.5281/zenodo.14959719" target="_blank" rel="noopener noreferrer">
+  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14959719.svg" alt="DOI">
+</a>
 
 
 <div align="center">
@@ -13,6 +21,27 @@
 ## Overview
 
 PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis Targeting Chimera (PROTAC) structures using AlphaFold 3. PROTACs are heterobifunctional molecules that induce targeted protein degradation by forming ternary complexes between a protein of interest (POI) and an E3 ubiquitin ligase. This toolkit provides methods for accurate prediction, evaluation, and analysis of these complex structures to advance PROTAC drug discovery.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Using Docker (Recommended)](#using-docker-recommended)
+  - [Manual Installation](#manual-installation)
+- [Directory Structure](#directory-structure)
+- [Usage](#usage)
+  - [PROTAC Structure Prediction](#protac-structure-prediction)
+  - [Analyzing Prediction Results](#analyzing-prediction-results)
+  - [Visualization and Analysis](#visualization-and-analysis)
+- [Key Metrics](#key-metrics)
+- [Predicted Structures](#predicted-structures)
+- [Tools](#tools)
+- [Data Sources](#data-sources)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Citation](#citation)
 
 ## Features
 
