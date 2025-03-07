@@ -1,26 +1,59 @@
 #!/usr/bin/env python3
+"""
+Molecular Properties Calculator
 
+This script calculates various molecular properties for compounds using RDKit.
+
+Features:
+- Processes a CSV file containing SMILES strings
+- Calculates key molecular properties such as molecular weight, LogP, and counts of 
+  various structural features
+- Outputs the results to a new CSV file with the calculated properties
+
+Usage:
+    python molecular_properties.py --input <input_csv> --output <output_csv> [--smiles_column <column_name>]
+
+Parameters:
+    --input         Path to input CSV file containing SMILES strings
+    --output        Path to output CSV file to save results
+    --smiles_column Name of the column containing SMILES strings (default: 'Canonical_SMILES')
+
+Output properties:
+    - Molecular_Weight: Molecular weight of the compound
+    - Heavy_Atom_Count: Number of non-hydrogen atoms
+    - Ring_Count: Total number of rings
+    - Rotatable_Bond_Count: Number of rotatable bonds
+    - LogP: Calculated octanol-water partition coefficient
+    - HBA_Count: Number of hydrogen bond acceptors
+    - HBD_Count: Number of hydrogen bond donors
+    - TPSA: Topological polar surface area
+    - Aromatic_Rings: Number of aromatic rings
+    - Aliphatic_Rings: Number of aliphatic rings
+"""
+
+import argparse
 import pandas as pd
 import numpy as np
+from typing import List
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors
 
 
-def calculate_molecular_properties(df, smiles_column='Canonical_SMILES'):
+def calculate_molecular_properties(df: pd.DataFrame, smiles_column: str = 'Canonical_SMILES') -> pd.DataFrame:
     """
     Calculate molecular properties for compounds in a DataFrame using RDKit.
     
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        DataFrame containing SMILES strings
-    smiles_column : str, optional
-        Name of the column containing SMILES strings, default is 'Canonical_SMILES'
+    Args:
+        df: DataFrame containing SMILES strings
+        smiles_column: Name of the column containing SMILES strings
     
     Returns:
-    --------
-    pandas.DataFrame
         DataFrame with added molecular property columns
+    
+    Note:
+        Properties calculated include molecular weight, heavy atom count,
+        ring counts, rotatable bonds, LogP, hydrogen bond donors/acceptors,
+        topological polar surface area, and aromatic/aliphatic ring counts.
     """
     # Make a copy of the input DataFrame to avoid modifying the original
     result_df = df.copy()
@@ -98,20 +131,49 @@ def calculate_molecular_properties(df, smiles_column='Canonical_SMILES'):
     return result_df
 
 
-def main():
+def parse_arguments() -> argparse.Namespace:
     """
-    Example usage of the calculate_molecular_properties function.
-    """
-    import argparse
+    Parse command line arguments.
     
-    # Parse command line arguments
+    Returns:
+        Namespace containing the parsed arguments
+    """
     parser = argparse.ArgumentParser(description='Calculate molecular properties for compounds in a CSV file')
     parser.add_argument('--input', type=str, required=True, help='Input CSV file path')
     parser.add_argument('--output', type=str, required=True, help='Output CSV file path')
     parser.add_argument('--smiles_column', type=str, default='Canonical_SMILES', 
                         help='Name of the column containing SMILES strings (default: Canonical_SMILES)')
     
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def print_summary(df: pd.DataFrame, property_columns: List[str]) -> None:
+    """
+    Print a summary of the calculated molecular properties.
+    
+    Args:
+        df: DataFrame containing the calculated properties
+        property_columns: List of property column names to include in the summary
+    """
+    print("\nSummary of calculated properties:")
+    for prop in property_columns:
+        if prop in df.columns:
+            print(f"{prop}: Mean = {df[prop].mean():.2f}, Min = {df[prop].min():.2f}, Max = {df[prop].max():.2f}")
+
+
+def main() -> None:
+    """
+    Main function to run the molecular properties calculation workflow.
+    
+    This function:
+    1. Parses command line arguments
+    2. Reads the input CSV file
+    3. Calculates molecular properties
+    4. Saves the results to the output CSV file
+    5. Prints a summary of the calculated properties
+    """
+    # Parse command line arguments
+    args = parse_arguments()
     
     # Read input CSV file
     try:
@@ -138,13 +200,14 @@ def main():
         print(f"Successfully saved results to: {args.output}")
     except Exception as e:
         print(f"Error saving output file: {e}")
+        return
     
     # Print summary of calculated properties
-    print("\nSummary of calculated properties:")
-    for prop in ['Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count', 
-                'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings']:
-        if prop in result_df.columns:
-            print(f"{prop}: Mean = {result_df[prop].mean():.2f}, Min = {result_df[prop].min():.2f}, Max = {result_df[prop].max():.2f}")
+    property_columns = [
+        'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
+        'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'
+    ]
+    print_summary(result_df, property_columns)
 
 
 if __name__ == "__main__":

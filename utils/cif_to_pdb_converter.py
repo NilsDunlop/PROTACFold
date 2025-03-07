@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 CIF to PDB Converter
 
@@ -28,27 +29,55 @@ Note:
 import os
 from pymol import cmd
 
-# Set the directory containing your CIF files
-input_dir = " "
 
-# Change to the input directory
-os.chdir(input_dir)
+def convert_cif_to_pdb(input_dir: str) -> None:
+    """
+    Convert all CIF files in the specified directory to PDB format.
+    
+    Args:
+        input_dir: Directory containing CIF files to convert
+        
+    Returns:
+        None
+    """
+    # Change to the input directory
+    os.chdir(input_dir)
 
-# Loop through all CIF files in the directory
-for file in os.listdir(input_dir):
-    if file.endswith(".cif"):
-        # Define the output PDB filename
-        output_file = file.replace(".cif", ".pdb")
-        
-        print(f"Converting {file} to {output_file}...")
-        
-        # Load the CIF file into PyMOL
-        cmd.load(file, "structure")
-        
-        # Save it as a PDB file
-        cmd.save(output_file, "structure")
-        
-        # Clear the structure from PyMOL to avoid conflicts
-        cmd.delete("structure")
+    # Loop through all CIF files in the directory
+    for file in os.listdir(input_dir):
+        if file.endswith(".cif"):
+            # Define the output PDB filename
+            output_file = file.replace(".cif", ".pdb")
+            
+            print(f"Converting {file} to {output_file}...")
+            
+            # Load the CIF file into PyMOL
+            cmd.load(file, "structure")
+            
+            # Save it as a PDB file
+            cmd.save(output_file, "structure")
+            
+            # Clear the structure from PyMOL to avoid conflicts
+            cmd.delete("structure")
 
-print("All conversions are complete!")
+    print("All conversions are complete!")
+
+
+def main() -> None:
+    """Main function to execute the script."""
+    # Set the directory containing your CIF files
+    input_dir = ""
+    
+    if not input_dir:
+        print("Error: Please set the 'input_dir' variable to the path containing your CIF files.")
+        return
+    
+    if not os.path.isdir(input_dir):
+        print(f"Error: The directory '{input_dir}' does not exist or is not accessible.")
+        return
+        
+    convert_cif_to_pdb(input_dir)
+
+
+if __name__ == "__main__":
+    main()

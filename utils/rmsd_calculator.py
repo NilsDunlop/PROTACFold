@@ -1,3 +1,28 @@
+#!/usr/bin/env python3
+"""
+RMSD Calculator for PyMOL
+
+This script calculates the Root Mean Square Deviation (RMSD) between protein 
+structures in PyMOL, specifically comparing models generated with different 
+approaches (Original vs SMILES vs CCD).
+
+The script automatically:
+1. Detects loaded models based on naming conventions
+2. Finds the relevant chains in each model based on sequence matching
+3. Creates selections for each chain
+4. Aligns the models and calculates RMSD values
+
+Usage:
+    1. Modify the POI_SEQUENCE and E3_SEQUENCE variables below to match your proteins
+    2. Load this script in PyMOL: run utils/rmsd_calculator.py
+    3. Run the command in PyMOL: calculate_rmsd
+
+Requirements:
+    - PyMOL with Python interface
+    - Loaded structural models (original, SMILES, and CCD)
+"""
+
+from typing import Tuple, List, Optional
 from pymol import cmd
 
 # ------------------------------------------------------------------------------
@@ -15,11 +40,20 @@ E3_SEQUENCE = """MGSSHHHHHHSSGRENLYFQGSSRASAFRPISVFREANEDESGFTCCAFSARERFLMLGTCTG
 # Both the provided sequence and the FASTA string from PyMOL have whitespace
 # (newlines/spaces) removed to avoid formatting issues.
 # ------------------------------------------------------------------------------
-def find_chain_by_sequence(sequence, model_name):
+def find_chain_by_sequence(sequence: str, model_name: str) -> str:
     """
     Searches for a chain within the specified model that contains the given
     amino acid sequence.
-    Returns the chain ID if found, or raises ValueError otherwise.
+    
+    Args:
+        sequence: Amino acid sequence to search for
+        model_name: Name of the PyMOL model/object
+        
+    Returns:
+        The chain ID if found
+        
+    Raises:
+        ValueError: If the sequence is not found in any chain
     """
     seq_clean = "".join(sequence.split())  # Remove all whitespace
     for chain in cmd.get_chains(model_name):
@@ -38,93 +72,119 @@ def find_chain_by_sequence(sequence, model_name):
 #   - Smiles model: name contains 'smiles_model'
 #   - CCD model: name contains 'ccd_model'
 # ------------------------------------------------------------------------------
-def calculate_rmsd():
-    # Get all loaded objects (models) in PyMOL.
-    models = cmd.get_object_list("all")
-    if not models:
-        print("Error: No models loaded. Please load your model files first.")
+def calculate_rmsd() -> None:
+    """
+    Main function to calculate RMSD between protein structures.
+    
+    This function:
+    1. Detects the loaded models
+    2. Validates input sequences
+    3. Processes the POI and E3 chains
+    4. Calculates and reports RMSD values
+    """
+    try:
+        # Check sequences
+        if not POI_SEQUENCE.strip():
+            print("Error: POI sequence is empty. Please provide a sequence in the script.")
+            return
+        if not E3_SEQUENCE.strip():
+            print("Error: E3 sequence is empty. Please provide a sequence in the script.")
+            return
+            
+        # Detect models
+        original_model, smiles_model, ccd_model = detect_models()
+        print(f"Identified models: Original='{original_model}', Smiles='{smiles_model}', CCD='{ccd_model}'")
+        
+        # Process POI
+        process_protein_chain("POI", POI_SEQUENCE, original_model, smiles_model, ccd_model)
+        
+        # Process E3
+        process_protein_chain("E3", E3_SEQUENCE, original_model, smiles_model, ccd_model)
+        
+    except ValueError as e:
+        print(f"Error: {e}")
         return
 
-    # Auto-detect model names based on naming conventions.
+def detect_models() -> Tuple[str, str, str]:
+    """
+    Auto-detect loaded models based on naming conventions.
+    
+    Returns:
+        Tuple containing (original_model, smiles_model, ccd_model)
+        
+    Raises:
+        ValueError: If the expected models cannot be found
+    """
+    # Get all loaded objects (models) in PyMOL
+    models = cmd.get_object_list("all")
+    if not models:
+        raise ValueError("No models loaded. Please load your model files first.")
+
+    # Auto-detect model names based on naming conventions
     orig_models = [m for m in models if "smiles_model" not in m and "ccd_model" not in m]
     smiles_models = [m for m in models if "smiles_model" in m]
     ccd_models = [m for m in models if "ccd_model" in m]
 
     if len(orig_models) != 1:
-        print("Error: Expected exactly one original model, found:", ", ".join(orig_models))
-        return
+        raise ValueError(f"Expected exactly one original model, found: {', '.join(orig_models)}")
     if len(smiles_models) != 1:
-        print("Error: Expected exactly one smiles model, found:", ", ".join(smiles_models))
-        return
+        raise ValueError(f"Expected exactly one smiles model, found: {', '.join(smiles_models)}")
     if len(ccd_models) != 1:
-        print("Error: Expected exactly one ccd model, found:", ", ".join(ccd_models))
-        return
+        raise ValueError(f"Expected exactly one ccd model, found: {', '.join(ccd_models)}")
 
-    original_model = orig_models[0]
-    smiles_model   = smiles_models[0]
-    ccd_model      = ccd_models[0]
+    return orig_models[0], smiles_models[0], ccd_models[0]
 
-    print(f"Identified models: Original='{original_model}', Smiles='{smiles_model}', CCD='{ccd_model}'")
-
-    # ----- Check Sequences -----
-    poi_seq = POI_SEQUENCE.strip()
-    e3_seq  = E3_SEQUENCE.strip()
-
-    if not poi_seq:
-        print("Error: POI sequence is empty. Please provide a sequence in the script.")
-        return
-    if not e3_seq:
-        print("Error: E3 sequence is empty. Please provide a sequence in the script.")
-        return
-
-    # ----- Process POI (Protein Of Interest) -----
-    print("\n--- Processing POI chain ---")
+def process_protein_chain(
+    protein_type: str, 
+    sequence: str, 
+    original_model: str, 
+    smiles_model: str, 
+    ccd_model: str
+) -> Tuple[float, float]:
+    """
+    Process a protein chain by creating selections and calculating RMSD values.
+    
+    Args:
+        protein_type: Type of protein (e.g., "POI" or "E3")
+        sequence: Amino acid sequence of the protein
+        original_model: Name of the original model
+        smiles_model: Name of the SMILES model
+        ccd_model: Name of the CCD model
+        
+    Returns:
+        Tuple of (rmsd_smiles, rmsd_ccd) values
+        
+    Raises:
+        ValueError: If a required chain cannot be found
+    """
+    print(f"\n--- Processing {protein_type} chain ---")
+    
+    # Find chains by sequence
     try:
-        poi_chain_orig = find_chain_by_sequence(poi_seq, original_model)
-        poi_chain_smiles = find_chain_by_sequence(poi_seq, smiles_model)
-        poi_chain_ccd = find_chain_by_sequence(poi_seq, ccd_model)
+        chain_orig = find_chain_by_sequence(sequence, original_model)
+        chain_smiles = find_chain_by_sequence(sequence, smiles_model)
+        chain_ccd = find_chain_by_sequence(sequence, ccd_model)
     except ValueError as e:
-        print("POI error:", e)
-        return
+        raise ValueError(f"{protein_type} error: {e}")
 
-    sel_poi_orig   = f"chain{poi_chain_orig}_POI"
-    sel_poi_smiles = f"chain{poi_chain_smiles}_POI_smiles"
-    sel_poi_ccd    = f"chain{poi_chain_ccd}_POI_ccd"
+    # Create selections
+    sel_orig = f"chain{chain_orig}_{protein_type}"
+    sel_smiles = f"chain{chain_smiles}_{protein_type}_smiles"
+    sel_ccd = f"chain{chain_ccd}_{protein_type}_ccd"
 
-    cmd.select(sel_poi_orig,   f"{original_model} and chain {poi_chain_orig}")
-    cmd.select(sel_poi_smiles, f"{smiles_model} and chain {poi_chain_smiles}")
-    cmd.select(sel_poi_ccd,    f"{ccd_model} and chain {poi_chain_ccd}")
+    cmd.select(sel_orig, f"{original_model} and chain {chain_orig}")
+    cmd.select(sel_smiles, f"{smiles_model} and chain {chain_smiles}")
+    cmd.select(sel_ccd, f"{ccd_model} and chain {chain_ccd}")
 
-    # Align the Smiles and CCD POI selections to the Original POI selection.
-    rmsd_smiles = cmd.align(sel_poi_smiles, sel_poi_orig)[0]
-    rmsd_ccd    = cmd.align(sel_poi_ccd, sel_poi_orig)[0]
+    # Align structures and calculate RMSD
+    rmsd_smiles = cmd.align(sel_smiles, sel_orig)[0]
+    rmsd_ccd = cmd.align(sel_ccd, sel_orig)[0]
 
-    print(f"\nRMSD for POI (smiles vs. original): {rmsd_smiles:.3f} Å")
-    print(f"RMSD for POI (ccd vs. original): {rmsd_ccd:.3f} Å")
-
-    # ----- Process E3 Ligase -----
-    print("\n--- Processing E3 Ligase chain ---")
-    try:
-        e3_chain_orig = find_chain_by_sequence(e3_seq, original_model)
-        e3_chain_smiles = find_chain_by_sequence(e3_seq, smiles_model)
-        e3_chain_ccd = find_chain_by_sequence(e3_seq, ccd_model)
-    except ValueError as e:
-        print("E3 error:", e)
-        return
-
-    sel_e3_orig   = f"chain{e3_chain_orig}_E3"
-    sel_e3_smiles = f"chain{e3_chain_smiles}_E3_smiles"
-    sel_e3_ccd    = f"chain{e3_chain_ccd}_E3_ccd"
-
-    cmd.select(sel_e3_orig,   f"{original_model} and chain {e3_chain_orig}")
-    cmd.select(sel_e3_smiles, f"{smiles_model} and chain {e3_chain_smiles}")
-    cmd.select(sel_e3_ccd,    f"{ccd_model} and chain {e3_chain_ccd}")
-
-    rmsd_e3_smiles = cmd.align(sel_e3_smiles, sel_e3_orig)[0]
-    rmsd_e3_ccd    = cmd.align(sel_e3_ccd, sel_e3_orig)[0]
-
-    print(f"\nRMSD for E3 (smiles vs. original): {rmsd_e3_smiles:.3f} Å")
-    print(f"RMSD for E3 (ccd vs. original): {rmsd_e3_ccd:.3f} Å")
+    # Print results
+    print(f"\nRMSD for {protein_type} (smiles vs. original): {rmsd_smiles:.3f} Å")
+    print(f"RMSD for {protein_type} (ccd vs. original): {rmsd_ccd:.3f} Å")
+    
+    return rmsd_smiles, rmsd_ccd
 
 # ------------------------------------------------------------------------------
 # Register as a PyMOL command.
