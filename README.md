@@ -177,4 +177,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Citation
 
-If you use PROTACFold in your research, please cite this repository and relevant tools.
+If you use PROTACFold in your research, please cite the preprint: [Enhancing PROTAC Ternary Complex Prediction with Ligand Information in AlphaFold 3](https://chemrxiv.org/engage/chemrxiv/article-details/67c68d98fa469535b9d93fe9)
