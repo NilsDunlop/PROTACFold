@@ -21,3 +21,7 @@ tqdm>=4.62.0
 ipywidgets>=7.6.0
 nglview>=3.0.0
 py3Dmol>=1.8.0 
+
+# UI
+streamlit==1.32.0
+requests==2.31.0 
