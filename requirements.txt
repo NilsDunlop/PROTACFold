@@ -25,3 +25,6 @@ py3Dmol>=1.8.0
 # UI
 streamlit==1.32.0
 requests==2.31.0 
+
+# AI
+ollama==0.4.7
