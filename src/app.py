@@ -26,7 +26,6 @@ def extract_chain_info(header):
             for part in chain_info.split(","):
                 part = part.strip()
                 if "[auth " in part:
-                    # Extract just the auth value
                     auth_value = part.split("[auth ")[1].split("]")[0].strip()
                     processed_chains.append(auth_value)
                 else:
@@ -50,7 +49,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
     Returns:
         Dictionary representing the AlphaFold3 input JSON
     """
-    # Initialize the basic structure
+    # Initialize structure
     suffix = f"_{format_type}"
     alphafold_input = {
         "name": f"{pdb_id}{suffix}",
@@ -83,7 +82,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
     # List of common ions and small molecules to exclude
     excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
     
-    # Process ligands - collect all ligands first
+    # Process ligands
     potential_ligands = []
     
     # Get SMILES data dictionary
@@ -226,7 +225,6 @@ def main():
                                 if "polymer_entities" in entry_data and entry_data["polymer_entities"]:
                                     st.subheader("Polymer Entities")
                                     for entity_idx, entity in enumerate(entry_data["polymer_entities"]):
-                                        # Use polymer description as the expander title
                                         entity_title = f"Entity {entity_idx+1}"
                                         if "rcsb_polymer_entity" in entity and entity["rcsb_polymer_entity"]:
                                             if entity["rcsb_polymer_entity"]["pdbx_description"]:
@@ -263,7 +261,7 @@ def main():
                                                         st.write(f"**Amino Acid Sequence:**")
                                                         st.code(sequence, language=None)
                                                 else:
-                                                    # Fallback: use the sequence at the same index as the entity
+                                                    # Fallback
                                                     if entity_idx < len(fasta_sequences):
                                                         header, sequence = list(fasta_sequences.items())[entity_idx]
                                                         chain_info = extract_chain_info(header)
@@ -341,7 +339,7 @@ def main():
                                 st.download_button(
                                     label="Download AlphaFold Input Files",
                                     data=zip_buffer,
-                                    file_name=f"{pdb_id}_alphafold_inputs.zip",
+                                    file_name=f"{pdb_id}.zip",
                                     mime="application/zip"
                                 )
                             
