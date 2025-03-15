@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from api import process_pdb_ids
+from api import process_pdb_ids, retrieve_fasta_sequence
 
 def main():
     # Set page title and header
@@ -39,6 +39,13 @@ def main():
                             try:
                                 entry_data = data["data"]["entry"]
                                 
+                                # Fetch FASTA sequences for this PDB ID
+                                try:
+                                    fasta_sequences = retrieve_fasta_sequence(pdb_id)
+                                except Exception as e:
+                                    st.warning(f"Could not retrieve sequence data: {str(e)}")
+                                    fasta_sequences = {}
+                                
                                 # Display basic information
                                 st.header(f"PDB ID: {pdb_id}")
                                 
@@ -68,10 +75,15 @@ def main():
                                 # Display polymer entities
                                 if "polymer_entities" in entry_data and entry_data["polymer_entities"]:
                                     st.subheader("Polymer Entities")
-                                    for i, entity in enumerate(entry_data["polymer_entities"]):
-                                        with st.expander(f"Entity {i+1}"):
-                                            if "rcsb_polymer_entity" in entity and entity["rcsb_polymer_entity"]:
-                                                st.write(f"**Description:** {entity['rcsb_polymer_entity']['pdbx_description']}")
+                                    for entity_idx, entity in enumerate(entry_data["polymer_entities"]):
+                                        # Use polymer description as the expander title
+                                        entity_title = f"Entity {entity_idx+1}"
+                                        if "rcsb_polymer_entity" in entity and entity["rcsb_polymer_entity"]:
+                                            if entity["rcsb_polymer_entity"]["pdbx_description"]:
+                                                entity_title = entity["rcsb_polymer_entity"]["pdbx_description"]
+                                        
+                                        with st.expander(entity_title):
+                                            # Removed redundant description line
                                             
                                             if "entity_poly" in entity and entity["entity_poly"]:
                                                 st.write(f"**Type:** {entity['entity_poly']['type']}")
@@ -81,6 +93,28 @@ def main():
                                                 organisms = entity["rcsb_entity_source_organism"]
                                                 if organisms:
                                                     st.write(f"**Source Organism:** {organisms[0]['scientific_name']}")
+                                            
+                                            # Find and display matching FASTA sequence
+                                            if fasta_sequences:
+                                                entity_description = entity["rcsb_polymer_entity"]["pdbx_description"] if "rcsb_polymer_entity" in entity else ""
+                                                
+                                                # Try to find matching sequences
+                                                matching_sequences = []
+                                                for header, sequence in fasta_sequences.items():
+                                                    if entity_description and entity_description.lower() in header.lower():
+                                                        matching_sequences.append((header, sequence))
+                                                
+                                                # If we found matching sequences, display them
+                                                if matching_sequences:
+                                                    for header, sequence in matching_sequences:
+                                                        st.write(f"**Amino Acid Sequence:**")
+                                                        st.code(sequence, language=None)
+                                                else:
+                                                    # Fallback
+                                                    if entity_idx < len(fasta_sequences):
+                                                        header, sequence = list(fasta_sequences.items())[entity_idx]
+                                                        st.write(f"**Amino Acid Sequence:**")
+                                                        st.code(sequence, language=None)
                                 
                                 # Option to download the raw JSON data
                                 st.download_button(
@@ -95,4 +129,4 @@ def main():
                                 st.json(data)
 
 if __name__ == "__main__":
-    main() 
+    main()

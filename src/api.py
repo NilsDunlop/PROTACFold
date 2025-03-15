@@ -1,5 +1,8 @@
 import requests
 import json
+from typing import Dict
+from io import StringIO
+from Bio import SeqIO
 
 def fetch_pdb_data(pdb_id):
     """
@@ -73,4 +76,34 @@ def process_pdb_ids(pdb_ids_string):
         if pdb_id:  # Skip empty strings
             results[pdb_id] = fetch_pdb_data(pdb_id)
     
-    return results 
+    return results
+
+def retrieve_fasta_sequence(pdb_id: str) -> Dict[str, str]:
+    """
+    Retrieve FASTA sequences for a given PDB ID from RCSB
+    
+    Args:
+        pdb_id: The PDB ID to retrieve sequences for
+        
+    Returns:
+        A dictionary mapping sequence headers to sequences
+    """
+    pdb_id = pdb_id.upper()  # ensure PDB id is uppercase
+    url = f"https://www.rcsb.org/fasta/entry/{pdb_id}/display"
+    response = requests.get(url)
+    response.raise_for_status()
+    fasta_text = response.text
+    sequences = {}
+    fasta_io = StringIO(fasta_text)
+    
+    for record in SeqIO.parse(fasta_io, "fasta"):
+        header_parts = record.description.split("|")
+        if len(header_parts) >= 3:
+            # Construct header as Protein name|Chains
+            custom_header = f"{header_parts[0].strip()}|{header_parts[2].strip()}|{header_parts[1].strip()}"
+        else:
+            custom_header = record.id
+
+        sequences[custom_header] = str(record.seq)
+    
+    return sequences
