@@ -1,6 +1,38 @@
 import streamlit as st
 import json
-from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_smiles
+from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
+
+def extract_chain_info(header):
+    """Extract and format chain information from a FASTA header"""
+    chain_info = ""
+    header_parts = header.split("|")
+    
+    if len(header_parts) >= 3:
+        # Get the chain part (third element)
+        full_chain_info = header_parts[2].strip()
+        
+        # Remove "Chains " prefix if present
+        if full_chain_info.startswith("Chains "):
+            chain_info = full_chain_info[7:]
+        else:
+            chain_info = full_chain_info
+        
+        # Process auth chain IDs if present
+        if "[auth " in chain_info:
+            processed_chains = []
+            
+            for part in chain_info.split(","):
+                part = part.strip()
+                if "[auth " in part:
+                    # Extract just the auth value
+                    auth_value = part.split("[auth ")[1].split("]")[0].strip()
+                    processed_chains.append(auth_value)
+                else:
+                    processed_chains.append(part)
+                    
+            chain_info = ", ".join(processed_chains)
+    
+    return chain_info
 
 def main():
     # Set page title and header
@@ -114,12 +146,22 @@ def main():
                                                 # If we found matching sequences, display them
                                                 if matching_sequences:
                                                     for header, sequence in matching_sequences:
+                                                        chain_info = extract_chain_info(header)
+                                                        
+                                                        if chain_info:
+                                                            st.write(f"**Chains:** {chain_info}")
+                                                        
                                                         st.write(f"**Amino Acid Sequence:**")
                                                         st.code(sequence, language=None)
                                                 else:
-                                                    # Fallback
+                                                    # Fallback: use the sequence at the same index as the entity
                                                     if entity_idx < len(fasta_sequences):
                                                         header, sequence = list(fasta_sequences.items())[entity_idx]
+                                                        chain_info = extract_chain_info(header)
+                                                        
+                                                        if chain_info:
+                                                            st.write(f"**Chains:** {chain_info}")
+
                                                         st.write(f"**Amino Acid Sequence:**")
                                                         st.code(sequence, language=None)
                                 
@@ -137,11 +179,17 @@ def main():
                                             st.write(f"**Component ID:** {comp_id}")
                                             st.write(f"**Name:** {ligand_name}")
                                             
-                                            # Fetch and display SMILES data
+                                            # Fetch and display combined data
                                             try:
-                                                smiles_data = fetch_ligand_smiles(comp_id)
-                                                if smiles_data and "data" in smiles_data and "chem_comp" in smiles_data["data"]:
-                                                    chem_data = smiles_data["data"]["chem_comp"]
+                                                ligand_data_result = fetch_ligand_data(pdb_id, comp_id)
+                                                
+                                                # Display chain information if available
+                                                if "chain_info" in ligand_data_result and ligand_data_result["chain_info"]:
+                                                    st.write(f"**Chains:** {ligand_data_result['chain_info']}")
+                                                
+                                                # Display chemical information
+                                                if "chemical_data" in ligand_data_result and "data" in ligand_data_result["chemical_data"]:
+                                                    chem_data = ligand_data_result["chemical_data"]["data"]["chem_comp"]
                                                     
                                                     # Display chemical information
                                                     if "chem_comp" in chem_data and chem_data["chem_comp"]:
@@ -157,7 +205,7 @@ def main():
                                                         if "SMILES_stereo" in descriptors and descriptors["SMILES_stereo"]:
                                                             st.write(f"**Canonical SMILES:** {descriptors['SMILES_stereo']}")
                                             except Exception as e:
-                                                st.warning(f"Could not retrieve SMILES data: {str(e)}")
+                                                st.warning(f"Could not retrieve ligand data: {str(e)}")
                                 
                                 # Option to download the raw JSON data
                                 st.download_button(

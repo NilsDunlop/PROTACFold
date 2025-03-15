@@ -169,7 +169,7 @@ def extract_ligand_ccd_from_pdb(pdb_id: str) -> Dict:
             ccd_info = get_ligand_ccd_info_rest(pdb_id, entity)
             ligand_info[full_ligand_id] = ccd_info
         except requests.HTTPError as e:
-            # Could log the error here instead of printing
+            print(f"Error fetching ligand info for {full_ligand_id}: {e}")
             pass
     return ligand_info
 
@@ -190,14 +190,22 @@ def extract_comp_ids(ligand_ccd: Dict) -> List[str]:
             comp_ids.append(comp_id)
     return comp_ids
 
-def fetch_ligand_smiles(comp_id):
+def fetch_ligand_data(pdb_id, comp_id):
     """
-    Fetch SMILES and other chemical data for a ligand using its component ID
+    Fetch both SMILES and chain information for a ligand
+    
+    Args:
+        pdb_id: PDB ID of the structure
+        comp_id: Component ID of the ligand
+        
+    Returns:
+        A dictionary containing both chemical and chain information
     """
+    # Get chemical data (SMILES, formula, etc.)
     url = "https://data.rcsb.org/graphql"
     
-    # The GraphQL query
-    query = """
+    # The GraphQL query for chemical data
+    chem_query = """
     query molecule($id: String!) {
         chem_comp(comp_id:$id){
             chem_comp {
@@ -218,17 +226,56 @@ def fetch_ligand_smiles(comp_id):
     }
     """
     
-    # Variables for the query
-    variables = {"id": comp_id}
+    # The GraphQL query for chain information
+    chain_query = """
+    query nonpolymerChains($id: String!) {
+      entry(entry_id: $id) {
+        nonpolymer_entities {
+          rcsb_nonpolymer_entity_container_identifiers {
+            entity_id
+            auth_asym_ids
+            nonpolymer_comp_id
+          }
+        }
+      }
+    }
+    """
     
-    # Make the request
-    response = requests.post(
+    # Get chemical data
+    chem_response = requests.post(
         url,
-        json={"query": query, "variables": variables}
+        json={"query": chem_query, "variables": {"id": comp_id}}
     )
     
-    # Check if the request was successful
-    if response.status_code == 200:
-        return response.json()
+    # Get chain data
+    chain_response = requests.post(
+        url,
+        json={"query": chain_query, "variables": {"id": pdb_id}}
+    )
+    
+    result = {}
+    
+    # Process chemical data
+    if chem_response.status_code == 200:
+        result["chemical_data"] = chem_response.json()
     else:
-        return {"error": f"Failed to fetch chemical data: {response.status_code}"}
+        result["chemical_data"] = {"error": f"Failed to fetch chemical data: {chem_response.status_code}"}
+    
+    # Process chain data
+    if chain_response.status_code == 200:
+        chain_data = chain_response.json()
+        chain_info = ""
+        
+        if "data" in chain_data and "entry" in chain_data["data"] and "nonpolymer_entities" in chain_data["data"]["entry"]:
+            for entity in chain_data["data"]["entry"]["nonpolymer_entities"]:
+                identifiers = entity.get("rcsb_nonpolymer_entity_container_identifiers", {})
+                if identifiers.get("nonpolymer_comp_id") == comp_id:
+                    auth_chains = identifiers.get("auth_asym_ids", [])
+                    chain_info = ", ".join(auth_chains)
+                    break
+        
+        result["chain_info"] = chain_info
+    else:
+        result["chain_info"] = ""
+    
+    return result
