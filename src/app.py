@@ -1,5 +1,7 @@
 import streamlit as st
 import json
+import io
+import zipfile
 from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
 
 def extract_chain_info(header):
@@ -34,7 +36,7 @@ def extract_chain_info(header):
     
     return chain_info
 
-def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info=None):
+def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info=None, format_type="ccd"):
     """
     Create an AlphaFold3-compatible input JSON structure
     
@@ -43,13 +45,15 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
         fasta_sequences: Dictionary of FASTA sequences keyed by header
         ligand_data: Dictionary of ligand data
         ligand_chain_info: Dictionary mapping ligand comp_ids to chain information
+        format_type: Type of output format - "ccd" or "smiles"
         
     Returns:
         Dictionary representing the AlphaFold3 input JSON
     """
     # Initialize the basic structure
+    suffix = f"_{format_type}"
     alphafold_input = {
-        "name": pdb_id,
+        "name": f"{pdb_id}{suffix}",
         "sequences": [],
         "modelSeeds": [42],
         "dialect": "alphafold3",
@@ -82,6 +86,9 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
     # Process ligands - collect all ligands first
     potential_ligands = []
     
+    # Get SMILES data dictionary
+    smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
+    
     if ligand_data:
         for ligand_id, ligand_info in ligand_data.items():
             comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
@@ -97,6 +104,9 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
                 chains = ligand_chain_info[comp_id].split(", ")
                 ligand_chain = chains[-1]
             
+            # Get SMILES string if available
+            smiles = smiles_data.get(comp_id)
+            
             # Calculate a score based on name length to prioritize complex molecules
             name_score = len(ligand_name) if ligand_name else 0
             
@@ -104,21 +114,32 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
                 "comp_id": comp_id,
                 "chain": ligand_chain,
                 "name": ligand_name,
-                "name_score": name_score
+                "name_score": name_score,
+                "smiles": smiles
             })
     
-    # Take the Protac or molecular glue
+    # Input Protac or molecular glue
     if potential_ligands:
         potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
         top_ligand = potential_ligands[0]
         
-        ligand_entry = {
-            "ligand": {
-                "id": top_ligand["chain"],
-                "ccdCodes": [top_ligand["comp_id"]]
+        if format_type == "ccd":
+            ligand_entry = {
+                "ligand": {
+                    "id": top_ligand["chain"],
+                    "ccdCodes": [top_ligand["comp_id"]]
+                }
             }
-        }
-        alphafold_input["sequences"].append(ligand_entry)
+            alphafold_input["sequences"].append(ligand_entry)
+        else:
+            if top_ligand["smiles"]:
+                ligand_entry = {
+                    "ligand": {
+                        "id": top_ligand["chain"],
+                        "smiles": top_ligand["smiles"]
+                    }
+                }
+                alphafold_input["sequences"].append(ligand_entry)
     
     return alphafold_input
 
@@ -254,7 +275,7 @@ def main():
                                                         st.code(sequence, language=None)
                                 
                                 # Display ligand entities
-                                ligand_chain_info = {}
+                                ligand_chain_info, ligand_smiles_data = {}, {}
                                 if ligand_data:
                                     st.subheader("Ligand Entities")
                                     
@@ -289,23 +310,39 @@ def main():
                                                         if "formula_weight" in chem_info:
                                                             st.write(f"**Molecular Weight:** {chem_info['formula_weight']}")
                                                     
-                                                    # Display SMILES strings
+                                                    # Display and store SMILES strings
                                                     if "rcsb_chem_comp_descriptor" in chem_data and chem_data["rcsb_chem_comp_descriptor"]:
                                                         descriptors = chem_data["rcsb_chem_comp_descriptor"]
                                                         if "SMILES_stereo" in descriptors and descriptors["SMILES_stereo"]:
-                                                            st.write(f"**Canonical SMILES:** {descriptors['SMILES_stereo']}")
+                                                            smiles = descriptors["SMILES_stereo"]
+                                                            ligand_smiles_data[comp_id] = smiles
+                                                            st.write(f"**Canonical SMILES:** {smiles}")
                                             except Exception as e:
                                                 st.warning(f"Could not retrieve ligand data: {str(e)}")
-                                
-                                # Create the AlphaFold input JSON
-                                alphafold_input = create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info)
 
-                                # Download AF3 JSON
+                                # Create the AlphaFold input JSON
+                                ligand_chain_info["smiles_data"] = ligand_smiles_data
+                                alphafold_ccd_input = create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info, format_type="ccd")
+                                alphafold_smiles_input = create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info, format_type="smiles")
+
+                                # Create a ZIP file in memory containing both JSON files
+                                zip_buffer = io.BytesIO()
+                                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                                    ccd_json = json.dumps(alphafold_ccd_input, indent=2)
+                                    zf.writestr(f"{pdb_id}_ccd.json", ccd_json)
+                                    
+                                    smiles_json = json.dumps(alphafold_smiles_input, indent=2)
+                                    zf.writestr(f"{pdb_id}_smiles.json", smiles_json)
+
+                                # Reset buffer position
+                                zip_buffer.seek(0)
+
+                                # Download ZIP file with both formats
                                 st.download_button(
-                                    label="Download AlphaFold Input",
-                                    data=json.dumps(alphafold_input, indent=2),
-                                    file_name=f"{pdb_id}.json",
-                                    mime="application/json"
+                                    label="Download AlphaFold Input Files",
+                                    data=zip_buffer,
+                                    file_name=f"{pdb_id}_alphafold_inputs.zip",
+                                    mime="application/zip"
                                 )
                             
                             except Exception as e:
