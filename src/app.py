@@ -34,6 +34,94 @@ def extract_chain_info(header):
     
     return chain_info
 
+def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info=None):
+    """
+    Create an AlphaFold3-compatible input JSON structure
+    
+    Args:
+        pdb_id: The PDB ID
+        fasta_sequences: Dictionary of FASTA sequences keyed by header
+        ligand_data: Dictionary of ligand data
+        ligand_chain_info: Dictionary mapping ligand comp_ids to chain information
+        
+    Returns:
+        Dictionary representing the AlphaFold3 input JSON
+    """
+    # Initialize the basic structure
+    alphafold_input = {
+        "name": pdb_id,
+        "sequences": [],
+        "modelSeeds": [42],
+        "dialect": "alphafold3",
+        "version": 1
+    }
+    
+    # Process protein sequences
+    for header, sequence in fasta_sequences.items():
+        chain_info = extract_chain_info(header)
+        
+        # If there are multiple chains, use the last one
+        if chain_info:
+            chains = chain_info.split(", ")
+            chain_id = chains[-1]
+        else:
+            chain_id = "A"
+        
+        # Add protein entry
+        protein_entry = {
+            "protein": {
+                "id": chain_id,
+                "sequence": sequence
+            }
+        }
+        alphafold_input["sequences"].append(protein_entry)
+    
+    # List of common ions and small molecules to exclude
+    excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
+    
+    # Process ligands - collect all ligands first
+    potential_ligands = []
+    
+    if ligand_data:
+        for ligand_id, ligand_info in ligand_data.items():
+            comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
+            ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
+            
+            # Skip excluded molecules
+            if comp_id.upper() in excluded_molecules:
+                continue
+                
+            # Extract chain info for the ligand
+            ligand_chain = "X"
+            if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
+                chains = ligand_chain_info[comp_id].split(", ")
+                ligand_chain = chains[-1]
+            
+            # Calculate a score based on name length to prioritize complex molecules
+            name_score = len(ligand_name) if ligand_name else 0
+            
+            potential_ligands.append({
+                "comp_id": comp_id,
+                "chain": ligand_chain,
+                "name": ligand_name,
+                "name_score": name_score
+            })
+    
+    # Take the Protac or molecular glue
+    if potential_ligands:
+        potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
+        top_ligand = potential_ligands[0]
+        
+        ligand_entry = {
+            "ligand": {
+                "id": top_ligand["chain"],
+                "ccdCodes": [top_ligand["comp_id"]]
+            }
+        }
+        alphafold_input["sequences"].append(ligand_entry)
+    
+    return alphafold_input
+
 def main():
     # Set page title and header
     st.set_page_config(page_title="Input File Generator", layout="wide")
@@ -166,6 +254,7 @@ def main():
                                                         st.code(sequence, language=None)
                                 
                                 # Display ligand entities
+                                ligand_chain_info = {}
                                 if ligand_data:
                                     st.subheader("Ligand Entities")
                                     
@@ -183,8 +272,9 @@ def main():
                                             try:
                                                 ligand_data_result = fetch_ligand_data(pdb_id, comp_id)
                                                 
-                                                # Display chain information if available
+                                                # Store chain info for AlphaFold input
                                                 if "chain_info" in ligand_data_result and ligand_data_result["chain_info"]:
+                                                    ligand_chain_info[comp_id] = ligand_data_result["chain_info"]
                                                     st.write(f"**Chains:** {ligand_data_result['chain_info']}")
                                                 
                                                 # Display chemical information
@@ -207,11 +297,14 @@ def main():
                                             except Exception as e:
                                                 st.warning(f"Could not retrieve ligand data: {str(e)}")
                                 
-                                # Option to download the raw JSON data
+                                # Create the AlphaFold input JSON
+                                alphafold_input = create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info)
+
+                                # Download AF3 JSON
                                 st.download_button(
-                                    label="Download Raw Data (JSON)",
-                                    data=json.dumps(data, indent=2),
-                                    file_name=f"{pdb_id}_data.json",
+                                    label="Download AlphaFold Input",
+                                    data=json.dumps(alphafold_input, indent=2),
+                                    file_name=f"{pdb_id}.json",
                                     mime="application/json"
                                 )
                             
