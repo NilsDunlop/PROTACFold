@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from api import process_pdb_ids, retrieve_fasta_sequence
+from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids
 
 def main():
     # Set page title and header
@@ -46,6 +46,15 @@ def main():
                                     st.warning(f"Could not retrieve sequence data: {str(e)}")
                                     fasta_sequences = {}
                                 
+                                # Fetch ligand information for this PDB ID
+                                try:
+                                    ligand_data = extract_ligand_ccd_from_pdb(pdb_id)
+                                    comp_ids = extract_comp_ids(ligand_data)
+                                except Exception as e:
+                                    st.warning(f"Could not retrieve ligand data: {str(e)}")
+                                    ligand_data = {}
+                                    comp_ids = []
+                                
                                 # Display basic information
                                 st.header(f"PDB ID: {pdb_id}")
                                 
@@ -83,8 +92,6 @@ def main():
                                                 entity_title = entity["rcsb_polymer_entity"]["pdbx_description"]
                                         
                                         with st.expander(entity_title):
-                                            # Removed redundant description line
-                                            
                                             if "entity_poly" in entity and entity["entity_poly"]:
                                                 st.write(f"**Type:** {entity['entity_poly']['type']}")
                                                 st.write(f"**Polymer Type:** {entity['entity_poly']['rcsb_entity_polymer_type']}")
@@ -115,6 +122,20 @@ def main():
                                                         header, sequence = list(fasta_sequences.items())[entity_idx]
                                                         st.write(f"**Amino Acid Sequence:**")
                                                         st.code(sequence, language=None)
+                                
+                                # Display ligand entities
+                                if ligand_data:
+                                    st.subheader("Ligand Entities")
+                                    
+                                    for ligand_id, ligand_info in ligand_data.items():
+                                        comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
+                                        ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", comp_id)
+                                        ligand_title = f"{comp_id} - {ligand_name}"
+                                        
+                                        with st.expander(ligand_title):
+                                            # Display ligand details
+                                            st.write(f"**Component ID:** {comp_id}")
+                                            st.write(f"**Name:** {ligand_name}")
                                 
                                 # Option to download the raw JSON data
                                 st.download_button(
