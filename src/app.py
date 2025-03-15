@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids
+from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_smiles
 
 def main():
     # Set page title and header
@@ -130,12 +130,34 @@ def main():
                                     for ligand_id, ligand_info in ligand_data.items():
                                         comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
                                         ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", comp_id)
-                                        ligand_title = f"{comp_id} - {ligand_name}"
+                                        ligand_title = f"{comp_id}"
                                         
                                         with st.expander(ligand_title):
                                             # Display ligand details
                                             st.write(f"**Component ID:** {comp_id}")
                                             st.write(f"**Name:** {ligand_name}")
+                                            
+                                            # Fetch and display SMILES data
+                                            try:
+                                                smiles_data = fetch_ligand_smiles(comp_id)
+                                                if smiles_data and "data" in smiles_data and "chem_comp" in smiles_data["data"]:
+                                                    chem_data = smiles_data["data"]["chem_comp"]
+                                                    
+                                                    # Display chemical information
+                                                    if "chem_comp" in chem_data and chem_data["chem_comp"]:
+                                                        chem_info = chem_data["chem_comp"]
+                                                        if "formula" in chem_info:
+                                                            st.write(f"**Formula:** {chem_info['formula']}")
+                                                        if "formula_weight" in chem_info:
+                                                            st.write(f"**Molecular Weight:** {chem_info['formula_weight']}")
+                                                    
+                                                    # Display SMILES strings
+                                                    if "rcsb_chem_comp_descriptor" in chem_data and chem_data["rcsb_chem_comp_descriptor"]:
+                                                        descriptors = chem_data["rcsb_chem_comp_descriptor"]
+                                                        if "SMILES_stereo" in descriptors and descriptors["SMILES_stereo"]:
+                                                            st.write(f"**Canonical SMILES:** {descriptors['SMILES_stereo']}")
+                                            except Exception as e:
+                                                st.warning(f"Could not retrieve SMILES data: {str(e)}")
                                 
                                 # Option to download the raw JSON data
                                 st.download_button(

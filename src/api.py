@@ -189,3 +189,46 @@ def extract_comp_ids(ligand_ccd: Dict) -> List[str]:
         if comp_id and comp_id not in comp_ids:
             comp_ids.append(comp_id)
     return comp_ids
+
+def fetch_ligand_smiles(comp_id):
+    """
+    Fetch SMILES and other chemical data for a ligand using its component ID
+    """
+    url = "https://data.rcsb.org/graphql"
+    
+    # The GraphQL query
+    query = """
+    query molecule($id: String!) {
+        chem_comp(comp_id:$id){
+            chem_comp {
+                id
+                name
+                formula
+                pdbx_formal_charge
+                formula_weight
+                type
+            }
+            rcsb_chem_comp_descriptor {
+                InChI
+                InChIKey
+                SMILES
+                SMILES_stereo
+            }
+        }
+    }
+    """
+    
+    # Variables for the query
+    variables = {"id": comp_id}
+    
+    # Make the request
+    response = requests.post(
+        url,
+        json={"query": query, "variables": variables}
+    )
+    
+    # Check if the request was successful
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": f"Failed to fetch chemical data: {response.status_code}"}
