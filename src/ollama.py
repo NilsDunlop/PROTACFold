@@ -347,7 +347,7 @@ def analyze_pdb_proteins(pdb_ids_string):
         pdb_ids_string (str): Comma-separated string of PDB IDs
         
     Returns:
-        dict: Dictionary with PDB IDs as keys and identified proteins as values (for backward compatibility)
+        dict: Dictionary with PDB IDs as keys and identified proteins information as values
     """
     # Split the string by commas and strip whitespace
     pdb_ids = [pdb_id.strip() for pdb_id in pdb_ids_string.split(',') if pdb_id.strip()]
@@ -366,20 +366,12 @@ def analyze_pdb_proteins(pdb_ids_string):
     results_file = f"protein_analysis_results_{time.strftime('%Y%m%d_%H%M%S')}.txt"
     save_results_to_file(detailed_results, results_file)
     
-    # For backward compatibility with the existing app, convert the new format back to the old format
-    # Prioritize protein of interest, but fall back to E3 ligase if necessary
-    simplified_results = {}
-    for pdb_id, proteins in detailed_results.items():
-        if proteins["protein_of_interest"]:
-            simplified_results[pdb_id] = proteins["protein_of_interest"]
-        elif proteins["e3_ubiquitin_ligase"]:
-            simplified_results[pdb_id] = proteins["e3_ubiquitin_ligase"]
-    
-    return simplified_results
+    # Return the detailed results directly instead of the simplified version
+    return detailed_results
 
 # For testing
 if __name__ == "__main__":
     # Example usage
-    test_pdb_ids = "8FY0"
+    test_pdb_ids = "9B9W"
     results = analyze_pdb_proteins(test_pdb_ids)
     print(json.dumps(results, indent=2)) 

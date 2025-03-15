@@ -2,7 +2,13 @@ import streamlit as st
 import json
 import io
 import zipfile
+import threading
 from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
+import ollama
+import time
+
+# Global variable to store protein analysis with ollama
+protein_analysis_results = {}
 
 def extract_chain_info(header):
     """Extract and format chain information from a FASTA header"""
@@ -26,6 +32,7 @@ def extract_chain_info(header):
             for part in chain_info.split(","):
                 part = part.strip()
                 if "[auth " in part:
+                    # Extract just the auth value
                     auth_value = part.split("[auth ")[1].split("]")[0].strip()
                     processed_chains.append(auth_value)
                 else:
@@ -142,10 +149,44 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
     
     return alphafold_input
 
+def run_protein_analysis_in_background(pdb_ids_string):
+    """
+    Run the protein analysis in a background thread
+    
+    Args:
+        pdb_ids_string (str): Comma-separated string of PDB IDs
+    """
+    global protein_analysis_results
+    try:
+        # Call the analyze_pdb_proteins function from ollama.py
+        results = ollama.analyze_pdb_proteins(pdb_ids_string)
+        
+        # Store the results in the global variable
+        protein_analysis_results.update(results)
+        
+        # Log completion
+        st.session_state.protein_analysis_status = "completed"
+        st.session_state.protein_analysis_message = f"Protein analysis completed for {len(results)} PDB IDs"
+    except Exception as e:
+        # Log error
+        st.session_state.protein_analysis_status = "error"
+        st.session_state.protein_analysis_message = f"Error in protein analysis: {str(e)}"
+
 def main():
     # Set page title and header
     st.set_page_config(page_title="Input File Generator", layout="wide")
     
+    # Initialize session state variables if they don't exist
+    if 'protein_analysis_status' not in st.session_state:
+        st.session_state.protein_analysis_status = "not_started"
+    if 'protein_analysis_message' not in st.session_state:
+        st.session_state.protein_analysis_message = ""
+    
+    # Add logo in top-left corner
+    col1, _ = st.columns([1, 5])
+    with col1:
+        st.image("/home/2024/piza/PROTACFold/src/static/logo.png")
+  
     st.title("Input File Generator")
     
     # Input field for PDB IDs
@@ -161,6 +202,12 @@ def main():
         if not pdb_ids:
             st.error("Please enter at least one PDB ID")
         else:
+            # Start protein analysis in background
+            st.session_state.protein_analysis_status = "running"
+            
+            # Start the background thread for protein analysis
+            threading.Thread(target=run_protein_analysis_in_background, args=(pdb_ids,)).start()
+
             with st.spinner("Fetching data from Protein DataBank..."):
                 # Process the PDB IDs and fetch data
                 results = process_pdb_ids(pdb_ids)
@@ -197,7 +244,23 @@ def main():
                                 
                                 # Display basic information
                                 st.header(f"PDB ID: {pdb_id}")
-                                
+
+                                # Display protein analysis results if available
+                                global protein_analysis_results
+                                if pdb_id in protein_analysis_results:
+                                    st.subheader("Protein Analysis")
+                                    analysis_result = protein_analysis_results[pdb_id]
+                                    
+                                    if isinstance(analysis_result, dict):
+                                        # New format with both protein of interest and E3 ligase
+                                        if analysis_result.get("protein_of_interest"):
+                                            st.write(f"**Protein of Interest:** {analysis_result['protein_of_interest']}")
+                                        if analysis_result.get("e3_ubiquitin_ligase"):
+                                            st.write(f"**E3 Ubiquitin Ligase:** {analysis_result['e3_ubiquitin_ligase']}")
+                                    else:
+                                        # Old format with just one protein
+                                        st.write(f"**Identified Protein:** {analysis_result}")
+
                                 if entry_data and "struct" in entry_data and entry_data["struct"]:
                                     st.subheader("Structure Title")
                                     st.write(entry_data["struct"]["title"])
@@ -346,6 +409,14 @@ def main():
                             except Exception as e:
                                 st.error(f"Error processing data for {pdb_id}: {str(e)}")
                                 st.json(data)
+
+    # Display protein analysis status message if available
+    if st.session_state.protein_analysis_status != "not_started":
+        # Only show completed or error messages, not progress
+        if st.session_state.protein_analysis_status == "completed":
+            st.success(st.session_state.protein_analysis_message)
+        elif st.session_state.protein_analysis_status == "error":
+            st.error(st.session_state.protein_analysis_message)
 
 if __name__ == "__main__":
     main()
