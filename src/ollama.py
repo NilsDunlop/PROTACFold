@@ -366,12 +366,5 @@ def analyze_pdb_proteins(pdb_ids_string):
     results_file = f"protein_analysis_results_{time.strftime('%Y%m%d_%H%M%S')}.txt"
     save_results_to_file(detailed_results, results_file)
     
-    # Return the detailed results directly instead of the simplified version
-    return detailed_results
-
-# For testing
-if __name__ == "__main__":
-    # Example usage
-    test_pdb_ids = "9B9W"
-    results = analyze_pdb_proteins(test_pdb_ids)
-    print(json.dumps(results, indent=2)) 
+    # Return the detailed results
+    return detailed_results 
