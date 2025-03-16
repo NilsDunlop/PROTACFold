@@ -1,5 +1,4 @@
 import requests
-import json
 import logging
 import time
 
@@ -8,7 +7,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("protein_analysis.log"),
         logging.StreamHandler()
     ]
 )
@@ -23,50 +21,48 @@ def create_prompt_with_sequences(fasta_text):
     Returns:
         str: The complete prompt with sequences inserted
     """
-    base_prompt = """You are an expert in chemistry and biology, specializing in protein-targeted degradation through the use of molecular glues or proteolysis-targeting chimeras (PROTACs). Your task is to analyze a list of proteins and identify TWO specific proteins: the protein of interest (which we want to degrade) and the E3 ubiquitin ligase.
+    base_prompt = """You are an expert in targeted protein degradation (TPD), specializing in molecular glues and proteolysis-targeting chimeras (PROTACs). Your task is to analyze protein data and correctly identify two key components: the protein of interest (degradation target) and the E3 ubiquitin ligase component.
 
 # INPUT FORMAT
-You will be provided with a list of different entities with their amino acid chains between <protein_list> tags.
+You will receive a list of proteins with their amino acid sequences between <protein_list> tags.
 
-# TASK INSTRUCTIONS
-IMPORTANT: You must try to identify BOTH the protein of interest AND the E3 ubiquitin ligase, if both are present.
+# TASK CONTEXT
+In targeted protein degradation:
+- Protein of interest (POI): The disease-relevant target protein we want to degrade
+- E3 ubiquitin ligase: The protein that facilitates ubiquitination of the POI, marking it for proteasomal degradation
 
-1. Carefully examine the list of proteins and their amino acid chains.
+# IDENTIFICATION GUIDELINES
+1. Protein of Interest:
+   - Disease-relevant proteins or traditionally undruggable targets
+   - Common examples: BRD4/7/9, BRAF, BTK, FAK,  SMARCA2/4, FKBP51, WDR5, KRAS, BCL-family, PBRM1, transcription factors, kinases
+   - Often the larger protein in the complex
 
-2. Identify the protein of interest: This protein is the target we want to degrade.
-   - Common protein of interest examples: disease-related proteins, oncogenes, etc.
-   - These are NOT E3 ligases but targets for degradation
-   - Examples include: BRD4, BRD9, SMARCA2, SMARCA4, WDR5, KRAS, BCL2, etc
+2. E3 Ligase Components:
+   - Primary examples: VHL, CRBN, MDM2, DCAF15, cIAP1, KEAP1, DCAF16, RNF114, DCAF1
+   - May appear with associated complex proteins (e.g., DDB1 with CRBN)
+   - Function in recruiting the ubiquitination machinery
 
-3. Identify the E3 ubiquitin ligase: E3 ubiquitin ligases are crucial for the protein degradation process.
-   - Examples include: VHL, CRBN, MDM2, DCAF15, cIAP1, etc.
-   - These proteins facilitate the ubiquitination process
+3. Special Cases:
+   - Adaptor/scaffold proteins (e.g., Elongin-B, Elongin-C, Cullin, DDB1) are NOT the core E3 ligase
+   - Some E3 ligases have substrate receptor domains (e.g., CRBN, VHL) that are part of larger complexes
+   - Neo-substrates (e.g., p53, IKZF1/2/3, CK1α, FKBP12, GSPT1/eRF3a, RBM39, Sal-like protein 4, CD01) are proteins of interest when targeted by molecular glues
 
-4. IMPORTANT: Elongin (both Elongin-B and Elongin-C) should NOT be considered as either the protein of interest or the E3 ubiquitin ligase. Elongins are adaptor proteins that may be part of E3 ligase complexes but are not themselves the E3 ligase.
-
-5. IN SOME CASES, only one of these entities (either the protein of interest OR the E3 ubiquitin ligase) may be present in the list. In such cases, only output the entity that is present.
-
-# OUTPUT FORMAT - CRITICAL REQUIREMENT
-You MUST format your response EXACTLY as shown below, with no additional text, explanations, or notes:
-
+# OUTPUT FORMAT
 <output>
 <protein_of_interest>
-[EXACTLY as named in the protein list - if not present, leave this section empty but keep the tags]
+[EXACTLY as named in the protein list - if not present, leave empty but keep tags]
 </protein_of_interest>
 
 <e3_ubiquitin_ligase>
-[EXACTLY as named in the protein list - if not present, leave this section empty but keep the tags]
+[EXACTLY as named in the protein list - if not present, leave empty but keep tags]
 </e3_ubiquitin_ligase>
 </output>
 
-# CRITICAL RULES
-- Try to identify BOTH proteins if present
-- Do NOT add any text outside the specified output format
-- Do NOT add any explanations
-- Use FULL names EXACTLY as they appear in the input list
-- If one entity is missing, include its tags but leave them empty
-- Elongin-B and Elongin-C are NOT to be classified as either the protein of interest or the E3 ligase
-- VERIFY your output matches the required format before submitting
+# CRITICAL REQUIREMENTS
+- Use ONLY the exact names from the input list
+- Provide NO explanations or additional text
+- If one component is missing, include its tags but leave them empty
+- Include full protein identifiers exactly as shown in the input
 
 # Example valid output:
 <output>
@@ -183,13 +179,6 @@ def retrieve_raw_fasta_text(pdb_id: str) -> str:
         fasta_text = response.text
         logging.info(f"Retrieved FASTA text length: {len(fasta_text)} characters")
         
-        # Save the raw FASTA response to a debug file
-        fasta_debug_file = f"fasta_raw_{pdb_id}_{time.strftime('%Y%m%d_%H%M%S')}.txt"
-        with open(fasta_debug_file, 'w') as f:
-            f.write(f"=== RAW FASTA RESPONSE FOR {pdb_id} ===\n\n")
-            f.write(fasta_text)
-        logging.info(f"Saved raw FASTA response to {fasta_debug_file}")
-        
         # Check if we have multiple entries by counting '>' characters
         protein_count = fasta_text.count('>')
         logging.info(f"Found {protein_count} protein entries in FASTA text")
@@ -213,14 +202,6 @@ def retrieve_raw_fasta_text(pdb_id: str) -> str:
             with urllib.request.urlopen(req, timeout=30) as response:
                 fasta_text = response.read().decode('utf-8')
                 logging.info(f"Retrieved FASTA text using urllib length: {len(fasta_text)} characters")
-                
-                # Save the raw FASTA response from urllib to a debug file
-                fasta_debug_file = f"fasta_raw_urllib_{pdb_id}_{time.strftime('%Y%m%d_%H%M%S')}.txt"
-                with open(fasta_debug_file, 'w') as f:
-                    f.write(f"=== RAW FASTA RESPONSE (URLLIB) FOR {pdb_id} ===\n\n")
-                    f.write(fasta_text)
-                logging.info(f"Saved raw FASTA response (urllib) to {fasta_debug_file}")
-                
                 return fasta_text
         except Exception as e2:
             logging.error(f"Alternative method also failed: {str(e2)}")
@@ -237,8 +218,6 @@ def identify_proteins(pdb_ids):
         dict: Dictionary with PDB IDs as keys and identified proteins information as values
     """
     results = {}
-    raw_outputs = {}
-    prompts = {}  # Store the prompts for each PDB ID
     
     total_pdb_ids = len(pdb_ids)
     logging.info(f"Starting protein analysis for {total_pdb_ids} PDB IDs: {', '.join(pdb_ids)}")
@@ -259,15 +238,9 @@ def identify_proteins(pdb_ids):
             # Create prompt with sequences
             prompt = create_prompt_with_sequences(fasta_text)
             
-            # Save the prompt for later
-            prompts[pdb_id] = prompt
-            
             # Query Ollama
             logging.info(f"Querying Ollama model for PDB ID: {pdb_id}")
             response = query_ollama(prompt)
-            
-            # Save raw model output for debugging
-            raw_outputs[pdb_id] = response
             
             # Parse response
             protein_of_interest, e3_ubiquitin_ligase = parse_ollama_response(response)
@@ -289,55 +262,7 @@ def identify_proteins(pdb_ids):
             logging.error(error_msg)
             print(error_msg)
     
-    # Save raw model outputs and prompts to files for debugging
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    
-    # Save the model outputs
-    output_file = f"model_raw_outputs_{timestamp}.txt"
-    with open(output_file, "w") as f:
-        for pdb_id, output in raw_outputs.items():
-            f.write(f"===== PDB ID: {pdb_id} =====\n\n")
-            f.write(output)
-            f.write("\n\n")
-    
-    logging.info(f"Raw model outputs saved to {output_file}")
-    
-    # Save the prompts
-    prompts_file = f"model_prompts_{timestamp}.txt"
-    with open(prompts_file, "w") as f:
-        for pdb_id, prompt_text in prompts.items():
-            f.write(f"===== PROMPT FOR PDB ID: {pdb_id} =====\n\n")
-            f.write(prompt_text)
-            f.write("\n\n" + "="*80 + "\n\n")
-    
-    logging.info(f"Model prompts saved to {prompts_file}")
-    
     return results
-
-def save_results_to_file(results, filename="protein_analysis_results.txt"):
-    """
-    Save analysis results to a text file
-    
-    Args:
-        results (dict): Dictionary with PDB IDs as keys and identified proteins info as values
-        filename (str): Name of the file to save results to
-    """
-    with open(filename, 'w') as f:
-        f.write("PDB ID Analysis Results\n")
-        f.write("----------------------\n\n")
-        
-        for pdb_id, proteins in results.items():
-            f.write(f"PDB ID: {pdb_id}\n")
-            
-            if proteins["protein_of_interest"]:
-                f.write(f"Protein of Interest: {proteins['protein_of_interest']}\n")
-            
-            if proteins["e3_ubiquitin_ligase"]:
-                f.write(f"E3 Ubiquitin Ligase: {proteins['e3_ubiquitin_ligase']}\n")
-            
-            f.write("\n")
-    
-    print(f"Results saved to {filename}")
 
 def analyze_pdb_proteins(pdb_ids_string):
     """
@@ -362,16 +287,5 @@ def analyze_pdb_proteins(pdb_ids_string):
     # Identify proteins
     detailed_results = identify_proteins(pdb_ids)
     
-    # Save results to file
-    results_file = f"protein_analysis_results_{time.strftime('%Y%m%d_%H%M%S')}.txt"
-    save_results_to_file(detailed_results, results_file)
-    
-    # Return the detailed results directly instead of the simplified version
-    return detailed_results
-
-# For testing
-if __name__ == "__main__":
-    # Example usage
-    test_pdb_ids = "9B9W"
-    results = analyze_pdb_proteins(test_pdb_ids)
-    print(json.dumps(results, indent=2)) 
+    # Return the detailed results
+    return detailed_results 
