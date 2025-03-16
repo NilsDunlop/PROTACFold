@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import io
 import zipfile
-import threading
 from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
 import ollama
 import time
@@ -187,18 +186,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
 
 def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info=None, format_type="ccd", analysis_result=None):
     """
-    Create an AlphaFold3-compatible input JSON structure with only proteins identified in the analysis results
-
-    Args:
-        pdb_id: The PDB ID
-        fasta_sequences: Dictionary of FASTA sequences keyed by header
-        ligand_data: Dictionary of ligand data
-        ligand_chain_info: Dictionary mapping ligand comp_ids to chain information
-        format_type: Type of output format - "ccd" or "smiles"
-        analysis_result: Dictionary containing protein analysis results
-
-    Returns:
-        Dictionary representing the AlphaFold3 input JSON with only identified proteins
+    Create an AlphaFold3-compatible input JSON structure, ignoring chain ID in protein matching
     """
     # Initialize structure
     suffix = f"_ternary_{format_type}"
@@ -210,7 +198,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
         "version": 1
     }
 
-    # Create debug files to understand what's happening
+    # Debug file setup
     os.makedirs(DEBUG_DIR, exist_ok=True)
     timestamp = time.strftime('%Y%m%d_%H%M%S')
     debug_file = f"{DEBUG_DIR}/create_ternary_alphafold_input_{pdb_id}_{format_type}_{timestamp}.txt"
@@ -228,12 +216,10 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
         f.write(json.dumps(analysis_result, indent=2))
         f.write("\n\n")
 
-        # If no analysis result, return empty structure
         if not analysis_result:
             f.write("No analysis result provided. Returning empty structure.\n")
             return alphafold_input
 
-        # Extract identified proteins
         identified_proteins = []
         if analysis_result.get("protein_of_interest"):
             identified_proteins.append(analysis_result["protein_of_interest"])
@@ -241,54 +227,60 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
             identified_proteins.append(analysis_result["e3_ubiquitin_ligase"])
         f.write(f"Identified proteins from analysis: {identified_proteins}\n")
 
-        # Filter FASTA sequences to only include identified proteins
         filtered_sequences = {}
         f.write("Filtering FASTA sequences...\n")
         for header, sequence in fasta_sequences.items():
             f.write(f"  Header: {header}\n")
-            # Check if this sequence matches any identified protein
+            match_found_for_header = False
             for identified_protein in identified_proteins:
-                # Extract PDB ID from header
-                header_pdb_id = header.split('_')[0] if '_' in header else ""
-                identified_pdb_id = identified_protein.split('_')[0] if '_' in identified_protein else ""
+                header_pdb_id_prefix = header.split('_')[0] if '_' in header else "" # Extract PDB ID prefix (e.g., "8FY0")
+                identified_pdb_id_prefix = identified_protein.split('_')[0] if '_' in identified_protein else "" # Extract PDB ID prefix
 
-                # Extract protein name and chain from header
                 header_parts = header.split('|')
-                header_protein_name = header_parts[1] if len(header_parts) > 1 else "" # Use index 1 for protein name
-                header_chain = extract_chain_info(header) # Extract chain info properly
+                header_protein_name = header_parts[1] if len(header_parts) > 1 else ""
 
-                # Extract protein name and chain from identified protein
                 identified_parts = identified_protein.split('|')
-                identified_protein_name = identified_parts[2] if len(identified_parts) > 2 else "" # Use index 2 for protein name
-                identified_chain_full = identified_parts[1] if len(identified_parts) > 1 else "" # e.g., "Chain D"
-                identified_chain = identified_chain_full.split("Chain ")[-1] if "Chain " in identified_chain_full else "" # Extract just "D"
+                identified_protein_name = identified_parts[2] if len(identified_parts) > 2 else ""
 
 
                 f.write(f"    Checking against identified protein: {identified_protein}\n")
-                f.write(f"    Header PDB ID: {header_pdb_id}, Identified PDB ID: {identified_pdb_id}\n")
+                f.write(f"    Header PDB ID Prefix: {header_pdb_id_prefix}, Identified PDB ID Prefix: {identified_pdb_id_prefix}\n")
                 f.write(f"    Header protein name: {header_protein_name}, Identified protein name: {identified_protein_name}\n")
-                f.write(f"    Header chain: {header_chain}, Identified chain: {identified_chain}\n")
 
 
-                # Check if PDB ID, protein name and Chain match (more accurate comparison)
-                if (header_pdb_id == identified_pdb_id and
-                    header_protein_name.strip() == identified_protein_name.strip() and # Exact match for protein name
-                    header_chain == identified_chain): # Exact match for chain
+                # --- Simplified Matching Logic: Lowercase Protein Name Exact Match + PDB ID Prefix Match (Ignoring Chain) ---
+                protein_name_match = False
+                if header_protein_name.strip() and identified_protein_name.strip():
+                    if header_protein_name.strip().lower() == identified_protein_name.strip().lower(): # Exact lowercase protein name match
+                        protein_name_match = True
+                        f.write(f"    Protein name EXACT match (lowercase) FOUND.\n")
+                    else:
+                        f.write(f"    Protein name EXACT match (lowercase) NOT found.\n")
+                else:
+                    f.write(f"    One or both protein names are empty, skipping name comparison.\n")
+
+
+                if (header_pdb_id_prefix == identified_pdb_id_prefix and # Compare PDB ID prefixes
+                    protein_name_match): # Use exact lowercase name match
                     filtered_sequences[header] = sequence
-                    f.write(f"    Match found. Adding to filtered sequences.\n")
+                    f.write(f"    Match FOUND (PDB ID Prefix, lowercase protein name - IGNORING CHAIN ID). Adding to filtered sequences.\n")
+                    match_found_for_header = True
                     break
-            else:
-                f.write(f"    No match found for this header.\n")
+                else:
+                    f.write(f"    No Match (PDB ID Prefix or lowercase protein name mismatch).\n") # More informative no match msg
+
+            if not match_found_for_header:
+                f.write(f"  No identified protein match found for header: {header}\n")
+
         f.write(f"Filtered sequences: {list(filtered_sequences.keys())}\n")
 
-        # Process filtered protein sequences
+        # Process filtered protein sequences (same as before - no changes needed)
         f.write("Processing filtered protein sequences...\n")
         for header, sequence in filtered_sequences.items():
             f.write(f"  Header: {header}\n")
             chain_info = extract_chain_info(header)
             f.write(f"  Extracted chain_info: {chain_info}\n")
 
-            # If there are multiple chains, use the last one
             if chain_info:
                 chains = chain_info.split(", ")
                 chain_id = chains[-1]
@@ -296,7 +288,6 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
                 chain_id = "A"
             f.write(f"  Chain ID: {chain_id}\n")
 
-            # Add protein entry
             protein_entry = {
                 "protein": {
                     "id": chain_id,
@@ -307,13 +298,9 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
             f.write(f"  Added protein entry: {protein_entry}\n")
         f.write("\n")
 
-        # List of common ions and small molecules to exclude
+        # Process ligands (same as before - no changes needed)
         excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
-
-        # Process ligands (Ligand processing remains the same as it was correct)
         potential_ligands = []
-
-        # Get SMILES data dictionary
         smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
 
         f.write("Processing ligands...\n")
@@ -323,23 +310,19 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
                 ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
                 f.write(f"  Ligand comp_id: {comp_id}, name: {ligand_name}\n")
 
-                # Skip excluded molecules
                 if comp_id.upper() in excluded_molecules:
                     f.write(f"  Skipping excluded molecule: {comp_id}\n")
                     continue
 
-                # Extract chain info for the ligand
                 ligand_chain = "X"
                 if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
                     chains = ligand_chain_info[comp_id].split(", ")
                     ligand_chain = chains[-1]
                 f.write(f"  Ligand chain: {ligand_chain}\n")
 
-                # Get SMILES string if available
                 smiles = smiles_data.get(comp_id)
                 f.write(f"  Ligand SMILES: {smiles}\n")
 
-                # Calculate a score based on name length to prioritize complex molecules
                 name_score = len(ligand_name) if ligand_name else 0
 
                 potential_ligands.append({
@@ -352,7 +335,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
                 f.write(f"  Potential ligand added: {potential_ligands[-1]}\n")
         f.write("\n")
 
-        # Input Protac or molecular glue (Ligand selection remains the same as it was correct)
+        # Input Protac or molecular glue (same as before - no changes needed)
         if potential_ligands:
             potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
             top_ligand = potential_ligands[0]
@@ -382,6 +365,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
         f.write(json.dumps(alphafold_input, indent=2))
 
     return alphafold_input
+
 
 def run_protein_analysis_in_background(pdb_ids_string):
     """
@@ -436,7 +420,7 @@ def run_protein_analysis_in_background(pdb_ids_string):
                     if result.get("e3_ubiquitin_ligase"):
                         debug_f.write(f"  E3 Ubiquitin Ligase: {result['e3_ubiquitin_ligase']}\n")
                 else:
-                    debug_f.write(f"  Result: {result}\n")
+                    f.write(f"  Result: {result}\n")
                 debug_f.write("\n")
 
     except Exception as e:
