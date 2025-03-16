@@ -1,24 +1,15 @@
 import requests
-import json
 import logging
 import time
-import os
 
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("protein_analysis.log"),
         logging.StreamHandler()
     ]
 )
-
-# Define debug directory using relative path
-# Since ollama.py is in src/ and debug_files is at the project root
-DEBUG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "debug_files"))
-# Ensure debug directory exists
-os.makedirs(DEBUG_DIR, exist_ok=True)
 
 def create_prompt_with_sequences(fasta_text):
     """
@@ -188,13 +179,6 @@ def retrieve_raw_fasta_text(pdb_id: str) -> str:
         fasta_text = response.text
         logging.info(f"Retrieved FASTA text length: {len(fasta_text)} characters")
         
-        # Save the raw FASTA response to a debug file
-        fasta_debug_file = os.path.join(DEBUG_DIR, f"fasta_raw_{pdb_id}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
-        with open(fasta_debug_file, 'w') as f:
-            f.write(f"=== RAW FASTA RESPONSE FOR {pdb_id} ===\n\n")
-            f.write(fasta_text)
-        logging.info(f"Saved raw FASTA response to {fasta_debug_file}")
-        
         # Check if we have multiple entries by counting '>' characters
         protein_count = fasta_text.count('>')
         logging.info(f"Found {protein_count} protein entries in FASTA text")
@@ -218,14 +202,6 @@ def retrieve_raw_fasta_text(pdb_id: str) -> str:
             with urllib.request.urlopen(req, timeout=30) as response:
                 fasta_text = response.read().decode('utf-8')
                 logging.info(f"Retrieved FASTA text using urllib length: {len(fasta_text)} characters")
-                
-                # Save the raw FASTA response from urllib to a debug file
-                fasta_debug_file = os.path.join(DEBUG_DIR, f"fasta_raw_urllib_{pdb_id}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
-                with open(fasta_debug_file, 'w') as f:
-                    f.write(f"=== RAW FASTA RESPONSE (URLLIB) FOR {pdb_id} ===\n\n")
-                    f.write(fasta_text)
-                logging.info(f"Saved raw FASTA response (urllib) to {fasta_debug_file}")
-                
                 return fasta_text
         except Exception as e2:
             logging.error(f"Alternative method also failed: {str(e2)}")
@@ -242,8 +218,6 @@ def identify_proteins(pdb_ids):
         dict: Dictionary with PDB IDs as keys and identified proteins information as values
     """
     results = {}
-    raw_outputs = {}
-    prompts = {}  # Store the prompts for each PDB ID
     
     total_pdb_ids = len(pdb_ids)
     logging.info(f"Starting protein analysis for {total_pdb_ids} PDB IDs: {', '.join(pdb_ids)}")
@@ -264,15 +238,9 @@ def identify_proteins(pdb_ids):
             # Create prompt with sequences
             prompt = create_prompt_with_sequences(fasta_text)
             
-            # Save the prompt for later
-            prompts[pdb_id] = prompt
-            
             # Query Ollama
             logging.info(f"Querying Ollama model for PDB ID: {pdb_id}")
             response = query_ollama(prompt)
-            
-            # Save raw model output for debugging
-            raw_outputs[pdb_id] = response
             
             # Parse response
             protein_of_interest, e3_ubiquitin_ligase = parse_ollama_response(response)
@@ -294,59 +262,7 @@ def identify_proteins(pdb_ids):
             logging.error(error_msg)
             print(error_msg)
     
-    # Save raw model outputs and prompts to files for debugging
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    
-    # Save the model outputs
-    output_file = os.path.join(DEBUG_DIR, f"model_raw_outputs_{timestamp}.txt")
-    with open(output_file, "w") as f:
-        for pdb_id, output in raw_outputs.items():
-            f.write(f"===== PDB ID: {pdb_id} =====\n\n")
-            f.write(output)
-            f.write("\n\n")
-    
-    logging.info(f"Raw model outputs saved to {output_file}")
-    
-    # Save the prompts
-    prompts_file = os.path.join(DEBUG_DIR, f"model_prompts_{timestamp}.txt")
-    with open(prompts_file, "w") as f:
-        for pdb_id, prompt_text in prompts.items():
-            f.write(f"===== PROMPT FOR PDB ID: {pdb_id} =====\n\n")
-            f.write(prompt_text)
-            f.write("\n\n" + "="*80 + "\n\n")
-    
-    logging.info(f"Model prompts saved to {prompts_file}")
-    
     return results
-
-def save_results_to_file(results, filename="protein_analysis_results.txt"):
-    """
-    Save analysis results to a text file
-    
-    Args:
-        results (dict): Dictionary with PDB IDs as keys and identified proteins info as values
-        filename (str): Name of the file to save results to
-    """
-    # Use the debug directory for results file if not an absolute path
-    if not os.path.isabs(filename):
-        filename = os.path.join(DEBUG_DIR, filename)
-        
-    with open(filename, 'w') as f:
-        f.write("PDB ID Analysis Results\n")
-        f.write("----------------------\n\n")
-        
-        for pdb_id, proteins in results.items():
-            f.write(f"PDB ID: {pdb_id}\n")
-            
-            if proteins["protein_of_interest"]:
-                f.write(f"Protein of Interest: {proteins['protein_of_interest']}\n")
-            
-            if proteins["e3_ubiquitin_ligase"]:
-                f.write(f"E3 Ubiquitin Ligase: {proteins['e3_ubiquitin_ligase']}\n")
-            
-            f.write("\n")
-    
-    print(f"Results saved to {filename}")
 
 def analyze_pdb_proteins(pdb_ids_string):
     """
@@ -370,10 +286,6 @@ def analyze_pdb_proteins(pdb_ids_string):
     
     # Identify proteins
     detailed_results = identify_proteins(pdb_ids)
-    
-    # Save results to file
-    results_file = os.path.join(DEBUG_DIR, f"protein_analysis_results_{time.strftime('%Y%m%d_%H%M%S')}.txt")
-    save_results_to_file(detailed_results, results_file)
     
     # Return the detailed results
     return detailed_results 

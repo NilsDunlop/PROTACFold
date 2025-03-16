@@ -6,10 +6,13 @@ from api import process_pdb_ids, retrieve_fasta_sequence, extract_ligand_ccd_fro
 import ollama
 import time
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Global variable to store protein analysis with ollama
 protein_analysis_results = {}
-DEBUG_DIR = "/home/2024/piza/PROTACFold/debug_files"
 
 def extract_chain_info(header):
     """Extract and format chain information from a FASTA header"""
@@ -57,6 +60,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
     Returns:
         Dictionary representing the AlphaFold3 input JSON
     """
+    logging.info(f"create_alphafold_input - PDB ID: {pdb_id}, format_type: {format_type}")
     # Initialize structure
     suffix = f"_{format_type}"
     alphafold_input = {
@@ -67,120 +71,105 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
         "version": 1
     }
 
-    # Create debug files to understand what's happening
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    debug_file = f"{DEBUG_DIR}/create_alphafold_input_{pdb_id}_{format_type}_{timestamp}.txt"
+    logging.debug(f"Input fasta_sequences: {fasta_sequences}")
+    logging.debug(f"Input ligand_data: {ligand_data}")
+    logging.debug(f"Input ligand_chain_info: {ligand_chain_info}")
 
-    with open(debug_file, "w") as f:
-        f.write(f"create_alphafold_input - PDB ID: {pdb_id}, format_type: {format_type}\n")
-        f.write("========================================\n\n")
-        f.write("Input fasta_sequences:\n")
-        f.write(json.dumps(fasta_sequences, indent=2))
-        f.write("\n\nInput ligand_data:\n")
-        f.write(json.dumps(ligand_data, indent=2))
-        f.write("\n\nInput ligand_chain_info:\n")
-        f.write(json.dumps(ligand_chain_info, indent=2))
-        f.write("\n\n")
+    # Process protein sequences
+    logging.info("Processing protein sequences...")
+    for header, sequence in fasta_sequences.items():
+        logging.debug(f"  Header: {header}")
+        chain_info = extract_chain_info(header)
+        logging.debug(f"  Extracted chain_info: {chain_info}")
 
-        # Process protein sequences
-        f.write("Processing protein sequences...\n")
-        for header, sequence in fasta_sequences.items():
-            f.write(f"  Header: {header}\n")
-            chain_info = extract_chain_info(header)
-            f.write(f"  Extracted chain_info: {chain_info}\n")
+        # If there are multiple chains, use the last one
+        if chain_info:
+            chains = chain_info.split(", ")
+            chain_id = chains[-1]
+        else:
+            chain_id = "A"
+        logging.debug(f"  Chain ID: {chain_id}")
 
-            # If there are multiple chains, use the last one
-            if chain_info:
-                chains = chain_info.split(", ")
-                chain_id = chains[-1]
-            else:
-                chain_id = "A"
-            f.write(f"  Chain ID: {chain_id}\n")
+        # Add protein entry
+        protein_entry = {
+            "protein": {
+                "id": chain_id,
+                "sequence": sequence
+            }
+        }
+        alphafold_input["sequences"].append(protein_entry)
+        logging.debug(f"  Added protein entry: {protein_entry}")
 
-            # Add protein entry
-            protein_entry = {
-                "protein": {
-                    "id": chain_id,
-                    "sequence": sequence
+    # List of common ions and small molecules to exclude
+    excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
+
+    # Process ligands
+    potential_ligands = []
+
+    # Get SMILES data dictionary
+    smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
+
+    logging.info("Processing ligands...")
+    if ligand_data:
+        for ligand_id, ligand_info in ligand_data.items():
+            comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
+            ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
+            logging.debug(f"  Ligand comp_id: {comp_id}, name: {ligand_name}")
+
+            # Skip excluded molecules
+            if comp_id.upper() in excluded_molecules:
+                logging.debug(f"  Skipping excluded molecule: {comp_id}")
+                continue
+
+            # Extract chain info for the ligand
+            ligand_chain = "X"
+            if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
+                chains = ligand_chain_info[comp_id].split(", ")
+                ligand_chain = chains[-1]
+            logging.debug(f"  Ligand chain: {ligand_chain}")
+
+            # Get SMILES string if available
+            smiles = smiles_data.get(comp_id)
+            logging.debug(f"  Ligand SMILES: {smiles}")
+
+            # Calculate a score based on name length to prioritize complex molecules
+            name_score = len(ligand_name) if ligand_name else 0
+
+            potential_ligands.append({
+                "comp_id": comp_id,
+                "chain": ligand_chain,
+                "name": ligand_name,
+                "name_score": name_score,
+                "smiles": smiles
+            })
+            logging.debug(f"  Potential ligand added: {potential_ligands[-1]}")
+
+    # Input Protac or molecular glue
+    if potential_ligands:
+        potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
+        top_ligand = potential_ligands[0]
+        logging.debug(f"Top ligand selected: {top_ligand}")
+
+        if format_type == "ccd":
+            ligand_entry = {
+                "ligand": {
+                    "id": top_ligand["chain"],
+                    "ccdCodes": [top_ligand["comp_id"]]
                 }
             }
-            alphafold_input["sequences"].append(protein_entry)
-            f.write(f"  Added protein entry: {protein_entry}\n")
-        f.write("\n")
-
-        # List of common ions and small molecules to exclude
-        excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
-
-        # Process ligands
-        potential_ligands = []
-
-        # Get SMILES data dictionary
-        smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
-
-        f.write("Processing ligands...\n")
-        if ligand_data:
-            for ligand_id, ligand_info in ligand_data.items():
-                comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
-                ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
-                f.write(f"  Ligand comp_id: {comp_id}, name: {ligand_name}\n")
-
-                # Skip excluded molecules
-                if comp_id.upper() in excluded_molecules:
-                    f.write(f"  Skipping excluded molecule: {comp_id}\n")
-                    continue
-
-                # Extract chain info for the ligand
-                ligand_chain = "X"
-                if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
-                    chains = ligand_chain_info[comp_id].split(", ")
-                    ligand_chain = chains[-1]
-                f.write(f"  Ligand chain: {ligand_chain}\n")
-
-                # Get SMILES string if available
-                smiles = smiles_data.get(comp_id)
-                f.write(f"  Ligand SMILES: {smiles}\n")
-
-                # Calculate a score based on name length to prioritize complex molecules
-                name_score = len(ligand_name) if ligand_name else 0
-
-                potential_ligands.append({
-                    "comp_id": comp_id,
-                    "chain": ligand_chain,
-                    "name": ligand_name,
-                    "name_score": name_score,
-                    "smiles": smiles
-                })
-                f.write(f"  Potential ligand added: {potential_ligands[-1]}\n")
-        f.write("\n")
-
-        # Input Protac or molecular glue
-        if potential_ligands:
-            potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
-            top_ligand = potential_ligands[0]
-            f.write(f"Top ligand selected: {top_ligand}\n")
-
-            if format_type == "ccd":
+            alphafold_input["sequences"].append(ligand_entry)
+            logging.debug(f"  Added CCD ligand entry: {ligand_entry}")
+        else:
+            if top_ligand["smiles"]:
                 ligand_entry = {
                     "ligand": {
                         "id": top_ligand["chain"],
-                        "ccdCodes": [top_ligand["comp_id"]]
+                        "smiles": top_ligand["smiles"]
                     }
                 }
                 alphafold_input["sequences"].append(ligand_entry)
-                f.write(f"  Added CCD ligand entry: {ligand_entry}\n")
-            else:
-                if top_ligand["smiles"]:
-                    ligand_entry = {
-                        "ligand": {
-                            "id": top_ligand["chain"],
-                            "smiles": top_ligand["smiles"]
-                        }
-                    }
-                    alphafold_input["sequences"].append(ligand_entry)
-                    f.write(f"  Added SMILES ligand entry: {ligand_entry}\n")
-        f.write("\nFinal alphafold_input:\n")
-        f.write(json.dumps(alphafold_input, indent=2))
+                logging.debug(f"  Added SMILES ligand entry: {ligand_entry}")
+    logging.debug(f"Final alphafold_input: {alphafold_input}")
 
     return alphafold_input
 
@@ -188,6 +177,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
     """
     Create an AlphaFold3-compatible input JSON structure, ignoring chain ID in protein matching
     """
+    logging.info(f"create_ternary_alphafold_input - PDB ID: {pdb_id}, format_type: {format_type}")
     # Initialize structure
     suffix = f"_ternary_{format_type}"
     alphafold_input = {
@@ -198,172 +188,153 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
         "version": 1
     }
 
-    # Debug file setup
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    debug_file = f"{DEBUG_DIR}/create_ternary_alphafold_input_{pdb_id}_{format_type}_{timestamp}.txt"
+    logging.debug(f"Input fasta_sequences: {fasta_sequences}")
+    logging.debug(f"Input ligand_data: {ligand_data}")
+    logging.debug(f"Input ligand_chain_info: {ligand_chain_info}")
+    logging.debug(f"Input analysis_result: {analysis_result}")
 
-    with open(debug_file, "w") as f:
-        f.write(f"create_ternary_alphafold_input - PDB ID: {pdb_id}, format_type: {format_type}\n")
-        f.write("========================================\n\n")
-        f.write("Input fasta_sequences:\n")
-        f.write(json.dumps(fasta_sequences, indent=2))
-        f.write("\n\nInput ligand_data:\n")
-        f.write(json.dumps(ligand_data, indent=2))
-        f.write("\n\nInput ligand_chain_info:\n")
-        f.write(json.dumps(ligand_chain_info, indent=2))
-        f.write("\n\nInput analysis_result:\n")
-        f.write(json.dumps(analysis_result, indent=2))
-        f.write("\n\n")
+    if not analysis_result:
+        logging.info("No analysis result provided. Returning empty structure.")
+        return alphafold_input
 
-        if not analysis_result:
-            f.write("No analysis result provided. Returning empty structure.\n")
-            return alphafold_input
+    identified_proteins = []
+    if analysis_result.get("protein_of_interest"):
+        identified_proteins.append(analysis_result["protein_of_interest"])
+    if analysis_result.get("e3_ubiquitin_ligase"):
+        identified_proteins.append(analysis_result["e3_ubiquitin_ligase"])
+    logging.debug(f"Identified proteins from analysis: {identified_proteins}")
 
-        identified_proteins = []
-        if analysis_result.get("protein_of_interest"):
-            identified_proteins.append(analysis_result["protein_of_interest"])
-        if analysis_result.get("e3_ubiquitin_ligase"):
-            identified_proteins.append(analysis_result["e3_ubiquitin_ligase"])
-        f.write(f"Identified proteins from analysis: {identified_proteins}\n")
+    filtered_sequences = {}
+    logging.info("Filtering FASTA sequences...")
+    for header, sequence in fasta_sequences.items():
+        logging.debug(f"  Header: {header}")
+        match_found_for_header = False
+        for identified_protein in identified_proteins:
+            logging.debug(f"    Checking against identified protein: {identified_protein}")
+            header_pdb_id_prefix = header.split('_')[0] if '_' in header else "" # Extract PDB ID prefix (e.g., "8FY0")
+            identified_pdb_id_prefix = identified_protein.split('_')[0] if '_' in identified_protein else "" # Extract PDB ID prefix
 
-        filtered_sequences = {}
-        f.write("Filtering FASTA sequences...\n")
-        for header, sequence in fasta_sequences.items():
-            f.write(f"  Header: {header}\n")
-            match_found_for_header = False
-            for identified_protein in identified_proteins:
-                header_pdb_id_prefix = header.split('_')[0] if '_' in header else "" # Extract PDB ID prefix (e.g., "8FY0")
-                identified_pdb_id_prefix = identified_protein.split('_')[0] if '_' in identified_protein else "" # Extract PDB ID prefix
+            header_parts = header.split('|')
+            header_protein_name = header_parts[1] if len(header_parts) > 1 else ""
 
-                header_parts = header.split('|')
-                header_protein_name = header_parts[1] if len(header_parts) > 1 else ""
+            identified_parts = identified_protein.split('|')
+            identified_protein_name = identified_parts[2] if len(identified_parts) > 2 else ""
 
-                identified_parts = identified_protein.split('|')
-                identified_protein_name = identified_parts[2] if len(identified_parts) > 2 else ""
+            logging.debug(f"    Header PDB ID Prefix: {header_pdb_id_prefix}, Identified PDB ID Prefix: {identified_pdb_id_prefix}")
+            logging.debug(f"    Header protein name: {header_protein_name}, Identified protein name: {identified_protein_name}")
 
-
-                f.write(f"    Checking against identified protein: {identified_protein}\n")
-                f.write(f"    Header PDB ID Prefix: {header_pdb_id_prefix}, Identified PDB ID Prefix: {identified_pdb_id_prefix}\n")
-                f.write(f"    Header protein name: {header_protein_name}, Identified protein name: {identified_protein_name}\n")
-
-
-                # --- Simplified Matching Logic: Lowercase Protein Name Exact Match + PDB ID Prefix Match (Ignoring Chain) ---
-                protein_name_match = False
-                if header_protein_name.strip() and identified_protein_name.strip():
-                    if header_protein_name.strip().lower() == identified_protein_name.strip().lower(): # Exact lowercase protein name match
-                        protein_name_match = True
-                        f.write(f"    Protein name EXACT match (lowercase) FOUND.\n")
-                    else:
-                        f.write(f"    Protein name EXACT match (lowercase) NOT found.\n")
+            # --- Simplified Matching Logic: Lowercase Protein Name Exact Match + PDB ID Prefix Match (Ignoring Chain) ---
+            protein_name_match = False
+            if header_protein_name.strip() and identified_protein_name.strip():
+                if header_protein_name.strip().lower() == identified_protein_name.strip().lower(): # Exact lowercase protein name match
+                    protein_name_match = True
+                    logging.debug(f"    Protein name EXACT match (lowercase) FOUND.")
                 else:
-                    f.write(f"    One or both protein names are empty, skipping name comparison.\n")
-
-
-                if (header_pdb_id_prefix == identified_pdb_id_prefix and # Compare PDB ID prefixes
-                    protein_name_match): # Use exact lowercase name match
-                    filtered_sequences[header] = sequence
-                    f.write(f"    Match FOUND (PDB ID Prefix, lowercase protein name - IGNORING CHAIN ID). Adding to filtered sequences.\n")
-                    match_found_for_header = True
-                    break
-                else:
-                    f.write(f"    No Match (PDB ID Prefix or lowercase protein name mismatch).\n") # More informative no match msg
-
-            if not match_found_for_header:
-                f.write(f"  No identified protein match found for header: {header}\n")
-
-        f.write(f"Filtered sequences: {list(filtered_sequences.keys())}\n")
-
-        # Process filtered protein sequences (same as before - no changes needed)
-        f.write("Processing filtered protein sequences...\n")
-        for header, sequence in filtered_sequences.items():
-            f.write(f"  Header: {header}\n")
-            chain_info = extract_chain_info(header)
-            f.write(f"  Extracted chain_info: {chain_info}\n")
-
-            if chain_info:
-                chains = chain_info.split(", ")
-                chain_id = chains[-1]
+                    logging.debug(f"    Protein name EXACT match (lowercase) NOT found.")
             else:
-                chain_id = "A"
-            f.write(f"  Chain ID: {chain_id}\n")
+                logging.debug(f"    One or both protein names are empty, skipping name comparison.")
 
-            protein_entry = {
-                "protein": {
-                    "id": chain_id,
-                    "sequence": sequence
+
+            if (header_pdb_id_prefix == identified_pdb_id_prefix and # Compare PDB ID prefixes
+                protein_name_match): # Use exact lowercase name match
+                filtered_sequences[header] = sequence
+                logging.debug(f"    Match FOUND (PDB ID Prefix, lowercase protein name - IGNORING CHAIN ID). Adding to filtered sequences.")
+                match_found_for_header = True
+                break
+            else:
+                logging.debug(f"    No Match (PDB ID Prefix or lowercase protein name mismatch).") # More informative no match msg
+
+        if not match_found_for_header:
+            logging.debug(f"  No identified protein match found for header: {header}")
+
+    logging.debug(f"Filtered sequences: {list(filtered_sequences.keys())}")
+
+    # Process filtered protein sequences (same as before - no changes needed)
+    logging.info("Processing filtered protein sequences...")
+    for header, sequence in filtered_sequences.items():
+        logging.debug(f"  Header: {header}")
+        chain_info = extract_chain_info(header)
+        logging.debug(f"  Extracted chain_info: {chain_info}")
+
+        if chain_info:
+            chains = chain_info.split(", ")
+            chain_id = chains[-1]
+        else:
+            chain_id = "A"
+        logging.debug(f"  Chain ID: {chain_id}")
+
+        protein_entry = {
+            "protein": {
+                "id": chain_id,
+                "sequence": sequence
+            }
+        }
+        alphafold_input["sequences"].append(protein_entry)
+        logging.debug(f"  Added protein entry: {protein_entry}")
+
+    # Process ligands (same as before - no changes needed)
+    excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
+    potential_ligands = []
+    smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
+
+    logging.info("Processing ligands...")
+    if ligand_data:
+        for ligand_id, ligand_info in ligand_data.items():
+            comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
+            ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
+            logging.debug(f"  Ligand comp_id: {comp_id}, name: {ligand_name}")
+
+            if comp_id.upper() in excluded_molecules:
+                logging.debug(f"  Skipping excluded molecule: {comp_id}")
+                continue
+
+            ligand_chain = "X"
+            if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
+                chains = ligand_chain_info[comp_id].split(", ")
+                ligand_chain = chains[-1]
+            logging.debug(f"  Ligand chain: {ligand_chain}")
+
+            smiles = smiles_data.get(comp_id)
+            logging.debug(f"  Ligand SMILES: {smiles}")
+
+            name_score = len(ligand_name) if ligand_name else 0
+
+            potential_ligands.append({
+                "comp_id": comp_id,
+                "chain": ligand_chain,
+                "name": ligand_name,
+                "name_score": name_score,
+                "smiles": smiles
+            })
+            logging.debug(f"  Potential ligand added: {potential_ligands[-1]}")
+
+    # Input Protac or molecular glue (same as before - no changes needed)
+    if potential_ligands:
+        potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
+        top_ligand = potential_ligands[0]
+        logging.debug(f"Top ligand selected: {top_ligand}")
+
+        if format_type == "ccd":
+            ligand_entry = {
+                "ligand": {
+                    "id": top_ligand["chain"],
+                    "ccdCodes": [top_ligand["comp_id"]]
                 }
             }
-            alphafold_input["sequences"].append(protein_entry)
-            f.write(f"  Added protein entry: {protein_entry}\n")
-        f.write("\n")
-
-        # Process ligands (same as before - no changes needed)
-        excluded_molecules = ["ZN", "NA", "CL", "MG", "CA", "K", "FE", "MN", "CU", "CO", "HOH", "SO4", "PO4"]
-        potential_ligands = []
-        smiles_data = ligand_chain_info.get("smiles_data", {}) if ligand_chain_info else {}
-
-        f.write("Processing ligands...\n")
-        if ligand_data:
-            for ligand_id, ligand_info in ligand_data.items():
-                comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
-                ligand_name = ligand_info.get("pdbx_entity_nonpoly", {}).get("name", "")
-                f.write(f"  Ligand comp_id: {comp_id}, name: {ligand_name}\n")
-
-                if comp_id.upper() in excluded_molecules:
-                    f.write(f"  Skipping excluded molecule: {comp_id}\n")
-                    continue
-
-                ligand_chain = "X"
-                if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
-                    chains = ligand_chain_info[comp_id].split(", ")
-                    ligand_chain = chains[-1]
-                f.write(f"  Ligand chain: {ligand_chain}\n")
-
-                smiles = smiles_data.get(comp_id)
-                f.write(f"  Ligand SMILES: {smiles}\n")
-
-                name_score = len(ligand_name) if ligand_name else 0
-
-                potential_ligands.append({
-                    "comp_id": comp_id,
-                    "chain": ligand_chain,
-                    "name": ligand_name,
-                    "name_score": name_score,
-                    "smiles": smiles
-                })
-                f.write(f"  Potential ligand added: {potential_ligands[-1]}\n")
-        f.write("\n")
-
-        # Input Protac or molecular glue (same as before - no changes needed)
-        if potential_ligands:
-            potential_ligands.sort(key=lambda x: x["name_score"], reverse=True)
-            top_ligand = potential_ligands[0]
-            f.write(f"Top ligand selected: {top_ligand}\n")
-
-            if format_type == "ccd":
+            alphafold_input["sequences"].append(ligand_entry)
+            logging.debug(f"  Added CCD ligand entry: {ligand_entry}")
+        else:
+            if top_ligand["smiles"]:
                 ligand_entry = {
                     "ligand": {
                         "id": top_ligand["chain"],
-                        "ccdCodes": [top_ligand["comp_id"]]
+                        "smiles": top_ligand["smiles"]
                     }
                 }
                 alphafold_input["sequences"].append(ligand_entry)
-                f.write(f"  Added CCD ligand entry: {ligand_entry}\n")
-            else:
-                if top_ligand["smiles"]:
-                    ligand_entry = {
-                        "ligand": {
-                            "id": top_ligand["chain"],
-                            "smiles": top_ligand["smiles"]
-                        }
-                    }
-                    alphafold_input["sequences"].append(ligand_entry)
-                    f.write(f"  Added SMILES ligand entry: {ligand_entry}\n")
+                logging.debug(f"  Added SMILES ligand entry: {ligand_entry}")
 
-        f.write("\nFinal ternary alphafold_input:\n")
-        f.write(json.dumps(alphafold_input, indent=2))
-
+    logging.debug(f"Final ternary alphafold_input: {alphafold_input}")
     return alphafold_input
 
 
@@ -376,6 +347,7 @@ def run_protein_analysis_in_background(pdb_ids_string):
     """
     global protein_analysis_results
     try:
+        logging.info(f"Starting protein analysis for PDB IDs: {pdb_ids_string}")
         # Call the analyze_pdb_proteins function from ollama.py
         results = ollama.analyze_pdb_proteins(pdb_ids_string)
 
@@ -385,48 +357,13 @@ def run_protein_analysis_in_background(pdb_ids_string):
         # Log completion
         st.session_state.protein_analysis_status = "completed"
         st.session_state.protein_analysis_message = f"Protein analysis completed for {len(results)} PDB IDs"
-
-        # Create debug files to understand what's happening
-        os.makedirs(DEBUG_DIR, exist_ok=True)
-        timestamp = time.strftime('%Y%m%d_%H%M%S')
-
-        # Save protein_analysis_results to a file
-        with open(f"{DEBUG_DIR}/protein_analysis_results_{timestamp}.txt", "w") as f:
-            f.write("Protein Analysis Results:\n")
-            f.write("=======================\n\n")
-            for pdb_id, result in protein_analysis_results.items():
-                f.write(f"PDB ID: {pdb_id}\n")
-                if isinstance(result, dict):
-                    if result.get("protein_of_interest"):
-                        f.write(f"  Protein of Interest: {result['protein_of_interest']}\n")
-                    if result.get("e3_ubiquitin_ligase"):
-                        f.write(f"  E3 Ubiquitin Ligase: {result['e3_ubiquitin_ligase']}\n")
-                else:
-                    f.write(f"  Result: {result}\n")
-                f.write("\n")
-
-        # Create a debug file for ternary processing
-        ternary_debug_file = f"{DEBUG_DIR}/ternary_processing_{timestamp}.txt"
-        with open(ternary_debug_file, "w") as debug_f:
-            debug_f.write("Ternary Processing Debug (After Analysis Complete):\n")
-            debug_f.write("=======================\n\n")
-            debug_f.write(f"Protein analysis completed with {len(results)} results\n\n")
-
-            for pdb_id, result in results.items():
-                debug_f.write(f"PDB ID: {pdb_id}\n")
-                if isinstance(result, dict):
-                    if result.get("protein_of_interest"):
-                        debug_f.write(f"  Protein of Interest: {result['protein_of_interest']}\n")
-                    if result.get("e3_ubiquitin_ligase"):
-                        debug_f.write(f"  E3 Ubiquitin Ligase: {result['e3_ubiquitin_ligase']}\n")
-                else:
-                    f.write(f"  Result: {result}\n")
-                debug_f.write("\n")
+        logging.info(f"Protein analysis completed successfully for {list(results.keys())}")
 
     except Exception as e:
         # Log error
         st.session_state.protein_analysis_status = "error"
         st.session_state.protein_analysis_message = f"Error in protein analysis: {str(e)}"
+        logging.error(f"Error during protein analysis: {str(e)}")
 
 def create_ternary_zip(pdb_ids, results):
     """
@@ -439,115 +376,89 @@ def create_ternary_zip(pdb_ids, results):
     Returns:
         io.BytesIO: ZIP file buffer
     """
+    logging.info("Creating ternary ZIP file...")
     # Create a new ZIP file for ternary complexes
     ternary_zip_buffer = io.BytesIO()
 
-    # Create debug files to understand what's happening
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-
     with zipfile.ZipFile(ternary_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as ternary_zip:
-        # Create a debug file for ternary processing
-        ternary_debug_file = f"{DEBUG_DIR}/ternary_processing_{timestamp}.txt"
-        with open(ternary_debug_file, "w") as debug_f:
-            debug_f.write("Ternary Processing Debug:\n")
-            debug_f.write("=======================\n\n")
+        for pdb_id, data in results.items():
+            logging.info(f"Processing PDB ID for ternary ZIP: {pdb_id}")
+            if "error" in data:
+                logging.warning(f"Skipping PDB ID {pdb_id} due to previous error: {data['error']}")
+                continue
 
-            for pdb_id, data in results.items():
-                debug_f.write(f"Processing PDB ID: {pdb_id}\n")
+            if pdb_id not in protein_analysis_results:
+                logging.warning(f"Skipping PDB ID {pdb_id} as it's not in protein_analysis_results.")
+                continue
 
-                if "error" in data:
-                    debug_f.write(f"  Error in data: {data['error']}\n")
-                    debug_f.write("\n")
+            try:
+                # Get the analysis result for this PDB ID
+                analysis_result = protein_analysis_results[pdb_id]
+                logging.debug(f"Analysis result for {pdb_id}: {analysis_result}")
+
+                # Skip if no proteins were identified
+                if not isinstance(analysis_result, dict) or (
+                    not analysis_result.get("protein_of_interest") and
+                    not analysis_result.get("e3_ubiquitin_ligase")):
+                    logging.info(f"Skipping PDB ID {pdb_id} - no proteins identified in analysis.")
                     continue
 
-                debug_f.write(f"  PDB ID in protein_analysis_results: {pdb_id in protein_analysis_results}\n")
+                # Get FASTA sequences and ligand data
+                fasta_sequences = retrieve_fasta_sequence(pdb_id)
+                ligand_data = extract_ligand_ccd_from_pdb(pdb_id)
 
-                if pdb_id not in protein_analysis_results:
-                    debug_f.write("  Skipping - not in protein_analysis_results\n\n")
-                    continue
+                # Prepare ligand chain info
+                ligand_chain_info, ligand_smiles_data = {}, {}
+                for ligand_id, ligand_info in ligand_data.items():
+                    comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
+                    try:
+                        ligand_data_result = fetch_ligand_data(pdb_id, comp_id)
+                        if "chain_info" in ligand_data_result and ligand_data_result["chain_info"]:
+                            ligand_chain_info[comp_id] = ligand_data_result["chain_info"]
 
-                try:
-                    # Get the analysis result for this PDB ID
-                    analysis_result = protein_analysis_results[pdb_id]
-                    debug_f.write(f"  Analysis result type: {type(analysis_result)}\n")
-                    debug_f.write(f"  Analysis result: {analysis_result}\n")
+                        if "chemical_data" in ligand_data_result and "data" in ligand_data_result["chemical_data"]:
+                            chem_data = ligand_data_result["chemical_data"]["data"]["chem_comp"]
+                            if "rcsb_chem_comp_descriptor" in chem_data and chem_data["rcsb_chem_comp_descriptor"]:
+                                descriptors = chem_data["rcsb_chem_comp_descriptor"]
+                                if "SMILES_stereo" in descriptors and descriptors["SMILES_stereo"]:
+                                    smiles = descriptors["SMILES_stereo"]
+                                    ligand_smiles_data[comp_id] = smiles
+                    except Exception as e:
+                        logging.warning(f"Error fetching ligand data for {comp_id} in PDB {pdb_id}: {str(e)}")
 
-                    # Skip if no proteins were identified
-                    if not isinstance(analysis_result, dict) or (
-                        not analysis_result.get("protein_of_interest") and
-                        not analysis_result.get("e3_ubiquitin_ligase")):
-                        debug_f.write("  Skipping - no proteins identified\n\n")
-                        continue
+                ligand_chain_info["smiles_data"] = ligand_smiles_data
 
-                    # Get FASTA sequences and ligand data
-                    fasta_sequences = retrieve_fasta_sequence(pdb_id)
-                    debug_f.write(f"  FASTA sequences count: {len(fasta_sequences)}\n")
-                    for header in fasta_sequences.keys():
-                        debug_f.write(f"    FASTA header: {header}\n")
+                # Create the ternary AlphaFold input JSONs
+                ternary_ccd_input = create_ternary_alphafold_input(
+                    pdb_id, fasta_sequences, ligand_data, ligand_chain_info,
+                    format_type="ccd", analysis_result=analysis_result
+                )
+                ternary_smiles_input = create_ternary_alphafold_input(
+                    pdb_id, fasta_sequences, ligand_data, ligand_chain_info,
+                    format_type="smiles", analysis_result=analysis_result
+                )
 
-                    ligand_data = extract_ligand_ccd_from_pdb(pdb_id)
-                    debug_f.write(f"  Ligand data count: {len(ligand_data)}\n")
+                # Only add to ZIP if there are sequences
+                if ternary_ccd_input["sequences"]:
+                    logging.info(f"Adding ternary input files to ZIP for PDB ID {pdb_id}")
+                    # Add the JSON files to the ternary ZIP
+                    ccd_json = json.dumps(ternary_ccd_input, indent=2)
+                    ternary_zip.writestr(f"{pdb_id}/{pdb_id}_ternary_ccd.json", ccd_json)
 
-                    # Prepare ligand chain info
-                    ligand_chain_info, ligand_smiles_data = {}, {}
-                    for ligand_id, ligand_info in ligand_data.items():
-                        comp_id = ligand_info.get("pdbx_entity_nonpoly", {}).get("comp_id", "Unknown")
-                        try:
-                            ligand_data_result = fetch_ligand_data(pdb_id, comp_id)
-                            if "chain_info" in ligand_data_result and ligand_data_result["chain_info"]:
-                                ligand_chain_info[comp_id] = ligand_data_result["chain_info"]
+                    smiles_json = json.dumps(ternary_smiles_input, indent=2)
+                    ternary_zip.writestr(f"{pdb_id}/{pdb_id}_ternary_smiles.json", smiles_json)
+                else:
+                    logging.info(f"No sequences in ternary input for PDB ID {pdb_id}, skipping ZIP entry.")
 
-                            if "chemical_data" in ligand_data_result and "data" in ligand_data_result["chemical_data"]:
-                                chem_data = ligand_data_result["chemical_data"]["data"]["chem_comp"]
-                                if "rcsb_chem_comp_descriptor" in chem_data and chem_data["rcsb_chem_comp_descriptor"]:
-                                    descriptors = chem_data["rcsb_chem_comp_descriptor"]
-                                    if "SMILES_stereo" in descriptors and descriptors["SMILES_stereo"]:
-                                        smiles = descriptors["SMILES_stereo"]
-                                        ligand_smiles_data[comp_id] = smiles
-                        except Exception as e:
-                            debug_f.write(f"    Error fetching ligand data for {comp_id}: {str(e)}\n")
-
-                    ligand_chain_info["smiles_data"] = ligand_smiles_data
-                    debug_f.write(f"  Ligand chain info: {ligand_chain_info}\n")
-
-                    # Create the ternary AlphaFold input JSONs
-                    ternary_ccd_input = create_ternary_alphafold_input(
-                        pdb_id, fasta_sequences, ligand_data, ligand_chain_info,
-                        format_type="ccd", analysis_result=analysis_result
-                    )
-
-                    # Debug the filtered sequences
-                    debug_f.write(f"  Ternary CCD input sequences count: {len(ternary_ccd_input['sequences'])}\n")
-                    for i, seq in enumerate(ternary_ccd_input['sequences']):
-                        debug_f.write(f"    Sequence {i+1} type: {list(seq.keys())[0]}\n")
-
-                    ternary_smiles_input = create_ternary_alphafold_input(
-                        pdb_id, fasta_sequences, ligand_data, ligand_chain_info,
-                        format_type="smiles", analysis_result=analysis_result
-                    )
-
-                    # Only add to ZIP if there are sequences
-                    if ternary_ccd_input["sequences"]:
-                        debug_f.write(f"  Adding to ZIP - has {len(ternary_ccd_input['sequences'])} sequences\n")
-                        # Add the JSON files to the ternary ZIP
-                        ccd_json = json.dumps(ternary_ccd_input, indent=2)
-                        ternary_zip.writestr(f"{pdb_id}/{pdb_id}_ternary_ccd.json", ccd_json)
-
-                        smiles_json = json.dumps(ternary_smiles_input, indent=2)
-                        ternary_zip.writestr(f"{pdb_id}/{pdb_id}_ternary_smiles.json", smiles_json)
-                    else:
-                        debug_f.write("  Not adding to ZIP - no sequences\n")
-
-                    debug_f.write("\n")
-                except Exception as e:
-                    debug_f.write(f"  Error processing ternary files: {str(e)}\n\n")
+            except Exception as e:
+                logging.error(f"Error processing ternary files for PDB ID {pdb_id}: {str(e)}")
 
     # Reset buffer position
     ternary_zip_buffer.seek(0)
 
-    # Return the debug file path and the ZIP buffer
-    return ternary_debug_file, ternary_zip_buffer
+    logging.info("Ternary ZIP file creation completed.")
+    # Return None for debug file path as we are using logging now, and the ZIP buffer
+    return None, ternary_zip_buffer
 
 def main():
     # Set page title and header
@@ -601,6 +512,7 @@ def main():
 
                     # Display the results
                     st.success(f"Successfully fetched data for {len(results)} PDB entries")
+                    logging.info(f"Successfully fetched data for PDB IDs: {list(results.keys())}")
 
                     # Create tabs for each PDB ID
                     tabs = st.tabs(list(results.keys()))
@@ -609,6 +521,7 @@ def main():
                         with tabs[i]:
                             if "error" in data:
                                 st.error(data["error"])
+                                logging.error(f"Error fetching data for PDB ID {pdb_id}: {data['error']}")
                             else:
                                 try:
                                     entry_data = data["data"]["entry"]
@@ -618,6 +531,7 @@ def main():
                                         fasta_sequences = retrieve_fasta_sequence(pdb_id)
                                     except Exception as e:
                                         st.warning(f"Could not retrieve sequence data: {str(e)}")
+                                        logging.warning(f"Could not retrieve sequence data for PDB ID {pdb_id}: {str(e)}")
                                         fasta_sequences = {}
 
                                     # Fetch ligand information for this PDB ID
@@ -626,6 +540,7 @@ def main():
                                         comp_ids = extract_comp_ids(ligand_data)
                                     except Exception as e:
                                         st.warning(f"Could not retrieve ligand data: {str(e)}")
+                                        logging.warning(f"Could not retrieve ligand data for PDB ID {pdb_id}: {str(e)}")
                                         ligand_data = {}
                                         comp_ids = []
 
@@ -766,6 +681,7 @@ def main():
                                                                 ligand_smiles_data[comp_id] = smiles
                                                 except Exception as e:
                                                     st.warning(f"Could not retrieve ligand data: {str(e)}")
+                                                    logging.warning(f"Could not retrieve ligand data for ligand {comp_id} in PDB {pdb_id}: {str(e)}")
 
                                     # Create the AlphaFold input JSON
                                     ligand_chain_info["smiles_data"] = ligand_smiles_data
@@ -782,6 +698,7 @@ def main():
                                 except Exception as e:
                                     st.error(f"Error processing data for {pdb_id}: {str(e)}")
                                     st.json(data)
+                                    logging.error(f"Error processing data for PDB ID {pdb_id}: {str(e)}, Data: {data}")
 
                 # Show information message at the bottom
                 info_container = st.empty()
@@ -793,7 +710,7 @@ def main():
                 # Create an initial empty ternary ZIP file (before analysis, will be updated later)
                 ternary_debug_file_initial, ternary_zip_buffer_initial = create_ternary_zip(pdb_ids, results)
                 st.session_state.ternary_zip_buffer = ternary_zip_buffer_initial
-                st.session_state.ternary_debug_file = ternary_debug_file_initial
+                st.session_state.ternary_debug_file = ternary_debug_file_initial # This will be None now
 
                 # **Run protein analysis synchronously here (no threading)**
                 run_protein_analysis_in_background(pdb_ids) # Run analysis in main thread
@@ -801,10 +718,11 @@ def main():
                 # After analysis is done, create the TERTIARY ZIP (now with analysis results)
                 ternary_debug_file, ternary_zip_buffer = create_ternary_zip(pdb_ids, results)
                 st.session_state.ternary_zip_buffer = ternary_zip_buffer
-                st.session_state.ternary_debug_file = ternary_debug_file
+                st.session_state.ternary_debug_file = ternary_debug_file # Still None
 
                 # Replace the info message with success message (after analysis and ternary zip)
                 info_container.success("Processing complete! Click the buttons below to download your files.")
+                logging.info("Processing complete for all PDB IDs.")
 
                 # Create a columns layout for the download buttons
                 download_cols = st.columns(2)
@@ -827,14 +745,6 @@ def main():
                         mime="application/zip"
                     )
 
-                # Add a button to download debug files
-                timestamp = time.strftime('%Y%m%d_%H%M%S')
-                st.download_button(
-                    label="Download Debug Files",
-                    data=open(st.session_state.ternary_debug_file, "rb"), # Use session state ternary_debug_file
-                    file_name=f"debug_files_{timestamp}.txt",
-                    mime="text/plain"
-                )
             st.session_state.protein_analysis_status = "completed" # Set status to completed after everything
 
     # Display protein analysis status message if available (now only for errors)
