@@ -479,7 +479,8 @@ def main():
     # Add logo in top-left corner
     col1, _ = st.columns([1, 5])
     with col1:
-        st.image("/home/2024/piza/PROTACFold/src/static/logo.png")
+        logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
+        st.image(logo_path)
 
     st.title("Input File Generator")
 
