@@ -44,6 +44,16 @@ def extract_chain_info(header):
 
             chain_info = ", ".join(processed_chains)
 
+        processed_parts = []
+        for part in chain_info.split(", "):
+            part = part.strip()
+            if part.startswith("Chain "):
+                processed_parts.append(part[6:])  # Remove "Chain " prefix
+            else:
+                processed_parts.append(part)
+        
+        chain_info = ", ".join(processed_parts)
+
     return chain_info
 
 def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_info=None, format_type="ccd"):
@@ -249,7 +259,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
 
     logging.debug(f"Filtered sequences: {list(filtered_sequences.keys())}")
 
-    # Process filtered protein sequences (same as before - no changes needed)
+    # Process filtered protein sequences
     logging.info("Processing filtered protein sequences...")
     for header, sequence in filtered_sequences.items():
         logging.debug(f"  Header: {header}")
@@ -258,7 +268,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
 
         if chain_info:
             chains = chain_info.split(", ")
-            chain_id = chains[-1]
+            chain_id = chains[0]
         else:
             chain_id = "A"
         logging.debug(f"  Chain ID: {chain_id}")
@@ -291,7 +301,7 @@ def create_ternary_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_
             ligand_chain = "X"
             if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
                 chains = ligand_chain_info[comp_id].split(", ")
-                ligand_chain = chains[-1]
+                ligand_chain = chains[0]
             logging.debug(f"  Ligand chain: {ligand_chain}")
 
             smiles = smiles_data.get(comp_id)

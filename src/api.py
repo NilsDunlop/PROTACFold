@@ -233,7 +233,7 @@ def fetch_ligand_data(pdb_id, comp_id):
         nonpolymer_entities {
           rcsb_nonpolymer_entity_container_identifiers {
             entity_id
-            auth_asym_ids
+            asym_ids
             nonpolymer_comp_id
           }
         }
@@ -270,7 +270,7 @@ def fetch_ligand_data(pdb_id, comp_id):
             for entity in chain_data["data"]["entry"]["nonpolymer_entities"]:
                 identifiers = entity.get("rcsb_nonpolymer_entity_container_identifiers", {})
                 if identifiers.get("nonpolymer_comp_id") == comp_id:
-                    auth_chains = identifiers.get("auth_asym_ids", [])
+                    auth_chains = identifiers.get("asym_ids", [])
                     chain_info = ", ".join(auth_chains)
                     break
         
