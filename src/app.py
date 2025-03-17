@@ -95,7 +95,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
         # If there are multiple chains, use the last one
         if chain_info:
             chains = chain_info.split(", ")
-            chain_id = chains[-1]
+            chain_id = chains[0]
         else:
             chain_id = "A"
         logging.debug(f"  Chain ID: {chain_id}")
@@ -135,7 +135,7 @@ def create_alphafold_input(pdb_id, fasta_sequences, ligand_data, ligand_chain_in
             ligand_chain = "X"
             if ligand_chain_info and comp_id in ligand_chain_info and ligand_chain_info[comp_id]:
                 chains = ligand_chain_info[comp_id].split(", ")
-                ligand_chain = chains[-1]
+                ligand_chain = chains[0]
             logging.debug(f"  Ligand chain: {ligand_chain}")
 
             # Get SMILES string if available

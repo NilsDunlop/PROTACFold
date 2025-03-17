@@ -34,7 +34,7 @@ In targeted protein degradation:
 # IDENTIFICATION GUIDELINES
 1. Protein of Interest:
    - Disease-relevant proteins or traditionally undruggable targets
-   - Common examples: BRD4/7/9, BRAF, BTK, FAK,  SMARCA2/4, FKBP51, WDR5, KRAS, BCL-family, PBRM1, IKZF1, ZNF692, β-catenin, transcription factors, kinases
+   - Common examples: BRD4/7/9, BRAF, BTK, FAK,  SMARCA2/4, FKBP51, WDR5, KRAS, BCL-family, RBM39, PBRM1, IKZF1, ZNF692, CK1α, CDO1, ERF3A, β-catenin, transcription factors, kinases
    - Often the larger protein in the complex
 
 2. E3 Ligase Components:
