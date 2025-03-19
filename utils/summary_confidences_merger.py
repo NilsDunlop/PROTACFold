@@ -6,9 +6,7 @@ This script walks through a directory structure containing AlphaFold3 confidence
 and merges them into a single Excel spreadsheet for easier analysis.
 
 Usage:
-    1. Set the 'base_dir' variable to the root directory containing your AlphaFold3 results
-    2. Set the 'output_path' variable to your desired output Excel file location
-    3. Run the script: python summary_confidences_merger.py
+    python summary_confidences_merger.py --base_dir /path/to/results --output /path/to/output.xlsx
 
 Expected directory structure:
     base_dir/
@@ -36,6 +34,7 @@ Output:
 
 import os
 import json
+import argparse
 from typing import Dict, List, Any
 import pandas as pd
 
@@ -111,15 +110,33 @@ def create_excel_report(rows: List[Dict[str, Any]], output_path: str) -> None:
 
 def main() -> None:
     """Main function to execute the script."""
-    # Set the base directory containing AlphaFold3 results
-    base_dir = "" 
+    # Set up argument parser
+    parser = argparse.ArgumentParser(
+        description="Merge AlphaFold3 confidence files into a single Excel spreadsheet."
+    )
+    parser.add_argument(
+        "--base_dir", 
+        type=str, 
+        required=True,
+        help="Base directory containing AlphaFold3 results"
+    )
+    parser.add_argument(
+        "--output", 
+        type=str, 
+        required=False,
+        help="Output path for the Excel file (default: <base_dir>/summary_confidences.xlsx)"
+    )
     
-    # Set the output path for the Excel file
-    output_path = "/summary_confidences.xlsx"
+    # Parse arguments
+    args = parser.parse_args()
     
-    if not base_dir:
-        print("Error: Please set the 'base_dir' variable to the root directory containing your AlphaFold3 results.")
-        return
+    base_dir = args.base_dir
+    
+    # If output path is not specified, create a default path in the base directory
+    if args.output:
+        output_path = args.output
+    else:
+        output_path = os.path.join(base_dir, "summary_confidences.xlsx")
     
     if not os.path.isdir(base_dir):
         print(f"Error: The directory '{base_dir}' does not exist or is not accessible.")
