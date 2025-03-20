@@ -1,0 +1,30 @@
+{
+  "name": "8RQC_ternary_ccd",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "SAKKPNIINFDTSLPTSHTYLGADMEEFHGRTLHDDDSIQVIPVLPQVMMILVPGQTLPLQLFHPQEVSMVRNLIQNDRTFAVLAYSNVQEREAEFGTTAEIYAYREEQDFGIEIVKVKAIGRQRFKVLELRTQSDGIQQAKVQILPEGSGDAETLMDRIKKQLREWDENLKDDSLPSNPIDFSYWVAANLPIDDSLRIQLLKIDSAIQRLRCELDIMNKCTSLCCKQCQETEITTKNEIFSLSREGPMAAYVNPHGYVHEILTVYKACNLNLIGRPSTEHSWFPGYAWTVAQCKICASHIGWKFTATKKDMSPQKFWGLTRSALIPTI"
+      }
+    },
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "GPGERPFQCNQCGASFTQKGNLLRHIKLHSGEKPFK"
+      }
+    },
+    {
+      "ligand": {
+        "id": "F",
+        "ccdCodes": [
+          "QFC"
+        ]
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}
