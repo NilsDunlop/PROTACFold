@@ -370,14 +370,14 @@ def process_pdb_folder(folder_path, pdb_id, results):
         smile_strings = fetch_smile_strings(pdb_id)
         if smile_strings:
             ligand_id = list(smile_strings.keys())[0]
-            result_row["LIGAND_ID"] = ligand_id
+            result_row["LIGAND_CCD"] = ligand_id
             
             # Create ligand link URL
             result_row["LIGAND_LINK"] = f"https://www.rcsb.org/ligand/{ligand_id}"
             
             # Save SMILES
             smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
-            result_row["CANONICAL_SMILES"] = smiles_stereo
+            result_row["LIGAND_SMILES"] = smiles_stereo
         else:
             print(f"No suitable ligands found for {pdb_id}")
     except Exception as e:
@@ -394,13 +394,27 @@ def process_pdb_folder(folder_path, pdb_id, results):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate AlphaFold predictions against experimental structures.")
     parser.add_argument("folder", help="Path to the folder containing PDB ID folders")
-    parser.add_argument("--output", default="../data/af3_results/evaluation_results.csv", help="Output CSV file name")
+    parser.add_argument("--output", "-o", default="evaluation_results.csv", help="Output CSV file name or full path (default: saves to ../data/af3_results/)")
     args = parser.parse_args()
     
-    # Check if the folder exists
+    # Check if the input folder exists
     if not os.path.exists(args.folder):
         print(f"Error: Folder {args.folder} does not exist.")
         sys.exit(1)
+    
+    # Determine output path
+    if os.path.isabs(args.output) or '/' in args.output or '\\' in args.output:
+        output_path = args.output
+        output_dir = os.path.dirname(output_path)
+    else:
+        default_dir = "../data/af3_results/"
+        output_dir = default_dir
+        output_path = os.path.join(default_dir, args.output)
+    
+    # Make sure the output directory exists
+    if output_dir and not os.path.exists(output_dir):
+        print(f"Creating output directory: {output_dir}")
+        os.makedirs(output_dir, exist_ok=True)
     
     results = []
     
@@ -414,8 +428,8 @@ def main():
     # Create dataframe and save to CSV
     if results:
         df = pd.DataFrame(results)
-        df.to_csv(args.output, index=False)
-        print(f"Results saved to {args.output}")
+        df.to_csv(output_path, index=False)
+        print(f"Results saved to {output_path}")
     else:
         print("No results to save.")
 
