@@ -4,12 +4,156 @@ import json
 import argparse
 import subprocess
 import pandas as pd
+import numpy as np
 import re
 import pymol
 from pymol import cmd
+from rdkit import Chem
+from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
 
 # Initialize PyMol in headless mode quiet mode
 pymol.finish_launching(['pymol', '-qc'])
+
+def calculate_molecular_properties_from_smiles(smiles):
+    """
+    Calculate molecular properties for a compound from a SMILES string using RDKit.
+    
+    Args:
+        smiles: SMILES string of the compound
+    
+    Returns:
+        Dictionary containing calculated molecular properties
+    """
+    if not smiles:
+        return {}
+    
+    # Convert SMILES to RDKit molecule
+    mol = Chem.MolFromSmiles(smiles)
+    
+    if mol is None:
+        print(f"WARNING: Could not parse SMILES: {smiles}")
+        return {}
+    
+    # Calculate molecular properties
+    properties = {
+        'Molecular_Weight': Descriptors.MolWt(mol),
+        'Heavy_Atom_Count': mol.GetNumHeavyAtoms(),
+        'Ring_Count': rdMolDescriptors.CalcNumRings(mol),
+        'Rotatable_Bond_Count': Descriptors.NumRotatableBonds(mol),
+        'LogP': Descriptors.MolLogP(mol),
+        'HBA_Count': Lipinski.NumHAcceptors(mol),
+        'HBD_Count': Lipinski.NumHDonors(mol),
+        'TPSA': Descriptors.TPSA(mol)
+    }
+    
+    # Count aromatic and aliphatic rings
+    aromatic_ring_count = 0
+    aliphatic_ring_count = 0
+    
+    # Use the correct method to get rings
+    ri = mol.GetRingInfo()
+    for ring in ri.AtomRings():
+        # Check if all atoms in the ring are aromatic
+        is_aromatic = all(mol.GetAtomWithIdx(idx).GetIsAromatic() for idx in ring)
+        if is_aromatic:
+            aromatic_ring_count += 1
+        else:
+            aliphatic_ring_count += 1
+    
+    properties['Aromatic_Rings'] = aromatic_ring_count
+    properties['Aliphatic_Rings'] = aliphatic_ring_count
+    
+    return properties
+
+def fetch_smile_strings(pdb_id):
+    """Fetch canonical SMILES strings for the primary drug-like ligand in a PDB structure."""
+    try:
+        ligand_ccd = extract_ligand_ccd_from_pdb(pdb_id)
+        comp_ids = extract_comp_ids(ligand_ccd)
+        
+        if not comp_ids:
+            return {}
+        
+        # Common non-drug components to filter out
+        common_components = {
+            'HOH', 'WAT', 'H2O',  # Water
+            'GOL', 'EDO', 'PEG',  # Glycerol, ethylene glycol, polyethylene glycol
+            'SO4', 'PO4', 'CIT',  # Common ions/buffers
+            'CL', 'NA', 'MG', 'CA', 'ZN', 'FE', 'FE2',  # Common ions
+            'EPE', 'MES', 'TRIS', 'HEPES',  # Common buffers
+            'ACT', 'IMD', 'BME', 'IPA', 'HED', 'MPD'  # Other common additives
+        }
+        
+        # Dictionary to store details about each component
+        component_details = {}
+        
+        # Fetch details for each component
+        for comp_id in comp_ids:
+            try:
+                ligand_data = fetch_ligand_data(pdb_id, comp_id)
+                
+                # Extract chemical data
+                chem_data = ligand_data.get("chemical_data", {})
+                data = chem_data.get("data", {})
+                chem_comp = data.get("chem_comp", {})
+                
+                if chem_comp:
+                    # Get basic info
+                    comp_info = chem_comp.get("chem_comp", {})
+                    name = comp_info.get("name", "")
+                    formula = comp_info.get("formula", "")
+                    comp_type = comp_info.get("type", "")
+                    formula_weight = comp_info.get("formula_weight", 0)
+                    
+                    # Get SMILES
+                    descriptors = chem_comp.get("rcsb_chem_comp_descriptor", {})
+                    smiles_stereo = descriptors.get("SMILES_stereo", "")
+                    
+                    # Store the data
+                    component_details[comp_id] = {
+                        'name': name,
+                        'formula': formula,
+                        'type': comp_type,
+                        'weight': formula_weight,
+                        'SMILES_stereo': smiles_stereo,
+                        'is_common': comp_id in common_components,
+                        'smiles_complexity': len(smiles_stereo) if smiles_stereo else 0
+                    }
+            except Exception:
+                pass
+        
+        # Filter out common components
+        drug_like_components = {k: v for k, v in component_details.items() 
+                               if not v['is_common'] and v['smiles_complexity'] > 5}
+        
+        if not drug_like_components:
+            sorted_components = sorted(component_details.items(), 
+                                     key=lambda x: x[1]['smiles_complexity'], 
+                                     reverse=True)
+            if sorted_components:
+                primary_comp_id = sorted_components[0][0]
+                return {primary_comp_id: {
+                    'SMILES_stereo': component_details[primary_comp_id]['SMILES_stereo']
+                }}
+            return {}
+        
+        # Sort by stereo SMILES complexity/molecular weight to find primary ligand
+        sorted_drug_components = sorted(drug_like_components.items(), 
+                                      key=lambda x: (x[1]['smiles_complexity'], x[1]['weight']), 
+                                      reverse=True)
+        
+        # Select primary component
+        primary_comp_id = sorted_drug_components[0][0]
+        
+        return {primary_comp_id: {
+            'SMILES_stereo': component_details[primary_comp_id]['SMILES_stereo']
+        }}
+        
+    except Exception as e:
+        print(f"Error in fetch_smile_strings for {pdb_id}: {e}")
+        return {}
 
 def extract_dockq_values(output):
     """Extract DockQ, iRMSD, and LRMSD values from DockQ output."""
@@ -87,19 +231,16 @@ def process_pdb_folder(folder_path, pdb_id, results):
         print(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
         return
     
+    # Initialize variables
+    result_row = {"PDB_ID": pdb_id}
+    smiles_stereo = None
+    ligand_id = None
+    
     # Process SMILES model
     smiles_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles")
     smiles_model_path = os.path.join(smiles_folder, f"{pdb_id.lower()}_ternary_smiles_model.cif")
     smiles_json_path = os.path.join(smiles_folder, f"{pdb_id.lower()}_ternary_smiles_summary_confidences.json")
     
-    # Process CCD model
-    ccd_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_ccd")
-    ccd_model_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_model.cif")
-    ccd_json_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_summary_confidences.json")
-    
-    result_row = {"PDB_ID": pdb_id}
-    
-    # SMILES processing
     if os.path.exists(smiles_model_path):
         try:
             # Compute RMSD
@@ -128,7 +269,11 @@ def process_pdb_folder(folder_path, pdb_id, results):
             except Exception as e:
                 print(f"Error extracting SMILES confidence values for {pdb_id}: {e}")
     
-    # CCD processing
+    # Process CCD model
+    ccd_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_ccd")
+    ccd_model_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_model.cif")
+    ccd_json_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_summary_confidences.json")
+    
     if os.path.exists(ccd_model_path):
         try:
             # Compute RMSD
@@ -156,6 +301,30 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["CCD RANKING_SCORE"] = ranking_score
             except Exception as e:
                 print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
+    
+    # Find and store primary ligand details
+    try:
+        smile_strings = fetch_smile_strings(pdb_id)
+        if smile_strings:
+            ligand_id = list(smile_strings.keys())[0]
+            result_row["LIGAND_ID"] = ligand_id
+            
+            # Create ligand link URL
+            result_row["LIGAND_LINK"] = f"https://www.rcsb.org/ligand/{ligand_id}"
+            
+            # Save SMILES
+            smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
+            result_row["CANONICAL_SMILES"] = smiles_stereo
+        else:
+            print(f"No suitable ligands found for {pdb_id}")
+    except Exception as e:
+        print(f"Error fetching SMILE strings for {pdb_id}: {e}")
+    
+    # Calculate and add molecular properties
+    if smiles_stereo:
+        mol_properties = calculate_molecular_properties_from_smiles(smiles_stereo)
+        for prop, value in mol_properties.items():
+            result_row[prop] = value
     
     results.append(result_row)
 
