@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import re
 import pymol
+import requests
+from datetime import datetime
 from pymol import cmd
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors
@@ -15,6 +17,60 @@ from src.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_
 
 # Initialize PyMol in headless mode quiet mode
 pymol.finish_launching(['pymol', '-qc'])
+
+def get_pdb_release_date(pdb_id):
+    """
+    Get the initial release date for a PDB entry.
+    
+    Args:
+        pdb_id: The PDB ID (e.g., "6HAY")
+        
+    Returns:
+        string: The release date in YYYY-MM-DD format or error message
+    """
+    if not pdb_id:
+        return "No ID provided"
+    
+    url = f"https://data.rcsb.org/rest/v1/core/entry/{pdb_id}"
+    
+    try:
+        response = requests.get(url)
+        
+        if response.status_code != 200:
+            print(f"Error fetching release date for {pdb_id}: {response.status_code}")
+            return None
+        
+        data = response.json()
+        
+        # Navigate to the revision history
+        revisions = data.get('pdbx_audit_revision_history')
+        if not isinstance(revisions, list) or not revisions:
+            print(f"No revision history found for {pdb_id}")
+            return None
+        
+        # Find the initial release
+        initial_release = next((r for r in revisions if r.get('ordinal') == 1), None)
+        if not initial_release:
+            initial_release = next((r for r in revisions if r.get('ordinal') == '1'), None)
+            
+        if not initial_release:
+            print(f"Initial release not found for {pdb_id}")
+            return None
+        
+        # Return formatted date
+        release_date = initial_release.get('revision_date', '').split('T')[0]
+        
+        # Validate date format
+        try:
+            datetime.strptime(release_date, '%Y-%m-%d')
+            return release_date
+        except ValueError:
+            print(f"Invalid date format: {release_date}")
+            return None
+        
+    except Exception as e:
+        print(f"Error fetching release date for {pdb_id}: {e}")
+        return None
 
 def calculate_molecular_properties_from_smiles(smiles):
     """
@@ -231,8 +287,15 @@ def process_pdb_folder(folder_path, pdb_id, results):
         print(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
         return
     
-    # Initialize variables
+    # Start with PDB ID
     result_row = {"PDB_ID": pdb_id}
+    
+    # Get and add release date
+    release_date = get_pdb_release_date(pdb_id)
+    if release_date:
+        result_row["RELEASE_DATE"] = release_date
+    
+    # Initialize variables to store SMILES and ligand ID
     smiles_stereo = None
     ligand_id = None
     
