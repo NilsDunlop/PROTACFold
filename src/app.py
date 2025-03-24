@@ -387,7 +387,6 @@ def create_ternary_zip(pdb_ids, results):
         io.BytesIO: ZIP file buffer
     """
     logging.info("Creating ternary ZIP file...")
-    # Create a new ZIP file for ternary complexes
     ternary_zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(ternary_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as ternary_zip:
@@ -457,6 +456,71 @@ def create_ternary_zip(pdb_ids, results):
 
                     smiles_json = json.dumps(ternary_smiles_input, indent=2)
                     ternary_zip.writestr(f"{pdb_id}/{pdb_id}_ternary_smiles.json", smiles_json)
+                    
+                    # Get the filtered sequences for this PDB ID
+                    logging.info("Filtering FASTA sequences...")
+                    filtered_sequences = {}
+                    identified_proteins = []
+                    if analysis_result.get("protein_of_interest"):
+                        identified_proteins.append(analysis_result["protein_of_interest"])
+                    if analysis_result.get("e3_ubiquitin_ligase"):
+                        identified_proteins.append(analysis_result["e3_ubiquitin_ligase"])
+                    
+                    for header, sequence in fasta_sequences.items():
+                        for identified_protein in identified_proteins:
+                            header_pdb_id_prefix = header.split('_')[0] if '_' in header else ""
+                            identified_pdb_id_prefix = identified_protein.split('_')[0] if '_' in identified_protein else ""
+
+                            header_parts = header.split('|')
+                            header_protein_name = header_parts[1] if len(header_parts) > 1 else ""
+
+                            identified_parts = identified_protein.split('|')
+                            identified_protein_name = identified_parts[2] if len(identified_parts) > 2 else ""
+
+                            protein_name_match = False
+                            if header_protein_name.strip() and identified_protein_name.strip():
+                                if header_protein_name.strip().lower() == identified_protein_name.strip().lower():
+                                    protein_name_match = True
+
+                            if (header_pdb_id_prefix == identified_pdb_id_prefix and protein_name_match):
+                                # Create a simplified header for better readability
+                                simplified_header = identified_protein
+                                if len(identified_parts) >= 3:
+                                    simplified_header = f"{identified_parts[0]}|{identified_parts[2]}|{identified_parts[1]}"
+                                filtered_sequences[simplified_header] = sequence
+                                break
+                    
+                    # Create analysis_results.txt content
+                    analysis_txt_content = ""
+                    
+                    # Add Protein of Interest
+                    if analysis_result.get("protein_of_interest"):
+                        poi_key = None
+                        for key in filtered_sequences:
+                            if analysis_result["protein_of_interest"].split("|")[2].lower() in key.lower():
+                                poi_key = key
+                                break
+                        
+                        if poi_key:
+                            analysis_txt_content += f"Protein of Interest: {poi_key}\n"
+                            analysis_txt_content += f"{filtered_sequences[poi_key]}\n\n"
+                    
+                    # Add E3 Ubiquitin Ligase
+                    if analysis_result.get("e3_ubiquitin_ligase"):
+                        e3_key = None
+                        for key in filtered_sequences:
+                            if analysis_result["e3_ubiquitin_ligase"].split("|")[2].lower() in key.lower():
+                                e3_key = key
+                                break
+                        
+                        if e3_key:
+                            analysis_txt_content += f"E3 Ubiquitin Ligase: {e3_key}\n"
+                            analysis_txt_content += f"{filtered_sequences[e3_key]}\n"
+                    
+                    # Add the analysis_results.txt to ZIP
+                    if analysis_txt_content:
+                        ternary_zip.writestr(f"{pdb_id}/analysis_results.txt", analysis_txt_content)
+                        logging.info(f"Added analysis_results.txt to ZIP for PDB ID {pdb_id}")
                 else:
                     logging.info(f"No sequences in ternary input for PDB ID {pdb_id}, skipping ZIP entry.")
 
@@ -467,7 +531,6 @@ def create_ternary_zip(pdb_ids, results):
     ternary_zip_buffer.seek(0)
 
     logging.info("Ternary ZIP file creation completed.")
-    # Return None for debug file path as we are using logging now, and the ZIP buffer
     return None, ternary_zip_buffer
 
 def main():
