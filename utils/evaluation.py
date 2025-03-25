@@ -179,8 +179,8 @@ def find_chain_by_sequence(sequence, model_name, min_similarity=0.8):
 def calculate_component_rmsd(model_path, ref_path, pdb_id, model_type, poi_sequence, e3_sequence):
     """Calculate RMSD for POI and E3 components with enhanced sequence matching."""
     results = {
-        "POI_RMSD": None,
-        "E3_RMSD": None
+        "POI_RMSD": "N/A",
+        "E3_RMSD": "N/A"
     }
     
     if not os.path.exists(model_path) or not os.path.exists(ref_path):
@@ -461,17 +461,26 @@ def process_pdb_folder(folder_path, pdb_id, results):
     release_date = get_pdb_release_date(pdb_id)
     if release_date:
         result_row["RELEASE_DATE"] = release_date
+    else:
+        result_row["RELEASE_DATE"] = "N/A"
     
     # Extract POI and E3 information if available
     poi_name, poi_sequence, e3_name, e3_sequence = None, None, None, None
     if os.path.exists(analysis_file):
         poi_name, poi_sequence, e3_name, e3_sequence = extract_component_info(analysis_file)
     
-    # Set values
-    result_row["POI_NAME"] = poi_name
-    result_row["POI_SEQUENCE"] = poi_sequence
-    result_row["E3_NAME"] = e3_name
-    result_row["E3_SEQUENCE"] = e3_sequence
+    # Set default values
+    result_row["POI_NAME"] = poi_name if poi_name else "N/A"
+    result_row["POI_SEQUENCE"] = poi_sequence if poi_sequence else "N/A"
+    result_row["E3_NAME"] = e3_name if e3_name else "N/A"
+    result_row["E3_SEQUENCE"] = e3_sequence if e3_sequence else "N/A"
+    
+    # Initialize default values for metrics
+    for metric in ["SMILES RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
+                  "SMILES DOCKQ SCORE", "SMILES DOCKQ iRMSD", "SMILES DOCKQ LRMSD",
+                  "CCD RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
+                  "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD"]:
+        result_row[metric] = "N/A"
     
     # Process SMILES model
     smiles_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles")
@@ -497,9 +506,9 @@ def process_pdb_folder(folder_path, pdb_id, results):
             smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
             if smiles_dockq_output:
                 dockq_score, irmsd, lrmsd = extract_dockq_values(smiles_dockq_output)
-                result_row["SMILES DOCKQ SCORE"] = dockq_score
-                result_row["SMILES DOCKQ iRMSD"] = irmsd
-                result_row["SMILES DOCKQ LRMSD"] = lrmsd
+                result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
+                result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
         except Exception as e:
             print(f"Error processing SMILES model for {pdb_id}: {e}")
         
@@ -507,11 +516,11 @@ def process_pdb_folder(folder_path, pdb_id, results):
         if os.path.exists(smiles_json_path):
             try:
                 fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(smiles_json_path)
-                result_row["SMILES FRACTION DISORDERED"] = fraction_disordered
-                result_row["SMILES HAS_CLASH"] = has_clash
-                result_row["SMILES IPTM"] = iptm
-                result_row["SMILES PTM"] = ptm
-                result_row["SMILES RANKING_SCORE"] = ranking_score
+                result_row["SMILES FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                result_row["SMILES HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                result_row["SMILES IPTM"] = iptm if iptm is not None else "N/A"
+                result_row["SMILES PTM"] = ptm if ptm is not None else "N/A"
+                result_row["SMILES RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
             except Exception as e:
                 print(f"Error extracting SMILES confidence values for {pdb_id}: {e}")
     
@@ -539,9 +548,9 @@ def process_pdb_folder(folder_path, pdb_id, results):
             ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
             if ccd_dockq_output:
                 dockq_score, irmsd, lrmsd = extract_dockq_values(ccd_dockq_output)
-                result_row["CCD DOCKQ SCORE"] = dockq_score
-                result_row["CCD DOCKQ iRMSD"] = irmsd
-                result_row["CCD DOCKQ LRMSD"] = lrmsd
+                result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
+                result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
         except Exception as e:
             print(f"Error processing CCD model for {pdb_id}: {e}")
         
@@ -549,11 +558,11 @@ def process_pdb_folder(folder_path, pdb_id, results):
         if os.path.exists(ccd_json_path):
             try:
                 fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(ccd_json_path)
-                result_row["CCD FRACTION DISORDERED"] = fraction_disordered
-                result_row["CCD HAS_CLASH"] = has_clash
-                result_row["CCD IPTM"] = iptm
-                result_row["CCD PTM"] = ptm
-                result_row["CCD RANKING_SCORE"] = ranking_score
+                result_row["CCD FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                result_row["CCD HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                result_row["CCD IPTM"] = iptm if iptm is not None else "N/A"
+                result_row["CCD PTM"] = ptm if ptm is not None else "N/A"
+                result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
             except Exception as e:
                 print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
     
@@ -569,14 +578,20 @@ def process_pdb_folder(folder_path, pdb_id, results):
             
             # Save SMILES
             smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
-            result_row["LIGAND_SMILES"] = smiles_stereo
+            result_row["LIGAND_SMILES"] = smiles_stereo if smiles_stereo else "N/A"
         else:
             print(f"No suitable ligands found for {pdb_id}")
+            result_row["LIGAND_CCD"] = "N/A"
+            result_row["LIGAND_LINK"] = "N/A"
+            result_row["LIGAND_SMILES"] = "N/A"
     except Exception as e:
         print(f"Error fetching SMILE strings for {pdb_id}: {e}")
+        result_row["LIGAND_CCD"] = "N/A"
+        result_row["LIGAND_LINK"] = "N/A"
+        result_row["LIGAND_SMILES"] = "N/A"
     
     # Calculate and add molecular properties
-    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"]:
+    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"] != "N/A":
         mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
         for prop, value in mol_properties.items():
             result_row[prop] = value
