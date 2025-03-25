@@ -490,7 +490,7 @@ def create_ternary_zip(pdb_ids, results):
                                 filtered_sequences[simplified_header] = sequence
                                 break
                     
-                    # Create analysis_results.txt content
+                    # Create PDBID_analysis.txt content
                     analysis_txt_content = ""
                     
                     # Add Protein of Interest
@@ -517,9 +517,9 @@ def create_ternary_zip(pdb_ids, results):
                             analysis_txt_content += f"E3 Ubiquitin Ligase: {e3_key}\n"
                             analysis_txt_content += f"{filtered_sequences[e3_key]}\n"
                     
-                    # Add the analysis_results.txt to ZIP
+                    # Add the PDBID_analysis.txt to ZIP
                     if analysis_txt_content:
-                        ternary_zip.writestr(f"{pdb_id}/analysis_results.txt", analysis_txt_content)
+                        ternary_zip.writestr(f"{pdb_id}/{pdb_id}_analysis.txt", analysis_txt_content)
                         logging.info(f"Added analysis_results.txt to ZIP for PDB ID {pdb_id}")
                 else:
                     logging.info(f"No sequences in ternary input for PDB ID {pdb_id}, skipping ZIP entry.")
