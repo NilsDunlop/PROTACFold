@@ -38,7 +38,7 @@ In targeted protein degradation:
    - Often the larger protein in the complex
 
 2. E3 Ligase Components:
-   - Primary examples: VHL, CRBN, MDM2, DCAF15, cIAP1, KEAP1, DCAF16, RNF114, DCAF1, β-TrCP1 (F-box), KBTBD4
+   - Primary examples: VHL, CRBN, MDM2, DCAF15, cIAP1, KEAP1, DCAF16, RNF114, DCAF1, F-box//WD repeat-containing protein 1A, KBTBD4
    - May appear with associated complex proteins (e.g., DDB1 with CRBN)
    - Function in recruiting the ubiquitination machinery
 
@@ -83,7 +83,7 @@ In targeted protein degradation:
     
     return complete_prompt
 
-def query_ollama(prompt, model="deepseek-r1:14b"):
+def query_ollama(prompt, model="deepseek-r1:32b"):
     """
     Send a prompt to Ollama API and get the response
     
