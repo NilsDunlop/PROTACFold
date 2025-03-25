@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
 
 # Initialize PyMol in headless mode quiet mode
-pymol.finish_launching(['pymol', '-qc'])
+pymol.finish_launching(['pymol', '-cq'])
 
 def get_pdb_release_date(pdb_id):
     """
@@ -71,6 +71,172 @@ def get_pdb_release_date(pdb_id):
     except Exception as e:
         print(f"Error fetching release date for {pdb_id}: {e}")
         return None
+
+def extract_component_info(analysis_file):
+    """Extract POI and E3 information from analysis file."""
+    poi_name = None
+    poi_sequence = None
+    e3_name = None
+    e3_sequence = None
+    
+    try:
+        if not os.path.exists(analysis_file):
+            print(f"Analysis file not found: {analysis_file}")
+            return poi_name, poi_sequence, e3_name, e3_sequence
+            
+        with open(analysis_file, 'r') as f:
+            content = f.read()
+            
+        # Extract POI information
+        poi_match = re.search(r'Protein of Interest: (.+?)\n(.+?)(?=\n\n|$)', content, re.DOTALL)
+        if poi_match:
+            poi_name = poi_match.group(1).split('|')[1] if '|' in poi_match.group(1) else poi_match.group(1)
+            poi_sequence = ''.join(poi_match.group(2).strip().split())
+        
+        # Extract E3 information
+        e3_match = re.search(r'E3 Ubiquitin Ligase: (.+?)\n(.+?)(?=\n\n|$)', content, re.DOTALL)
+        if e3_match:
+            e3_name = e3_match.group(1).split('|')[1] if '|' in e3_match.group(1) else e3_match.group(1)
+            e3_sequence = ''.join(e3_match.group(2).strip().split())
+            
+    except Exception as e:
+        print(f"Error extracting component info: {e}")
+    
+    return poi_name, poi_sequence, e3_name, e3_sequence
+
+def sequence_similarity(seq1, seq2):
+    """Calculate sequence similarity between two sequences."""
+    if not seq1 or not seq2:
+        return 0.0
+    
+    # Find the longest common subsequence
+    shorter = seq1 if len(seq1) <= len(seq2) else seq2
+    longer = seq2 if len(seq1) <= len(seq2) else seq1
+    
+    best_similarity = 0.0
+    for i in range(len(longer) - len(shorter) + 1):
+        matches = sum(a == b for a, b in zip(shorter, longer[i:i+len(shorter)]))
+        similarity = matches / len(shorter)
+        best_similarity = max(best_similarity, similarity)
+    
+    return best_similarity
+
+def find_chain_by_sequence(sequence, model_name, min_similarity=0.8):
+    """Find a chain that best matches the given sequence."""
+    if not sequence:
+        return None
+        
+    # Get all chains in the model
+    try:
+        chains = cmd.get_chains(model_name)
+    except:
+        print(f"Error getting chains for {model_name}")
+        return None
+        
+    if not chains:
+        print(f"No chains found in {model_name}")
+        return None
+    
+    # Store chain sequences for analysis
+    best_match = {"chain": None, "similarity": 0.0, "sequence": None}
+    
+    for chain in chains:
+        try:
+            # Get the sequence of this chain
+            fasta = cmd.get_fastastr(f"{model_name} and chain {chain}")
+            if not fasta:
+                continue
+                
+            # Clean up the FASTA sequence
+            chain_seq = ''.join(fasta.split())
+            
+            # Check for exact match or containment
+            if sequence in chain_seq or chain_seq in sequence:
+                return chain
+            
+            # Calculate similarity
+            similarity = sequence_similarity(sequence, chain_seq)
+            
+            if similarity > best_match["similarity"]:
+                best_match = {
+                    "chain": chain, 
+                    "similarity": similarity,
+                    "sequence": chain_seq
+                }
+        except Exception as e:
+            print(f"Error checking chain {chain}: {e}")
+    
+    # If we have a good match, use it
+    if best_match["similarity"] >= min_similarity:
+        return best_match["chain"]
+    
+    # If no good match and we have chains, use the first one as fallback
+    if chains:
+        return chains[0]
+        
+    return None
+
+def calculate_component_rmsd(model_path, ref_path, pdb_id, model_type, poi_sequence, e3_sequence):
+    """Calculate RMSD for POI and E3 components with enhanced sequence matching."""
+    results = {
+        "POI_RMSD": None,
+        "E3_RMSD": None
+    }
+    
+    if not os.path.exists(model_path) or not os.path.exists(ref_path):
+        return results
+    
+    # Load structures
+    model_name = f"{pdb_id}_{model_type}_model"
+    ref_name = f"{pdb_id}_ref"
+    
+    try:
+        cmd.delete("all")
+        cmd.load(model_path, model_name)
+        cmd.load(ref_path, ref_name)
+        
+        # Process POI
+        if poi_sequence:
+            poi_chain_model = find_chain_by_sequence(poi_sequence, model_name)
+            poi_chain_ref = find_chain_by_sequence(poi_sequence, ref_name)
+            
+            if poi_chain_model and poi_chain_ref:
+                # Create selections
+                cmd.select("poi_model", f"{model_name} and chain {poi_chain_model}")
+                cmd.select("poi_ref", f"{ref_name} and chain {poi_chain_ref}")
+                
+                # Calculate RMSD
+                try:
+                    poi_rmsd = cmd.align("poi_model", "poi_ref")[0]
+                    results["POI_RMSD"] = poi_rmsd
+                except Exception as e:
+                    print(f"Error calculating POI RMSD for {pdb_id} ({model_type}): {e}")
+        
+        # Process E3
+        if e3_sequence:
+            e3_chain_model = find_chain_by_sequence(e3_sequence, model_name)
+            e3_chain_ref = find_chain_by_sequence(e3_sequence, ref_name)
+            
+            if e3_chain_model and e3_chain_ref:
+                # Create selections
+                cmd.select("e3_model", f"{model_name} and chain {e3_chain_model}")
+                cmd.select("e3_ref", f"{ref_name} and chain {e3_chain_ref}")
+                
+                # Calculate RMSD
+                try:
+                    e3_rmsd = cmd.align("e3_model", "e3_ref")[0]
+                    results["E3_RMSD"] = e3_rmsd
+                except Exception as e:
+                    print(f"Error calculating E3 RMSD for {pdb_id} ({model_type}): {e}")
+    
+    except Exception as e:
+        print(f"Error in component RMSD calculation for {pdb_id} ({model_type}): {e}")
+    
+    finally:
+        # Clean up
+        cmd.delete("all")
+    
+    return results
 
 def calculate_molecular_properties_from_smiles(smiles):
     """
@@ -281,6 +447,7 @@ def run_dockq(model_path, ref_path):
 def process_pdb_folder(folder_path, pdb_id, results):
     """Process a single PDB ID folder."""
     ref_path = os.path.join(folder_path, f"{pdb_id}.cif")
+    analysis_file = os.path.join(folder_path, f"{pdb_id}_analysis.txt")
     
     # Check if reference file exists
     if not os.path.exists(ref_path):
@@ -295,9 +462,16 @@ def process_pdb_folder(folder_path, pdb_id, results):
     if release_date:
         result_row["RELEASE_DATE"] = release_date
     
-    # Initialize variables to store SMILES and ligand ID
-    smiles_stereo = None
-    ligand_id = None
+    # Extract POI and E3 information if available
+    poi_name, poi_sequence, e3_name, e3_sequence = None, None, None, None
+    if os.path.exists(analysis_file):
+        poi_name, poi_sequence, e3_name, e3_sequence = extract_component_info(analysis_file)
+    
+    # Set values
+    result_row["POI_NAME"] = poi_name
+    result_row["POI_SEQUENCE"] = poi_sequence
+    result_row["E3_NAME"] = e3_name
+    result_row["E3_SEQUENCE"] = e3_sequence
     
     # Process SMILES model
     smiles_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles")
@@ -306,9 +480,18 @@ def process_pdb_folder(folder_path, pdb_id, results):
     
     if os.path.exists(smiles_model_path):
         try:
-            # Compute RMSD
+            # Compute overall RMSD
             smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, "ternary_smiles")
             result_row["SMILES RMSD"] = smiles_rmsd
+            
+            # Compute component-specific RMSD if sequences are available
+            if poi_sequence or e3_sequence:
+                component_rmsd = calculate_component_rmsd(
+                    smiles_model_path, ref_path, pdb_id, "ternary_smiles", 
+                    poi_sequence, e3_sequence
+                )
+                result_row["SMILES_POI_RMSD"] = component_rmsd["POI_RMSD"]
+                result_row["SMILES_E3_RMSD"] = component_rmsd["E3_RMSD"]
             
             # Run DockQ
             smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
@@ -339,9 +522,18 @@ def process_pdb_folder(folder_path, pdb_id, results):
     
     if os.path.exists(ccd_model_path):
         try:
-            # Compute RMSD
+            # Compute overall RMSD
             ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, "ternary_ccd")
             result_row["CCD RMSD"] = ccd_rmsd
+            
+            # Compute component-specific RMSD if sequences are available
+            if poi_sequence or e3_sequence:
+                component_rmsd = calculate_component_rmsd(
+                    ccd_model_path, ref_path, pdb_id, "ternary_ccd", 
+                    poi_sequence, e3_sequence
+                )
+                result_row["CCD_POI_RMSD"] = component_rmsd["POI_RMSD"]
+                result_row["CCD_E3_RMSD"] = component_rmsd["E3_RMSD"]
             
             # Run DockQ
             ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
@@ -384,8 +576,8 @@ def process_pdb_folder(folder_path, pdb_id, results):
         print(f"Error fetching SMILE strings for {pdb_id}: {e}")
     
     # Calculate and add molecular properties
-    if smiles_stereo:
-        mol_properties = calculate_molecular_properties_from_smiles(smiles_stereo)
+    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"]:
+        mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
         for prop, value in mol_properties.items():
             result_row[prop] = value
     
