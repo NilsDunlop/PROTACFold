@@ -13,7 +13,7 @@ from pymol import cmd
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski, rdMolDescriptors
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
+from src.website.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch_ligand_data
 
 # Initialize PyMol in headless mode quiet mode
 pymol.finish_launching(['pymol', '-cq'])
@@ -71,6 +71,122 @@ def get_pdb_release_date(pdb_id):
     except Exception as e:
         print(f"Error fetching release date for {pdb_id}: {e}")
         return None
+
+def capture_ligand_screenshot(pdb_id, model_path, ref_path, output_folder, ligand_id=None, model_type="model"):
+    """
+    Capture a screenshot of the ligand after aligning the model and reference structures.
+    
+    Args:
+        pdb_id: The PDB ID
+        model_path: Path to the model structure file
+        ref_path: Path to the reference structure file
+        output_folder: Directory where the screenshot will be saved
+        ligand_id: The ligand ID/CCD code
+        model_type: Type of model
+    
+    Returns:
+        Path to the saved screenshot or None if failed
+    """
+    if not os.path.exists(model_path) or not os.path.exists(ref_path):
+        print(f"Error: Model or reference structure not found for {pdb_id}")
+        return None
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_folder, exist_ok=True)
+    
+    screenshot_path = os.path.join(output_folder, f"{pdb_id}_{model_type}_ligand_analysis.png")
+    
+    try:
+        # Load structures
+        cmd.delete("all")
+        model_name = f"{pdb_id}_{model_type}_model"
+        ref_name = pdb_id
+        cmd.load(model_path, model_name)
+        cmd.load(ref_path, ref_name)
+        
+        # Set display options for solid white background
+        cmd.set("cartoon_transparency", 0.7)
+        cmd.set("ray_opaque_background", 1)
+        cmd.bg_color("white")
+        
+        # Remove solvent and buffer molecules
+        cmd.remove("solvent")
+        for solvent in ["GOL", "EDO", "PEG", "SO4", "PO4", "CIT", "ACT", "BME", "MES", "MPD"]:
+            cmd.remove(f"resn {solvent}")
+        
+        # Align structures
+        cmd.align(f"polymer and name CA and ({model_name})", 
+                f"polymer and name CA and ({ref_name})", 
+                quiet=1, reset=1)
+        
+        # Color the structures differently
+        cmd.color("marine", model_name)
+        cmd.color("firebrick", ref_name)
+        cmd.show("cartoon", "all")
+        
+        ligand_found = False
+        
+        # Try to select the ligand by ID
+        if ligand_id:
+            try:
+                cmd.select("ligand_ref", f"resn {ligand_id} and {ref_name}")
+                if cmd.count_atoms("ligand_ref") > 0:
+                    cmd.show("sticks", "ligand_ref")
+                    cmd.color("gold", "ligand_ref")
+                    
+                    # Try to find the same ligand in the model
+                    cmd.select("ligand_model", f"resn {ligand_id} and {model_name}")
+                    if cmd.count_atoms("ligand_model") > 0:
+                        cmd.show("sticks", "ligand_model")
+                        cmd.color("blue", "ligand_model")
+                    
+                    cmd.zoom("ligand_ref", 5)
+                    ligand_found = True
+            except Exception as e:
+                print(f"Warning: Could not select ligand by ID {ligand_id}: {e}")
+        
+        # Try to find the ligand by residue number
+        if not ligand_found:
+            try:
+                # Try to find ref ligand
+                cmd.select("ligand_by_resi_ref", f"/{ref_name}//H/Z & resi 502")
+                if cmd.count_atoms("ligand_by_resi_ref") > 0:
+                    cmd.show("sticks", "ligand_by_resi_ref")
+                    cmd.color("gold", "ligand_by_resi_ref")
+                    
+                    # Try to find same residue in model
+                    cmd.select("ligand_by_resi_model", f"/{model_name}//H/Z & resi 502")
+                    if cmd.count_atoms("ligand_by_resi_model") > 0:
+                        cmd.show("sticks", "ligand_by_resi_model")
+                        cmd.color("blue", "ligand_by_resi_model")
+                    
+                    cmd.zoom("ligand_by_resi_ref", animate=1, buffer=2)
+                    ligand_found = True
+            except Exception as e:
+                print(f"Warning: Could not select residue 502 in chain H: {e}")
+        
+        # If ligand is not found zoom to the whole structure
+        if not ligand_found:
+            cmd.zoom("all")
+            print(f"No ligand found in {pdb_id}, showing entire structure")
+        
+        # Final setup before rendering
+        cmd.set("depth_cue", 0)
+        cmd.unset("specular")
+        
+        # Render and save the image
+        cmd.ray(1200, 1200)
+        cmd.png(screenshot_path, dpi=300)
+        print(f"Screenshot saved to {screenshot_path}")
+        
+        return screenshot_path
+    
+    except Exception as e:
+        print(f"Error capturing ligand screenshot for {pdb_id}: {e}")
+        return None
+    
+    finally:
+        cmd.delete("all")
 
 def extract_component_info(analysis_file):
     """Extract POI and E3 information from analysis file."""
@@ -449,6 +565,10 @@ def process_pdb_folder(folder_path, pdb_id, results):
     ref_path = os.path.join(folder_path, f"{pdb_id}.cif")
     analysis_file = os.path.join(folder_path, f"{pdb_id}_analysis.txt")
     
+    # Create images folder for screenshots
+    images_folder = os.path.join(folder_path, "images")
+    os.makedirs(images_folder, exist_ok=True)
+    
     # Check if reference file exists
     if not os.path.exists(ref_path):
         print(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
@@ -482,6 +602,37 @@ def process_pdb_folder(folder_path, pdb_id, results):
                   "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD"]:
         result_row[metric] = "N/A"
     
+    # Find and store primary ligand details
+    ligand_id = None
+    try:
+        smile_strings = fetch_smile_strings(pdb_id)
+        if smile_strings:
+            ligand_id = list(smile_strings.keys())[0]
+            result_row["LIGAND_CCD"] = ligand_id
+            
+            # Create ligand link URL
+            result_row["LIGAND_LINK"] = f"https://www.rcsb.org/ligand/{ligand_id}"
+            
+            # Save SMILES
+            smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
+            result_row["LIGAND_SMILES"] = smiles_stereo if smiles_stereo else "N/A"
+        else:
+            print(f"No suitable ligands found for {pdb_id}")
+            result_row["LIGAND_CCD"] = "N/A"
+            result_row["LIGAND_LINK"] = "N/A"
+            result_row["LIGAND_SMILES"] = "N/A"
+    except Exception as e:
+        print(f"Error fetching SMILE strings for {pdb_id}: {e}")
+        result_row["LIGAND_CCD"] = "N/A"
+        result_row["LIGAND_LINK"] = "N/A"
+        result_row["LIGAND_SMILES"] = "N/A"
+    
+    # Calculate and add molecular properties
+    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"] != "N/A":
+        mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
+        for prop, value in mol_properties.items():
+            result_row[prop] = value
+    
     # Process SMILES model
     smiles_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles")
     smiles_model_path = os.path.join(smiles_folder, f"{pdb_id.lower()}_ternary_smiles_model.cif")
@@ -509,6 +660,19 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
                 result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                 result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                
+            # Capture ligand screenshot
+            smiles_screenshot = capture_ligand_screenshot(
+                pdb_id, 
+                smiles_model_path, 
+                ref_path, 
+                images_folder, 
+                ligand_id,
+                "ternary_smiles"
+            )
+            if smiles_screenshot:
+                result_row["SMILES_LIGAND_SCREENSHOT"] = os.path.relpath(smiles_screenshot, folder_path)
+                
         except Exception as e:
             print(f"Error processing SMILES model for {pdb_id}: {e}")
         
@@ -551,6 +715,19 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
                 result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                 result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                
+            # Capture ligand screenshot
+            ccd_screenshot = capture_ligand_screenshot(
+                pdb_id, 
+                ccd_model_path, 
+                ref_path, 
+                images_folder, 
+                ligand_id,
+                "ternary_ccd"
+            )
+            if ccd_screenshot:
+                result_row["CCD_LIGAND_SCREENSHOT"] = os.path.relpath(ccd_screenshot, folder_path)
+                
         except Exception as e:
             print(f"Error processing CCD model for {pdb_id}: {e}")
         
@@ -565,36 +742,6 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
             except Exception as e:
                 print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
-    
-    # Find and store primary ligand details
-    try:
-        smile_strings = fetch_smile_strings(pdb_id)
-        if smile_strings:
-            ligand_id = list(smile_strings.keys())[0]
-            result_row["LIGAND_CCD"] = ligand_id
-            
-            # Create ligand link URL
-            result_row["LIGAND_LINK"] = f"https://www.rcsb.org/ligand/{ligand_id}"
-            
-            # Save SMILES
-            smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
-            result_row["LIGAND_SMILES"] = smiles_stereo if smiles_stereo else "N/A"
-        else:
-            print(f"No suitable ligands found for {pdb_id}")
-            result_row["LIGAND_CCD"] = "N/A"
-            result_row["LIGAND_LINK"] = "N/A"
-            result_row["LIGAND_SMILES"] = "N/A"
-    except Exception as e:
-        print(f"Error fetching SMILE strings for {pdb_id}: {e}")
-        result_row["LIGAND_CCD"] = "N/A"
-        result_row["LIGAND_LINK"] = "N/A"
-        result_row["LIGAND_SMILES"] = "N/A"
-    
-    # Calculate and add molecular properties
-    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"] != "N/A":
-        mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
-        for prop, value in mol_properties.items():
-            result_row[prop] = value
     
     results.append(result_row)
 
