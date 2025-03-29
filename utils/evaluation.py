@@ -8,6 +8,9 @@ import numpy as np
 import re
 import pymol
 import requests
+from PIL import Image
+import tempfile
+import shutil
 from datetime import datetime
 from pymol import cmd
 from rdkit import Chem
@@ -19,15 +22,7 @@ from src.website.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch
 pymol.finish_launching(['pymol', '-cq'])
 
 def get_pdb_release_date(pdb_id):
-    """
-    Get the initial release date for a PDB entry.
-    
-    Args:
-        pdb_id: The PDB ID (e.g., "6HAY")
-        
-    Returns:
-        string: The release date in YYYY-MM-DD format or error message
-    """
+    """Get the initial release date for a PDB entry."""
     if not pdb_id:
         return "No ID provided"
     
@@ -72,121 +67,142 @@ def get_pdb_release_date(pdb_id):
         print(f"Error fetching release date for {pdb_id}: {e}")
         return None
 
-def capture_ligand_screenshot(pdb_id, model_path, ref_path, output_folder, ligand_id=None, model_type="model"):
-    """
-    Capture a screenshot of the ligand after aligning the model and reference structures.
-    
-    Args:
-        pdb_id: The PDB ID
-        model_path: Path to the model structure file
-        ref_path: Path to the reference structure file
-        output_folder: Directory where the screenshot will be saved
-        ligand_id: The ligand ID/CCD code
-        model_type: Type of model
-    
-    Returns:
-        Path to the saved screenshot or None if failed
-    """
-    if not os.path.exists(model_path) or not os.path.exists(ref_path):
-        print(f"Error: Model or reference structure not found for {pdb_id}")
+def capture_side_by_side_views(pdb_id, smiles_model_path, ccd_model_path, ref_path, output_folder, ligand_id=None):
+    """Capture separate screenshots of ref+CCD and ref+SMILES models and combines them side by side."""
+    if not os.path.exists(smiles_model_path) or not os.path.exists(ccd_model_path) or not os.path.exists(ref_path):
+        print(f"One or more required structure files not found for {pdb_id}")
         return None
     
-    # Create output directory if it doesn't exist
+    # Create directories
     os.makedirs(output_folder, exist_ok=True)
+    temp_dir = tempfile.mkdtemp()
+    final_paths = []
     
-    screenshot_path = os.path.join(output_folder, f"{pdb_id}_{model_type}_ligand_analysis.png")
+    # Image settings
+    width, height, dpi = 800, 800, 150
+    angles = [0, 90, 180]
     
-    try:
-        # Load structures
-        cmd.delete("all")
-        model_name = f"{pdb_id}_{model_type}_model"
-        ref_name = pdb_id
-        cmd.load(model_path, model_name)
-        cmd.load(ref_path, ref_name)
-        
-        # Set display options for solid white background
-        cmd.set("cartoon_transparency", 0.7)
-        cmd.set("ray_opaque_background", 1)
-        cmd.bg_color("white")
-        
-        # Remove solvent and buffer molecules
-        cmd.remove("solvent")
-        for solvent in ["GOL", "EDO", "PEG", "SO4", "PO4", "CIT", "ACT", "BME", "MES", "MPD"]:
-            cmd.remove(f"resn {solvent}")
-        
-        # Align structures
-        cmd.align(f"polymer and name CA and ({model_name})", 
-                f"polymer and name CA and ({ref_name})", 
-                quiet=1, reset=1)
-        
-        # Color the structures differently
-        cmd.color("marine", model_name)
-        cmd.color("firebrick", ref_name)
-        cmd.show("cartoon", "all")
-        
-        ligand_found = False
-        
-        # Try to select the ligand by ID
-        if ligand_id:
-            try:
+    # Setup and render a single view
+    def render_model_view(model_path, model_color, model_type, angle):
+        try:
+            cmd.delete("all")
+            
+            # Load structures
+            model_name = f"{pdb_id}_{model_type}_model"
+            ref_name = pdb_id
+            cmd.load(model_path, model_name)
+            cmd.load(ref_path, ref_name)
+            
+            # Setup view
+            cmd.set("cartoon_transparency", 0.7)
+            cmd.set("ray_opaque_background", 1)
+            cmd.bg_color("white")
+            cmd.set("ray_shadows", 0)
+            cmd.remove("solvent or resn HOH or resn WAT")
+            
+            # Align and color
+            cmd.align(f"polymer and name CA and ({model_name})", 
+                     f"polymer and name CA and ({ref_name})", 
+                     quiet=1, reset=1)
+            cmd.color(model_color, model_name)
+            cmd.color("firebrick", ref_name)
+            cmd.show("cartoon", "all")
+            
+            # Find and highlight ligands
+            ref_chains = cmd.get_chains(ref_name)
+            model_chains = cmd.get_chains(model_name)
+            
+            # Try ligand by ID first
+            ligand_found = False
+            if ligand_id:
                 cmd.select("ligand_ref", f"resn {ligand_id} and {ref_name}")
                 if cmd.count_atoms("ligand_ref") > 0:
                     cmd.show("sticks", "ligand_ref")
                     cmd.color("gold", "ligand_ref")
                     
-                    # Try to find the same ligand in the model
-                    cmd.select("ligand_model", f"resn {ligand_id} and {model_name}")
-                    if cmd.count_atoms("ligand_model") > 0:
-                        cmd.show("sticks", "ligand_model")
-                        cmd.color("blue", "ligand_model")
+                    # Try model ligand by unique chain
+                    unique_chains = [c for c in model_chains if c not in ref_chains]
+                    if unique_chains:
+                        cmd.select("ligand_model", f"chain {unique_chains[-1]} and {model_name}")
+                        if cmd.count_atoms("ligand_model") > 0:
+                            cmd.show("sticks", "ligand_model")
+                            cmd.color(model_color, "ligand_model")
                     
                     cmd.zoom("ligand_ref", 5)
                     ligand_found = True
-            except Exception as e:
-                print(f"Warning: Could not select ligand by ID {ligand_id}: {e}")
-        
-        # Try to find the ligand by residue number
-        if not ligand_found:
-            try:
-                # Try to find ref ligand
-                cmd.select("ligand_by_resi_ref", f"/{ref_name}//H/Z & resi 502")
-                if cmd.count_atoms("ligand_by_resi_ref") > 0:
-                    cmd.show("sticks", "ligand_by_resi_ref")
-                    cmd.color("gold", "ligand_by_resi_ref")
+            
+            # Fallback to hetero atoms if needed
+            if not ligand_found:
+                cmd.select("het_ref", f"hetatm and not solvent and {ref_name}")
+                if cmd.count_atoms("het_ref") > 0:
+                    cmd.show("sticks", "het_ref")
+                    cmd.color("gold", "het_ref")
                     
-                    # Try to find same residue in model
-                    cmd.select("ligand_by_resi_model", f"/{model_name}//H/Z & resi 502")
-                    if cmd.count_atoms("ligand_by_resi_model") > 0:
-                        cmd.show("sticks", "ligand_by_resi_model")
-                        cmd.color("blue", "ligand_by_resi_model")
+                    cmd.select("het_model", f"hetatm and not solvent and {model_name}")
+                    if cmd.count_atoms("het_model") > 0:
+                        cmd.show("sticks", "het_model")
+                        cmd.color(model_color, "het_model")
                     
-                    cmd.zoom("ligand_by_resi_ref", animate=1, buffer=2)
-                    ligand_found = True
-            except Exception as e:
-                print(f"Warning: Could not select residue 502 in chain H: {e}")
+                    cmd.zoom("het_ref", 5)
+                else:
+                    cmd.zoom("all")
+            
+            # Rotate and render
+            cmd.rotate("y", angle)
+            
+            output_path = os.path.join(temp_dir, f"{model_type}_{angle}.png")
+            cmd.ray(width, height)
+            cmd.png(output_path, dpi=dpi)
+            return output_path
         
-        # If ligand is not found zoom to the whole structure
-        if not ligand_found:
-            cmd.zoom("all")
-            print(f"No ligand found in {pdb_id}, showing entire structure")
+        except Exception as e:
+            print(f"Error capturing {model_type} view at {angle}°: {e}")
+            return None
+    
+    try:
+        # Generate views for each model and angle
+        model_views = {}
+        for angle in angles:
+            # Render CCD view
+            ccd_path = render_model_view(ccd_model_path, "blue", "ccd", angle)
+            if ccd_path:
+                model_views.setdefault(angle, {})["ccd"] = ccd_path
+            
+            # Render SMILES view
+            smiles_path = render_model_view(smiles_model_path, "cyan", "smiles", angle)
+            if smiles_path:
+                model_views.setdefault(angle, {})["smiles"] = smiles_path
         
-        # Final setup before rendering
-        cmd.set("depth_cue", 0)
-        cmd.unset("specular")
+        # Combine the images side by side
+        for angle in angles:
+            if angle in model_views and "ccd" in model_views[angle] and "smiles" in model_views[angle]:
+                try:
+                    ccd_img = Image.open(model_views[angle]["ccd"])
+                    smiles_img = Image.open(model_views[angle]["smiles"])
+                    
+                    # Create and save the combined image
+                    combined = Image.new('RGB', (width * 2, height))
+                    combined.paste(ccd_img, (0, 0))
+                    combined.paste(smiles_img, (width, 0))
+                    
+                    combined_path = os.path.join(output_folder, f"{pdb_id}_side_by_side_{angle}deg.png")
+                    combined.save(combined_path)
+                    final_paths.append(combined_path)
+                except Exception as e:
+                    print(f"Error combining images for {angle}° view: {e}")
         
-        # Render and save the image
-        cmd.ray(1200, 1200)
-        cmd.png(screenshot_path, dpi=300)
-        print(f"Screenshot saved to {screenshot_path}")
-        
-        return screenshot_path
+        return final_paths if final_paths else None
     
     except Exception as e:
-        print(f"Error capturing ligand screenshot for {pdb_id}: {e}")
+        print(f"Error in side-by-side view generation: {e}")
         return None
     
     finally:
         cmd.delete("all")
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Warning: Failed to clean up temporary directory: {e}")
 
 def extract_component_info(analysis_file):
     """Extract POI and E3 information from analysis file."""
@@ -355,15 +371,7 @@ def calculate_component_rmsd(model_path, ref_path, pdb_id, model_type, poi_seque
     return results
 
 def calculate_molecular_properties_from_smiles(smiles):
-    """
-    Calculate molecular properties for a compound from a SMILES string using RDKit.
-    
-    Args:
-        smiles: SMILES string of the compound
-    
-    Returns:
-        Dictionary containing calculated molecular properties
-    """
+    """Calculate molecular properties for a compound from a SMILES string using RDKit."""
     if not smiles:
         return {}
     
@@ -661,18 +669,6 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                 result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                 
-            # Capture ligand screenshot
-            smiles_screenshot = capture_ligand_screenshot(
-                pdb_id, 
-                smiles_model_path, 
-                ref_path, 
-                images_folder, 
-                ligand_id,
-                "ternary_smiles"
-            )
-            if smiles_screenshot:
-                result_row["SMILES_LIGAND_SCREENSHOT"] = os.path.relpath(smiles_screenshot, folder_path)
-                
         except Exception as e:
             print(f"Error processing SMILES model for {pdb_id}: {e}")
         
@@ -716,18 +712,6 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                 result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                 
-            # Capture ligand screenshot
-            ccd_screenshot = capture_ligand_screenshot(
-                pdb_id, 
-                ccd_model_path, 
-                ref_path, 
-                images_folder, 
-                ligand_id,
-                "ternary_ccd"
-            )
-            if ccd_screenshot:
-                result_row["CCD_LIGAND_SCREENSHOT"] = os.path.relpath(ccd_screenshot, folder_path)
-                
         except Exception as e:
             print(f"Error processing CCD model for {pdb_id}: {e}")
         
@@ -742,6 +726,27 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
             except Exception as e:
                 print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
+    
+    # Create side-by-side ligand visualizations
+    if os.path.exists(smiles_model_path) and os.path.exists(ccd_model_path):
+        try:
+            side_by_side_screenshots = capture_side_by_side_views(
+                pdb_id,
+                smiles_model_path,
+                ccd_model_path,
+                ref_path,
+                images_folder,
+                ligand_id
+            )
+            
+            if side_by_side_screenshots:
+                for i, path in enumerate(side_by_side_screenshots):
+                    angle = [0, 90, 180][i]
+                    result_row[f"LIGAND_VIEW_{angle}deg"] = os.path.relpath(path, folder_path)
+            else:
+                print(f"Failed to create side-by-side ligand views for {pdb_id}")
+        except Exception as e:
+            print(f"Error creating side-by-side ligand views for {pdb_id}: {e}")
     
     results.append(result_row)
 
