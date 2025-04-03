@@ -607,7 +607,10 @@ def process_pdb_folder(folder_path, pdb_id, results):
     for metric in ["SMILES RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
                   "SMILES DOCKQ SCORE", "SMILES DOCKQ iRMSD", "SMILES DOCKQ LRMSD",
                   "CCD RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
-                  "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD"]:
+                  "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD",
+                  "SMILES FRACTION DISORDERED", "SMILES HAS_CLASH", "SMILES IPTM", 
+                  "SMILES PTM", "SMILES RANKING_SCORE", "CCD FRACTION DISORDERED", 
+                  "CCD HAS_CLASH", "CCD IPTM", "CCD PTM", "CCD RANKING_SCORE"]:
         result_row[metric] = "N/A"
     
     # Find and store primary ligand details
@@ -635,6 +638,11 @@ def process_pdb_folder(folder_path, pdb_id, results):
         result_row["LIGAND_LINK"] = "N/A"
         result_row["LIGAND_SMILES"] = "N/A"
     
+    # Initialize molecular property fields
+    for prop in ['Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
+                'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings']:
+        result_row[prop] = "N/A"
+    
     # Calculate and add molecular properties
     if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"] != "N/A":
         mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
@@ -642,20 +650,37 @@ def process_pdb_folder(folder_path, pdb_id, results):
             result_row[prop] = value
     
     # Process SMILES model
-    smiles_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles")
-    smiles_model_path = os.path.join(smiles_folder, f"{pdb_id.lower()}_ternary_smiles_model.cif")
-    smiles_json_path = os.path.join(smiles_folder, f"{pdb_id.lower()}_ternary_smiles_summary_confidences.json")
+    smiles_folder_patterns = [
+        os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles"),
+        os.path.join(folder_path, f"{pdb_id.lower()}_smiles")
+    ]
     
-    if os.path.exists(smiles_model_path):
+    smiles_model_path = None
+    smiles_json_path = None
+    
+    # Find the first existing SMILES folder and corresponding files
+    for folder_pattern in smiles_folder_patterns:
+        if os.path.exists(folder_pattern):
+            model_name = f"{os.path.basename(folder_pattern)}_model.cif"
+            json_name = f"{os.path.basename(folder_pattern)}_summary_confidences.json"
+            temp_model_path = os.path.join(folder_pattern, model_name)
+            temp_json_path = os.path.join(folder_pattern, json_name)
+            
+            if os.path.exists(temp_model_path):
+                smiles_model_path = temp_model_path
+                smiles_json_path = temp_json_path if os.path.exists(temp_json_path) else None
+                break
+    
+    if smiles_model_path:
         try:
             # Compute overall RMSD
-            smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, "ternary_smiles")
+            smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, "smiles")
             result_row["SMILES RMSD"] = smiles_rmsd
             
             # Compute component-specific RMSD if sequences are available
             if poi_sequence or e3_sequence:
                 component_rmsd = calculate_component_rmsd(
-                    smiles_model_path, ref_path, pdb_id, "ternary_smiles", 
+                    smiles_model_path, ref_path, pdb_id, "smiles", 
                     poi_sequence, e3_sequence
                 )
                 result_row["SMILES_POI_RMSD"] = component_rmsd["POI_RMSD"]
@@ -673,7 +698,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
             print(f"Error processing SMILES model for {pdb_id}: {e}")
         
         # Extract confidence values
-        if os.path.exists(smiles_json_path):
+        if smiles_json_path and os.path.exists(smiles_json_path):
             try:
                 fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(smiles_json_path)
                 result_row["SMILES FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
@@ -685,20 +710,37 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 print(f"Error extracting SMILES confidence values for {pdb_id}: {e}")
     
     # Process CCD model
-    ccd_folder = os.path.join(folder_path, f"{pdb_id.lower()}_ternary_ccd")
-    ccd_model_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_model.cif")
-    ccd_json_path = os.path.join(ccd_folder, f"{pdb_id.lower()}_ternary_ccd_summary_confidences.json")
+    ccd_folder_patterns = [
+        os.path.join(folder_path, f"{pdb_id.lower()}_ternary_ccd"),
+        os.path.join(folder_path, f"{pdb_id.lower()}_ccd")
+    ]
     
-    if os.path.exists(ccd_model_path):
+    ccd_model_path = None
+    ccd_json_path = None
+    
+    # Find the first existing CCD folder and corresponding files
+    for folder_pattern in ccd_folder_patterns:
+        if os.path.exists(folder_pattern):
+            model_name = f"{os.path.basename(folder_pattern)}_model.cif"
+            json_name = f"{os.path.basename(folder_pattern)}_summary_confidences.json"
+            temp_model_path = os.path.join(folder_pattern, model_name)
+            temp_json_path = os.path.join(folder_pattern, json_name)
+            
+            if os.path.exists(temp_model_path):
+                ccd_model_path = temp_model_path
+                ccd_json_path = temp_json_path if os.path.exists(temp_json_path) else None
+                break
+    
+    if ccd_model_path:
         try:
             # Compute overall RMSD
-            ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, "ternary_ccd")
+            ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, "ccd")
             result_row["CCD RMSD"] = ccd_rmsd
             
             # Compute component-specific RMSD if sequences are available
             if poi_sequence or e3_sequence:
                 component_rmsd = calculate_component_rmsd(
-                    ccd_model_path, ref_path, pdb_id, "ternary_ccd", 
+                    ccd_model_path, ref_path, pdb_id, "ccd", 
                     poi_sequence, e3_sequence
                 )
                 result_row["CCD_POI_RMSD"] = component_rmsd["POI_RMSD"]
@@ -716,7 +758,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
             print(f"Error processing CCD model for {pdb_id}: {e}")
         
         # Extract confidence values
-        if os.path.exists(ccd_json_path):
+        if ccd_json_path and os.path.exists(ccd_json_path):
             try:
                 fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(ccd_json_path)
                 result_row["CCD FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
@@ -728,7 +770,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
     
     # Create side-by-side ligand visualizations
-    if os.path.exists(smiles_model_path) and os.path.exists(ccd_model_path):
+    if smiles_model_path and ccd_model_path:
         try:
             side_by_side_screenshots = capture_side_by_side_views(
                 pdb_id,
@@ -738,12 +780,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 images_folder,
                 ligand_id
             )
-            
-            if side_by_side_screenshots:
-                for i, path in enumerate(side_by_side_screenshots):
-                    angle = [0, 90, 180][i]
-                    result_row[f"LIGAND_VIEW_{angle}deg"] = os.path.relpath(path, folder_path)
-            else:
+            if not side_by_side_screenshots:
                 print(f"Failed to create side-by-side ligand views for {pdb_id}")
         except Exception as e:
             print(f"Error creating side-by-side ligand views for {pdb_id}: {e}")
@@ -754,6 +791,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate AlphaFold predictions against experimental structures.")
     parser.add_argument("folder", help="Path to the folder containing PDB ID folders")
     parser.add_argument("--output", "-o", default="evaluation_results.csv", help="Output CSV file name or full path (default: saves to ../data/af3_results/)")
+    parser.add_argument("--type", "-t", default="PROTAC", help="Type of molecules to evaluate (e.g. 'PROTAC', 'Molecular Glue', )")
     args = parser.parse_args()
     
     # Check if the input folder exists
@@ -787,6 +825,34 @@ def main():
     # Create dataframe and save to CSV
     if results:
         df = pd.DataFrame(results)
+        
+        # Add TYPE column
+        df['TYPE'] = args.type
+        
+        # Define the column order
+        column_order = [
+            'PDB_ID', 'TYPE', 'RELEASE_DATE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
+            'SMILES RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES DOCKQ SCORE', 'SMILES DOCKQ iRMSD', 'SMILES DOCKQ LRMSD',
+            'CCD RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD DOCKQ SCORE', 'CCD DOCKQ iRMSD', 'CCD DOCKQ LRMSD',
+            'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
+            'SMILES FRACTION DISORDERED', 'SMILES HAS_CLASH', 'SMILES IPTM', 'SMILES PTM', 'SMILES RANKING_SCORE',
+            'CCD FRACTION DISORDERED', 'CCD HAS_CLASH', 'CCD IPTM', 'CCD PTM', 'CCD RANKING_SCORE',
+            'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
+            'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'
+        ]
+        
+        # Ensure all columns exist
+        for col in column_order:
+            if col not in df.columns:
+                df[col] = "N/A"
+        
+        # Reorder columns
+        df = df[column_order]
+        
+        # Sort by release date
+        df['TEMP_DATE'] = pd.to_datetime(df['RELEASE_DATE'], errors='coerce')
+        df = df.sort_values(by='TEMP_DATE').drop(columns=['TEMP_DATE'])
+        
         df.to_csv(output_path, index=False)
         print(f"Results saved to {output_path}")
     else:
