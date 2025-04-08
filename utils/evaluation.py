@@ -569,7 +569,7 @@ def run_dockq(model_path, ref_path):
         return None
 
 def process_pdb_folder(folder_path, pdb_id, results):
-    """Process a single PDB ID folder."""
+    """Process a single PDB ID folder with multiple seeds."""
     ref_path = os.path.join(folder_path, f"{pdb_id}.cif")
     analysis_file = os.path.join(folder_path, f"{pdb_id}_analysis.txt")
     
@@ -582,221 +582,258 @@ def process_pdb_folder(folder_path, pdb_id, results):
         print(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
         return
     
-    # Start with PDB ID
-    result_row = {"PDB_ID": pdb_id}
-    
-    # Get and add release date
-    release_date = get_pdb_release_date(pdb_id)
-    if release_date:
-        result_row["RELEASE_DATE"] = release_date
-    else:
-        result_row["RELEASE_DATE"] = "N/A"
-    
     # Extract POI and E3 information if available
     poi_name, poi_sequence, e3_name, e3_sequence = None, None, None, None
     if os.path.exists(analysis_file):
         poi_name, poi_sequence, e3_name, e3_sequence = extract_component_info(analysis_file)
     
-    # Set default values
-    result_row["POI_NAME"] = poi_name if poi_name else "N/A"
-    result_row["POI_SEQUENCE"] = poi_sequence if poi_sequence else "N/A"
-    result_row["E3_NAME"] = e3_name if e3_name else "N/A"
-    result_row["E3_SEQUENCE"] = e3_sequence if e3_sequence else "N/A"
-    
-    # Initialize default values for metrics
-    for metric in ["SMILES RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
-                  "SMILES DOCKQ SCORE", "SMILES DOCKQ iRMSD", "SMILES DOCKQ LRMSD",
-                  "CCD RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
-                  "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD",
-                  "SMILES FRACTION DISORDERED", "SMILES HAS_CLASH", "SMILES IPTM", 
-                  "SMILES PTM", "SMILES RANKING_SCORE", "CCD FRACTION DISORDERED", 
-                  "CCD HAS_CLASH", "CCD IPTM", "CCD PTM", "CCD RANKING_SCORE"]:
-        result_row[metric] = "N/A"
-    
     # Find and store primary ligand details
     ligand_id = None
+    ligand_info = {}
     try:
         smile_strings = fetch_smile_strings(pdb_id)
         if smile_strings:
             ligand_id = list(smile_strings.keys())[0]
-            result_row["LIGAND_CCD"] = ligand_id
-            
-            # Create ligand link URL
-            result_row["LIGAND_LINK"] = f"https://www.rcsb.org/ligand/{ligand_id}"
-            
-            # Save SMILES
-            smiles_stereo = smile_strings[ligand_id].get('SMILES_stereo')
-            result_row["LIGAND_SMILES"] = smiles_stereo if smiles_stereo else "N/A"
+            ligand_info = {
+                "LIGAND_CCD": ligand_id,
+                "LIGAND_LINK": f"https://www.rcsb.org/ligand/{ligand_id}",
+                "LIGAND_SMILES": smile_strings[ligand_id].get('SMILES_stereo', "N/A")
+            }
         else:
             print(f"No suitable ligands found for {pdb_id}")
-            result_row["LIGAND_CCD"] = "N/A"
-            result_row["LIGAND_LINK"] = "N/A"
-            result_row["LIGAND_SMILES"] = "N/A"
+            ligand_info = {
+                "LIGAND_CCD": "N/A",
+                "LIGAND_LINK": "N/A",
+                "LIGAND_SMILES": "N/A"
+            }
     except Exception as e:
         print(f"Error fetching SMILE strings for {pdb_id}: {e}")
-        result_row["LIGAND_CCD"] = "N/A"
-        result_row["LIGAND_LINK"] = "N/A"
-        result_row["LIGAND_SMILES"] = "N/A"
+        ligand_info = {
+            "LIGAND_CCD": "N/A",
+            "LIGAND_LINK": "N/A",
+            "LIGAND_SMILES": "N/A"
+        }
     
-    # Initialize molecular property fields
-    for prop in ['Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
-                'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings']:
-        result_row[prop] = "N/A"
+    # Calculate and prepare molecular property fields
+    mol_properties = {}
+    if ligand_info["LIGAND_SMILES"] != "N/A":
+        mol_properties = calculate_molecular_properties_from_smiles(ligand_info["LIGAND_SMILES"])
     
-    # Calculate and add molecular properties
-    if "LIGAND_SMILES" in result_row and result_row["LIGAND_SMILES"] != "N/A":
-        mol_properties = calculate_molecular_properties_from_smiles(result_row["LIGAND_SMILES"])
-        for prop, value in mol_properties.items():
-            result_row[prop] = value
+    # Find and process all seed folders
+    ccd_model_dict = {}
+    smiles_model_dict = {}
     
-    # Process SMILES model
-    smiles_folder_patterns = [
-        os.path.join(folder_path, f"{pdb_id.lower()}_ternary_smiles"),
-        os.path.join(folder_path, f"{pdb_id.lower()}_smiles")
-    ]
+    # Collect all folders in the PDB ID directory
+    all_folders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
     
-    smiles_model_path = None
-    smiles_json_path = None
+    # Pattern for folders with seed numbers: pdbid_type_seed
+    model_pattern = re.compile(f"{pdb_id.lower()}_([a-z]+)_(\d+)")
     
-    # Find the first existing SMILES folder and corresponding files
-    for folder_pattern in smiles_folder_patterns:
-        if os.path.exists(folder_pattern):
-            model_name = f"{os.path.basename(folder_pattern)}_model.cif"
-            json_name = f"{os.path.basename(folder_pattern)}_summary_confidences.json"
-            temp_model_path = os.path.join(folder_pattern, model_name)
-            temp_json_path = os.path.join(folder_pattern, json_name)
+    # Find all model folders with seeds
+    for folder_name in all_folders:
+        # Match folders with explicit seeds
+        match = model_pattern.match(folder_name)
+        if match:
+            model_type, seed = match.groups()
             
-            if os.path.exists(temp_model_path):
-                smiles_model_path = temp_model_path
-                smiles_json_path = temp_json_path if os.path.exists(temp_json_path) else None
-                break
+            # Try both naming conventions
+            model_path1 = os.path.join(folder_path, folder_name, f"{folder_name}_model.cif")
+            model_path2 = os.path.join(folder_path, folder_name, f"{pdb_id.lower()}_{model_type}_model.cif")
+            
+            # Check which model file exists
+            if os.path.exists(model_path1):
+                model_path = model_path1
+            elif os.path.exists(model_path2):
+                model_path = model_path2
+            else:
+                continue
+            
+            # Check for JSON files with both conventions
+            json_path1 = os.path.join(folder_path, folder_name, f"{folder_name}_summary_confidences.json")
+            json_path2 = os.path.join(folder_path, folder_name, f"{pdb_id.lower()}_{model_type}_summary_confidences.json")
+            
+            if os.path.exists(json_path1):
+                json_path = json_path1
+            elif os.path.exists(json_path2):
+                json_path = json_path2
+            else:
+                json_path = None
+            
+            # Store model information
+            if model_type == "ccd":
+                ccd_model_dict[seed] = {
+                    "model_path": model_path,
+                    "json_path": json_path
+                }
+            elif model_type == "smiles":
+                smiles_model_dict[seed] = {
+                    "model_path": model_path,
+                    "json_path": json_path
+                }
     
-    if smiles_model_path:
-        try:
-            # Compute overall RMSD
-            smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, "smiles")
-            result_row["SMILES RMSD"] = smiles_rmsd
-            
-            # Compute component-specific RMSD if sequences are available
-            if poi_sequence or e3_sequence:
-                component_rmsd = calculate_component_rmsd(
-                    smiles_model_path, ref_path, pdb_id, "smiles", 
-                    poi_sequence, e3_sequence
-                )
-                result_row["SMILES_POI_RMSD"] = component_rmsd["POI_RMSD"]
-                result_row["SMILES_E3_RMSD"] = component_rmsd["E3_RMSD"]
-            
-            # Run DockQ
-            smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
-            if smiles_dockq_output:
-                dockq_score, irmsd, lrmsd = extract_dockq_values(smiles_dockq_output)
-                result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
-                result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
-                result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
-                
-        except Exception as e:
-            print(f"Error processing SMILES model for {pdb_id}: {e}")
+    # Process each seed's models
+    all_seeds = sorted(set(list(ccd_model_dict.keys()) + list(smiles_model_dict.keys())))
+    
+    if not all_seeds:
+        print(f"No seed-based models found for {pdb_id}")
+        return
         
-        # Extract confidence values
-        if smiles_json_path and os.path.exists(smiles_json_path):
-            try:
-                fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(smiles_json_path)
-                result_row["SMILES FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
-                result_row["SMILES HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
-                result_row["SMILES IPTM"] = iptm if iptm is not None else "N/A"
-                result_row["SMILES PTM"] = ptm if ptm is not None else "N/A"
-                result_row["SMILES RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
-            except Exception as e:
-                print(f"Error extracting SMILES confidence values for {pdb_id}: {e}")
-    
-    # Process CCD model
-    ccd_folder_patterns = [
-        os.path.join(folder_path, f"{pdb_id.lower()}_ternary_ccd"),
-        os.path.join(folder_path, f"{pdb_id.lower()}_ccd")
-    ]
-    
-    ccd_model_path = None
-    ccd_json_path = None
-    
-    # Find the first existing CCD folder and corresponding files
-    for folder_pattern in ccd_folder_patterns:
-        if os.path.exists(folder_pattern):
-            model_name = f"{os.path.basename(folder_pattern)}_model.cif"
-            json_name = f"{os.path.basename(folder_pattern)}_summary_confidences.json"
-            temp_model_path = os.path.join(folder_pattern, model_name)
-            temp_json_path = os.path.join(folder_pattern, json_name)
-            
-            if os.path.exists(temp_model_path):
-                ccd_model_path = temp_model_path
-                ccd_json_path = temp_json_path if os.path.exists(temp_json_path) else None
-                break
-    
-    if ccd_model_path:
-        try:
-            # Compute overall RMSD
-            ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, "ccd")
-            result_row["CCD RMSD"] = ccd_rmsd
-            
-            # Compute component-specific RMSD if sequences are available
-            if poi_sequence or e3_sequence:
-                component_rmsd = calculate_component_rmsd(
-                    ccd_model_path, ref_path, pdb_id, "ccd", 
-                    poi_sequence, e3_sequence
-                )
-                result_row["CCD_POI_RMSD"] = component_rmsd["POI_RMSD"]
-                result_row["CCD_E3_RMSD"] = component_rmsd["E3_RMSD"]
-            
-            # Run DockQ
-            ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
-            if ccd_dockq_output:
-                dockq_score, irmsd, lrmsd = extract_dockq_values(ccd_dockq_output)
-                result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
-                result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
-                result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
-                
-        except Exception as e:
-            print(f"Error processing CCD model for {pdb_id}: {e}")
+    for seed in all_seeds:
+        print(f"Processing {pdb_id} with seed {seed}...")
         
-        # Extract confidence values
-        if ccd_json_path and os.path.exists(ccd_json_path):
+        # Start with PDB ID and common information
+        result_row = {
+            "PDB_ID": pdb_id,
+            "RELEASE_DATE": get_pdb_release_date(pdb_id) or "N/A",
+            "SEED": seed,
+            "POI_NAME": poi_name if poi_name else "N/A",
+            "POI_SEQUENCE": poi_sequence if poi_sequence else "N/A",
+            "E3_NAME": e3_name if e3_name else "N/A",
+            "E3_SEQUENCE": e3_sequence if e3_sequence else "N/A"
+        }
+        
+        # Add ligand information
+        result_row.update(ligand_info)
+        
+        # Add molecular properties
+        for prop in ['Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
+                    'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings']:
+            result_row[prop] = mol_properties.get(prop, "N/A")
+        
+        # Initialize metrics with default values
+        for metric in ["SMILES RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
+                      "SMILES DOCKQ SCORE", "SMILES DOCKQ iRMSD", "SMILES DOCKQ LRMSD",
+                      "CCD RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
+                      "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD",
+                      "SMILES FRACTION DISORDERED", "SMILES HAS_CLASH", "SMILES IPTM", 
+                      "SMILES PTM", "SMILES RANKING_SCORE", "CCD FRACTION DISORDERED", 
+                      "CCD HAS_CLASH", "CCD IPTM", "CCD PTM", "CCD RANKING_SCORE"]:
+            result_row[metric] = "N/A"
+        
+        # Process SMILES model for this seed
+        if seed in smiles_model_dict:
+            smiles_model_path = smiles_model_dict[seed]["model_path"]
+            smiles_json_path = smiles_model_dict[seed]["json_path"]
+            
             try:
-                fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(ccd_json_path)
-                result_row["CCD FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
-                result_row["CCD HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
-                result_row["CCD IPTM"] = iptm if iptm is not None else "N/A"
-                result_row["CCD PTM"] = ptm if ptm is not None else "N/A"
-                result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                # Compute overall RMSD
+                smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, f"smiles_{seed}")
+                result_row["SMILES RMSD"] = smiles_rmsd
+                
+                # Compute component-specific RMSD if sequences are available
+                if poi_sequence or e3_sequence:
+                    component_rmsd = calculate_component_rmsd(
+                        smiles_model_path, ref_path, pdb_id, f"smiles_{seed}", 
+                        poi_sequence, e3_sequence
+                    )
+                    result_row["SMILES_POI_RMSD"] = component_rmsd["POI_RMSD"]
+                    result_row["SMILES_E3_RMSD"] = component_rmsd["E3_RMSD"]
+                
+                # Run DockQ
+                smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
+                if smiles_dockq_output:
+                    dockq_score, irmsd, lrmsd = extract_dockq_values(smiles_dockq_output)
+                    result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                    result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
+                    result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    
             except Exception as e:
-                print(f"Error extracting CCD confidence values for {pdb_id}: {e}")
-    
-    # Create side-by-side ligand visualizations
-    if smiles_model_path and ccd_model_path:
-        try:
-            side_by_side_screenshots = capture_side_by_side_views(
-                pdb_id,
-                smiles_model_path,
-                ccd_model_path,
-                ref_path,
-                images_folder,
-                ligand_id
-            )
-            if not side_by_side_screenshots:
-                print(f"Failed to create side-by-side ligand views for {pdb_id}")
-        except Exception as e:
-            print(f"Error creating side-by-side ligand views for {pdb_id}: {e}")
-    
-    results.append(result_row)
+                print(f"Error processing SMILES model for {pdb_id} with seed {seed}: {e}")
+            
+            # Extract confidence values
+            if smiles_json_path:
+                try:
+                    fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(smiles_json_path)
+                    result_row["SMILES FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                    result_row["SMILES HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                    result_row["SMILES IPTM"] = iptm if iptm is not None else "N/A"
+                    result_row["SMILES PTM"] = ptm if ptm is not None else "N/A"
+                    result_row["SMILES RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                except Exception as e:
+                    print(f"Error extracting SMILES confidence values for {pdb_id} with seed {seed}: {e}")
+        
+        # Process CCD model for this seed
+        if seed in ccd_model_dict:
+            ccd_model_path = ccd_model_dict[seed]["model_path"]
+            ccd_json_path = ccd_model_dict[seed]["json_path"]
+            
+            try:
+                # Compute overall RMSD
+                ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, f"ccd_{seed}")
+                result_row["CCD RMSD"] = ccd_rmsd
+                
+                # Compute component-specific RMSD if sequences are available
+                if poi_sequence or e3_sequence:
+                    component_rmsd = calculate_component_rmsd(
+                        ccd_model_path, ref_path, pdb_id, f"ccd_{seed}", 
+                        poi_sequence, e3_sequence
+                    )
+                    result_row["CCD_POI_RMSD"] = component_rmsd["POI_RMSD"]
+                    result_row["CCD_E3_RMSD"] = component_rmsd["E3_RMSD"]
+                
+                # Run DockQ
+                ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
+                if ccd_dockq_output:
+                    dockq_score, irmsd, lrmsd = extract_dockq_values(ccd_dockq_output)
+                    result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                    result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
+                    result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    
+            except Exception as e:
+                print(f"Error processing CCD model for {pdb_id} with seed {seed}: {e}")
+            
+            # Extract confidence values
+            if ccd_json_path:
+                try:
+                    fraction_disordered, has_clash, iptm, ptm, ranking_score = extract_confidence_values(ccd_json_path)
+                    result_row["CCD FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                    result_row["CCD HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                    result_row["CCD IPTM"] = iptm if iptm is not None else "N/A"
+                    result_row["CCD PTM"] = ptm if ptm is not None else "N/A"
+                    result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                except Exception as e:
+                    print(f"Error extracting CCD confidence values for {pdb_id} with seed {seed}: {e}")
+        
+        # Create side-by-side ligand visualizations for this seed
+        if seed in smiles_model_dict and seed in ccd_model_dict:
+            smiles_model_path = smiles_model_dict[seed]["model_path"]
+            ccd_model_path = ccd_model_dict[seed]["model_path"]
+            
+            try:
+                # Create seed-specific image directory
+                seed_images_folder = os.path.join(images_folder, f"seed_{seed}")
+                os.makedirs(seed_images_folder, exist_ok=True)
+                
+                side_by_side_screenshots = capture_side_by_side_views(
+                    f"{pdb_id}_seed_{seed}",
+                    smiles_model_path,
+                    ccd_model_path,
+                    ref_path,
+                    seed_images_folder,
+                    ligand_id
+                )
+                if not side_by_side_screenshots:
+                    print(f"Failed to create side-by-side ligand views for {pdb_id} with seed {seed}")
+            except Exception as e:
+                print(f"Error creating side-by-side ligand views for {pdb_id} with seed {seed}: {e}")
+        
+        results.append(result_row)
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate AlphaFold predictions against experimental structures.")
-    parser.add_argument("folder", help="Path to the folder containing PDB ID folders")
+    parser.add_argument("protac_folder", help="Path to the folder containing PROTAC PDB ID folders")
+    parser.add_argument("--glue_folder", help="Optional path to the folder containing Molecular Glue PDB ID folders")
     parser.add_argument("--output", "-o", default="evaluation_results.csv", help="Output CSV file name or full path (default: saves to ../data/af3_results/)")
-    parser.add_argument("--type", "-t", default="PROTAC", help="Type of molecules to evaluate (e.g. 'PROTAC', 'Molecular Glue', )")
     args = parser.parse_args()
     
-    # Check if the input folder exists
-    if not os.path.exists(args.folder):
-        print(f"Error: Folder {args.folder} does not exist.")
+    # Check if the PROTAC folder exists
+    if not os.path.exists(args.protac_folder):
+        print(f"Error: PROTAC folder {args.protac_folder} does not exist.")
+        sys.exit(1)
+    
+    # Check if the Glue folder exists if provided
+    if args.glue_folder and not os.path.exists(args.glue_folder):
+        print(f"Error: Molecular Glue folder {args.glue_folder} does not exist.")
         sys.exit(1)
     
     # Determine output path
@@ -815,28 +852,47 @@ def main():
     
     results = []
     
-    # Process each PDB ID folder
-    for item in os.listdir(args.folder):
-        folder_path = os.path.join(args.folder, item)
+    # Process PROTAC folders
+    print("Processing PROTAC structures...")
+    for item in os.listdir(args.protac_folder):
+        folder_path = os.path.join(args.protac_folder, item)
         if os.path.isdir(folder_path):
-            print(f"Processing {item}...")
+            print(f"Processing PROTAC {item}...")
             process_pdb_folder(folder_path, item, results)
+            
+    # Add type information for PROTAC
+    for result in results:
+        result["TYPE"] = "PROTAC"
+    
+    # Process Molecular Glue folders if provided
+    if args.glue_folder:
+        print("Processing Molecular Glue structures...")
+        glue_results = []
+        for item in os.listdir(args.glue_folder):
+            folder_path = os.path.join(args.glue_folder, item)
+            if os.path.isdir(folder_path):
+                print(f"Processing Molecular Glue {item}...")
+                process_pdb_folder(folder_path, item, glue_results)
+        
+        # Add type information for Molecular Glue
+        for result in glue_results:
+            result["TYPE"] = "Molecular Glue"
+        
+        # Add glue results to the final results
+        results.extend(glue_results)
     
     # Create dataframe and save to CSV
     if results:
         df = pd.DataFrame(results)
         
-        # Add TYPE column
-        df['TYPE'] = args.type
-        
         # Define the column order
         column_order = [
-            'PDB_ID', 'TYPE', 'RELEASE_DATE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
+            'PDB_ID', 'RELEASE_DATE', 'SEED', 'TYPE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
             'SMILES RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES DOCKQ SCORE', 'SMILES DOCKQ iRMSD', 'SMILES DOCKQ LRMSD',
-            'CCD RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD DOCKQ SCORE', 'CCD DOCKQ iRMSD', 'CCD DOCKQ LRMSD',
-            'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
             'SMILES FRACTION DISORDERED', 'SMILES HAS_CLASH', 'SMILES IPTM', 'SMILES PTM', 'SMILES RANKING_SCORE',
+            'CCD RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD DOCKQ SCORE', 'CCD DOCKQ iRMSD', 'CCD DOCKQ LRMSD',
             'CCD FRACTION DISORDERED', 'CCD HAS_CLASH', 'CCD IPTM', 'CCD PTM', 'CCD RANKING_SCORE',
+            'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
             'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
             'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'
         ]
@@ -849,9 +905,8 @@ def main():
         # Reorder columns
         df = df[column_order]
         
-        # Sort by release date
-        df['TEMP_DATE'] = pd.to_datetime(df['RELEASE_DATE'], errors='coerce')
-        df = df.sort_values(by='TEMP_DATE').drop(columns=['TEMP_DATE'])
+        # Sort by PDB ID and release date
+        df = df.sort_values(by=['PDB_ID', 'RELEASE_DATE'])
         
         df.to_csv(output_path, index=False)
         print(f"Results saved to {output_path}")
