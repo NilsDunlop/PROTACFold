@@ -11,6 +11,7 @@ import requests
 from PIL import Image
 import tempfile
 import shutil
+import logging
 from datetime import datetime
 from pymol import cmd
 from rdkit import Chem
@@ -20,6 +21,39 @@ from src.website.api import extract_ligand_ccd_from_pdb, extract_comp_ids, fetch
 
 # Initialize PyMol in headless mode quiet mode
 pymol.finish_launching(['pymol', '-cq'])
+
+def setup_logging(log_file=None, log_level=logging.INFO):
+    """
+    Set up logging configuration.
+    
+    Args:
+        log_file: Path to log file. If None, only console logging is enabled.
+        log_level: Logging level (default: logging.INFO)
+    """
+    # Configure root logger
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    
+    # Clear existing handlers
+    logger.handlers.clear()
+    
+    # Set up console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # Set up file handler if log file is specified
+    if log_file:
+        os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logging.info(f"Logging to {log_file}")
+    
+    return logger
 
 def get_pdb_release_date(pdb_id):
     """Get the initial release date for a PDB entry."""
@@ -32,7 +66,7 @@ def get_pdb_release_date(pdb_id):
         response = requests.get(url)
         
         if response.status_code != 200:
-            print(f"Error fetching release date for {pdb_id}: {response.status_code}")
+            logging.warning(f"Error fetching release date for {pdb_id}: {response.status_code}")
             return None
         
         data = response.json()
@@ -40,7 +74,7 @@ def get_pdb_release_date(pdb_id):
         # Navigate to the revision history
         revisions = data.get('pdbx_audit_revision_history')
         if not isinstance(revisions, list) or not revisions:
-            print(f"No revision history found for {pdb_id}")
+            logging.warning(f"No revision history found for {pdb_id}")
             return None
         
         # Find the initial release
@@ -49,7 +83,7 @@ def get_pdb_release_date(pdb_id):
             initial_release = next((r for r in revisions if r.get('ordinal') == '1'), None)
             
         if not initial_release:
-            print(f"Initial release not found for {pdb_id}")
+            logging.warning(f"Initial release not found for {pdb_id}")
             return None
         
         # Return formatted date
@@ -60,17 +94,17 @@ def get_pdb_release_date(pdb_id):
             datetime.strptime(release_date, '%Y-%m-%d')
             return release_date
         except ValueError:
-            print(f"Invalid date format: {release_date}")
+            logging.warning(f"Invalid date format: {release_date}")
             return None
         
     except Exception as e:
-        print(f"Error fetching release date for {pdb_id}: {e}")
+        logging.error(f"Error fetching release date for {pdb_id}: {e}")
         return None
 
 def capture_side_by_side_views(pdb_id, smiles_model_path, ccd_model_path, ref_path, output_folder, ligand_id=None):
     """Capture separate screenshots of ref+CCD and ref+SMILES models and combines them side by side."""
     if not os.path.exists(smiles_model_path) or not os.path.exists(ccd_model_path) or not os.path.exists(ref_path):
-        print(f"One or more required structure files not found for {pdb_id}")
+        logging.warning(f"One or more required structure files not found for {pdb_id}")
         return None
     
     # Create directories
@@ -156,7 +190,7 @@ def capture_side_by_side_views(pdb_id, smiles_model_path, ccd_model_path, ref_pa
             return output_path
         
         except Exception as e:
-            print(f"Error capturing {model_type} view at {angle}°: {e}")
+            logging.error(f"Error capturing {model_type} view at {angle}°: {e}")
             return None
     
     try:
@@ -189,12 +223,12 @@ def capture_side_by_side_views(pdb_id, smiles_model_path, ccd_model_path, ref_pa
                     combined.save(combined_path)
                     final_paths.append(combined_path)
                 except Exception as e:
-                    print(f"Error combining images for {angle}° view: {e}")
+                    logging.error(f"Error combining images for {angle}° view: {e}")
         
         return final_paths if final_paths else None
     
     except Exception as e:
-        print(f"Error in side-by-side view generation: {e}")
+        logging.error(f"Error in side-by-side view generation: {e}")
         return None
     
     finally:
@@ -202,7 +236,7 @@ def capture_side_by_side_views(pdb_id, smiles_model_path, ccd_model_path, ref_pa
         try:
             shutil.rmtree(temp_dir)
         except Exception as e:
-            print(f"Warning: Failed to clean up temporary directory: {e}")
+            logging.warning(f"Failed to clean up temporary directory: {e}")
 
 def extract_component_info(analysis_file):
     """Extract POI and E3 information from analysis file."""
@@ -213,7 +247,7 @@ def extract_component_info(analysis_file):
     
     try:
         if not os.path.exists(analysis_file):
-            print(f"Analysis file not found: {analysis_file}")
+            logging.warning(f"Analysis file not found: {analysis_file}")
             return poi_name, poi_sequence, e3_name, e3_sequence
             
         with open(analysis_file, 'r') as f:
@@ -232,7 +266,7 @@ def extract_component_info(analysis_file):
             e3_sequence = ''.join(e3_match.group(2).strip().split())
             
     except Exception as e:
-        print(f"Error extracting component info: {e}")
+        logging.error(f"Error extracting component info: {e}")
     
     return poi_name, poi_sequence, e3_name, e3_sequence
 
@@ -262,11 +296,11 @@ def find_chain_by_sequence(sequence, model_name, min_similarity=0.8):
     try:
         chains = cmd.get_chains(model_name)
     except:
-        print(f"Error getting chains for {model_name}")
+        logging.error(f"Error getting chains for {model_name}")
         return None
         
     if not chains:
-        print(f"No chains found in {model_name}")
+        logging.warning(f"No chains found in {model_name}")
         return None
     
     # Store chain sequences for analysis
@@ -296,7 +330,7 @@ def find_chain_by_sequence(sequence, model_name, min_similarity=0.8):
                     "sequence": chain_seq
                 }
         except Exception as e:
-            print(f"Error checking chain {chain}: {e}")
+            logging.error(f"Error checking chain {chain}: {e}")
     
     # If we have a good match, use it
     if best_match["similarity"] >= min_similarity:
@@ -342,7 +376,7 @@ def calculate_component_rmsd(model_path, ref_path, pdb_id, model_type, poi_seque
                     poi_rmsd = cmd.align("poi_model", "poi_ref")[0]
                     results["POI_RMSD"] = poi_rmsd
                 except Exception as e:
-                    print(f"Error calculating POI RMSD for {pdb_id} ({model_type}): {e}")
+                    logging.error(f"Error calculating POI RMSD for {pdb_id} ({model_type}): {e}")
         
         # Process E3
         if e3_sequence:
@@ -359,10 +393,10 @@ def calculate_component_rmsd(model_path, ref_path, pdb_id, model_type, poi_seque
                     e3_rmsd = cmd.align("e3_model", "e3_ref")[0]
                     results["E3_RMSD"] = e3_rmsd
                 except Exception as e:
-                    print(f"Error calculating E3 RMSD for {pdb_id} ({model_type}): {e}")
+                    logging.error(f"Error calculating E3 RMSD for {pdb_id} ({model_type}): {e}")
     
     except Exception as e:
-        print(f"Error in component RMSD calculation for {pdb_id} ({model_type}): {e}")
+        logging.error(f"Error in component RMSD calculation for {pdb_id} ({model_type}): {e}")
     
     finally:
         # Clean up
@@ -379,7 +413,7 @@ def calculate_molecular_properties_from_smiles(smiles):
     mol = Chem.MolFromSmiles(smiles)
     
     if mol is None:
-        print(f"WARNING: Could not parse SMILES: {smiles}")
+        logging.warning(f"Could not parse SMILES: {smiles}")
         return {}
     
     # Calculate molecular properties
@@ -420,6 +454,7 @@ def fetch_smile_strings(pdb_id):
         comp_ids = extract_comp_ids(ligand_ccd)
         
         if not comp_ids:
+            logging.info(f"No component IDs found for {pdb_id}")
             return {}
         
         # Common non-drug components to filter out
@@ -467,7 +502,8 @@ def fetch_smile_strings(pdb_id):
                         'is_common': comp_id in common_components,
                         'smiles_complexity': len(smiles_stereo) if smiles_stereo else 0
                     }
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Error fetching data for component {comp_id} in {pdb_id}: {e}")
                 pass
         
         # Filter out common components
@@ -475,6 +511,7 @@ def fetch_smile_strings(pdb_id):
                                if not v['is_common'] and v['smiles_complexity'] > 5}
         
         if not drug_like_components:
+            logging.info(f"No drug-like components found for {pdb_id}, using most complex component")
             sorted_components = sorted(component_details.items(), 
                                      key=lambda x: x[1]['smiles_complexity'], 
                                      reverse=True)
@@ -492,13 +529,14 @@ def fetch_smile_strings(pdb_id):
         
         # Select primary component
         primary_comp_id = sorted_drug_components[0][0]
+        logging.info(f"Selected {primary_comp_id} as primary ligand for {pdb_id}")
         
         return {primary_comp_id: {
             'SMILES_stereo': component_details[primary_comp_id]['SMILES_stereo']
         }}
         
     except Exception as e:
-        print(f"Error in fetch_smile_strings for {pdb_id}: {e}")
+        logging.error(f"Error in fetch_smile_strings for {pdb_id}: {e}")
         return {}
 
 def extract_dockq_values(output):
@@ -565,7 +603,7 @@ def run_dockq(model_path, ref_path):
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
-        print(f"Error running DockQ: {e}")
+        logging.error(f"Error running DockQ: {e}")
         return None
 
 def process_pdb_folder(folder_path, pdb_id, results):
@@ -579,7 +617,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
     
     # Check if reference file exists
     if not os.path.exists(ref_path):
-        print(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
+        logging.warning(f"Reference file {ref_path} not found. Skipping {pdb_id}.")
         return
     
     # Extract POI and E3 information if available
@@ -600,14 +638,14 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 "LIGAND_SMILES": smile_strings[ligand_id].get('SMILES_stereo', "N/A")
             }
         else:
-            print(f"No suitable ligands found for {pdb_id}")
+            logging.info(f"No suitable ligands found for {pdb_id}")
             ligand_info = {
                 "LIGAND_CCD": "N/A",
                 "LIGAND_LINK": "N/A",
                 "LIGAND_SMILES": "N/A"
             }
     except Exception as e:
-        print(f"Error fetching SMILE strings for {pdb_id}: {e}")
+        logging.error(f"Error fetching SMILE strings for {pdb_id}: {e}")
         ligand_info = {
             "LIGAND_CCD": "N/A",
             "LIGAND_LINK": "N/A",
@@ -626,19 +664,37 @@ def process_pdb_folder(folder_path, pdb_id, results):
     # Collect all folders in the PDB ID directory
     all_folders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
     
-    # Pattern for folders with seed numbers: pdbid_type_seed
-    model_pattern = re.compile(f"{pdb_id.lower()}_([a-z]+)_(\d+)")
+    # Pattern for folders with seed numbers
+    # Handle both regular and ternary naming patterns
+    model_patterns = [
+        re.compile(f"{pdb_id.lower()}_([a-z]+)_(\d+)"),
+        re.compile(f"{pdb_id.lower()}_ternary_([a-z]+)_(\d+)")
+    ]
     
     # Find all model folders with seeds
     for folder_name in all_folders:
-        # Match folders with explicit seeds
-        match = model_pattern.match(folder_name)
+        match = None
+        is_ternary = False
+        
+        # Try both regular and ternary patterns
+        for pattern in model_patterns:
+            match = pattern.match(folder_name)
+            if match:
+                is_ternary = "ternary" in folder_name
+                break
+                
         if match:
             model_type, seed = match.groups()
             
+            # Handle both naming conventions
+            if is_ternary:
+                name_prefix = f"{pdb_id.lower()}_ternary_{model_type}"
+            else:
+                name_prefix = f"{pdb_id.lower()}_{model_type}"
+            
             # Try both naming conventions
             model_path1 = os.path.join(folder_path, folder_name, f"{folder_name}_model.cif")
-            model_path2 = os.path.join(folder_path, folder_name, f"{pdb_id.lower()}_{model_type}_model.cif")
+            model_path2 = os.path.join(folder_path, folder_name, f"{name_prefix}_model.cif")
             
             # Check which model file exists
             if os.path.exists(model_path1):
@@ -646,11 +702,12 @@ def process_pdb_folder(folder_path, pdb_id, results):
             elif os.path.exists(model_path2):
                 model_path = model_path2
             else:
+                logging.debug(f"No model file found for {folder_name}")
                 continue
             
             # Check for JSON files with both conventions
             json_path1 = os.path.join(folder_path, folder_name, f"{folder_name}_summary_confidences.json")
-            json_path2 = os.path.join(folder_path, folder_name, f"{pdb_id.lower()}_{model_type}_summary_confidences.json")
+            json_path2 = os.path.join(folder_path, folder_name, f"{name_prefix}_summary_confidences.json")
             
             if os.path.exists(json_path1):
                 json_path = json_path1
@@ -658,6 +715,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 json_path = json_path2
             else:
                 json_path = None
+                logging.debug(f"No JSON confidence file found for {folder_name}")
             
             # Store model information
             if model_type == "ccd":
@@ -665,21 +723,23 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     "model_path": model_path,
                     "json_path": json_path
                 }
+                logging.debug(f"Found CCD model with seed {seed}: {model_path}")
             elif model_type == "smiles":
                 smiles_model_dict[seed] = {
                     "model_path": model_path,
                     "json_path": json_path
                 }
+                logging.debug(f"Found SMILES model with seed {seed}: {model_path}")
     
     # Process each seed's models
     all_seeds = sorted(set(list(ccd_model_dict.keys()) + list(smiles_model_dict.keys())))
     
     if not all_seeds:
-        print(f"No seed-based models found for {pdb_id}")
+        logging.warning(f"No seed-based models found for {pdb_id}")
         return
         
     for seed in all_seeds:
-        print(f"Processing {pdb_id} with seed {seed}...")
+        logging.info(f"Processing {pdb_id} with seed {seed}...")
         
         # Start with PDB ID and common information
         result_row = {
@@ -719,6 +779,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 # Compute overall RMSD
                 smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, f"smiles_{seed}")
                 result_row["SMILES RMSD"] = smiles_rmsd
+                logging.debug(f"{pdb_id} seed {seed} SMILES RMSD: {smiles_rmsd}")
                 
                 # Compute component-specific RMSD if sequences are available
                 if poi_sequence or e3_sequence:
@@ -728,6 +789,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     )
                     result_row["SMILES_POI_RMSD"] = component_rmsd["POI_RMSD"]
                     result_row["SMILES_E3_RMSD"] = component_rmsd["E3_RMSD"]
+                    logging.debug(f"{pdb_id} seed {seed} SMILES POI RMSD: {component_rmsd['POI_RMSD']}, E3 RMSD: {component_rmsd['E3_RMSD']}")
                 
                 # Run DockQ
                 smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
@@ -736,9 +798,10 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
                     result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                     result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    logging.debug(f"{pdb_id} seed {seed} SMILES DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
                     
             except Exception as e:
-                print(f"Error processing SMILES model for {pdb_id} with seed {seed}: {e}")
+                logging.error(f"Error processing SMILES model for {pdb_id} with seed {seed}: {e}")
             
             # Extract confidence values
             if smiles_json_path:
@@ -749,8 +812,9 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     result_row["SMILES IPTM"] = iptm if iptm is not None else "N/A"
                     result_row["SMILES PTM"] = ptm if ptm is not None else "N/A"
                     result_row["SMILES RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                    logging.debug(f"{pdb_id} seed {seed} SMILES confidence metrics extracted")
                 except Exception as e:
-                    print(f"Error extracting SMILES confidence values for {pdb_id} with seed {seed}: {e}")
+                    logging.error(f"Error extracting SMILES confidence values for {pdb_id} with seed {seed}: {e}")
         
         # Process CCD model for this seed
         if seed in ccd_model_dict:
@@ -761,6 +825,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                 # Compute overall RMSD
                 ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, f"ccd_{seed}")
                 result_row["CCD RMSD"] = ccd_rmsd
+                logging.debug(f"{pdb_id} seed {seed} CCD RMSD: {ccd_rmsd}")
                 
                 # Compute component-specific RMSD if sequences are available
                 if poi_sequence or e3_sequence:
@@ -770,6 +835,7 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     )
                     result_row["CCD_POI_RMSD"] = component_rmsd["POI_RMSD"]
                     result_row["CCD_E3_RMSD"] = component_rmsd["E3_RMSD"]
+                    logging.debug(f"{pdb_id} seed {seed} CCD POI RMSD: {component_rmsd['POI_RMSD']}, E3 RMSD: {component_rmsd['E3_RMSD']}")
                 
                 # Run DockQ
                 ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
@@ -778,9 +844,10 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
                     result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
                     result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    logging.debug(f"{pdb_id} seed {seed} CCD DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
                     
             except Exception as e:
-                print(f"Error processing CCD model for {pdb_id} with seed {seed}: {e}")
+                logging.error(f"Error processing CCD model for {pdb_id} with seed {seed}: {e}")
             
             # Extract confidence values
             if ccd_json_path:
@@ -791,8 +858,9 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     result_row["CCD IPTM"] = iptm if iptm is not None else "N/A"
                     result_row["CCD PTM"] = ptm if ptm is not None else "N/A"
                     result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                    logging.debug(f"{pdb_id} seed {seed} CCD confidence metrics extracted")
                 except Exception as e:
-                    print(f"Error extracting CCD confidence values for {pdb_id} with seed {seed}: {e}")
+                    logging.error(f"Error extracting CCD confidence values for {pdb_id} with seed {seed}: {e}")
         
         # Create side-by-side ligand visualizations for this seed
         if seed in smiles_model_dict and seed in ccd_model_dict:
@@ -813,27 +881,37 @@ def process_pdb_folder(folder_path, pdb_id, results):
                     ligand_id
                 )
                 if not side_by_side_screenshots:
-                    print(f"Failed to create side-by-side ligand views for {pdb_id} with seed {seed}")
+                    logging.warning(f"Failed to create side-by-side ligand views for {pdb_id} with seed {seed}")
+                else:
+                    logging.debug(f"Created {len(side_by_side_screenshots)} side-by-side views for {pdb_id} with seed {seed}")
             except Exception as e:
-                print(f"Error creating side-by-side ligand views for {pdb_id} with seed {seed}: {e}")
+                logging.error(f"Error creating side-by-side ligand views for {pdb_id} with seed {seed}: {e}")
         
         results.append(result_row)
+        logging.info(f"Completed processing {pdb_id} with seed {seed}")
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate AlphaFold predictions against experimental structures.")
     parser.add_argument("protac_folder", help="Path to the folder containing PROTAC PDB ID folders")
     parser.add_argument("--glue_folder", help="Optional path to the folder containing Molecular Glue PDB ID folders")
     parser.add_argument("--output", "-o", default="evaluation_results.csv", help="Output CSV file name or full path (default: saves to ../data/af3_results/)")
+    parser.add_argument("--log", help="Path to output log file (default: None, logs to console only)")
+    parser.add_argument("--log_level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
+                        default="INFO", help="Set the logging level (default: INFO)")
     args = parser.parse_args()
+    
+    # Set up logging
+    log_level = getattr(logging, args.log_level)
+    setup_logging(args.log, log_level)
     
     # Check if the PROTAC folder exists
     if not os.path.exists(args.protac_folder):
-        print(f"Error: PROTAC folder {args.protac_folder} does not exist.")
+        logging.error(f"Error: PROTAC folder {args.protac_folder} does not exist.")
         sys.exit(1)
     
     # Check if the Glue folder exists if provided
     if args.glue_folder and not os.path.exists(args.glue_folder):
-        print(f"Error: Molecular Glue folder {args.glue_folder} does not exist.")
+        logging.error(f"Error: Molecular Glue folder {args.glue_folder} does not exist.")
         sys.exit(1)
     
     # Determine output path
@@ -847,17 +925,17 @@ def main():
     
     # Make sure the output directory exists
     if output_dir and not os.path.exists(output_dir):
-        print(f"Creating output directory: {output_dir}")
+        logging.info(f"Creating output directory: {output_dir}")
         os.makedirs(output_dir, exist_ok=True)
     
     results = []
     
     # Process PROTAC folders
-    print("Processing PROTAC structures...")
+    logging.info("Processing PROTAC structures...")
     for item in os.listdir(args.protac_folder):
         folder_path = os.path.join(args.protac_folder, item)
         if os.path.isdir(folder_path):
-            print(f"Processing PROTAC {item}...")
+            logging.info(f"Processing PROTAC {item}...")
             process_pdb_folder(folder_path, item, results)
             
     # Add type information for PROTAC
@@ -866,12 +944,12 @@ def main():
     
     # Process Molecular Glue folders if provided
     if args.glue_folder:
-        print("Processing Molecular Glue structures...")
+        logging.info("Processing Molecular Glue structures...")
         glue_results = []
         for item in os.listdir(args.glue_folder):
             folder_path = os.path.join(args.glue_folder, item)
             if os.path.isdir(folder_path):
-                print(f"Processing Molecular Glue {item}...")
+                logging.info(f"Processing Molecular Glue {item}...")
                 process_pdb_folder(folder_path, item, glue_results)
         
         # Add type information for Molecular Glue
@@ -909,9 +987,9 @@ def main():
         df = df.sort_values(by=['PDB_ID', 'RELEASE_DATE'])
         
         df.to_csv(output_path, index=False)
-        print(f"Results saved to {output_path}")
+        logging.info(f"Results saved to {output_path}")
     else:
-        print("No results to save.")
+        logging.warning("No results to save.")
 
 if __name__ == "__main__":
     main()
