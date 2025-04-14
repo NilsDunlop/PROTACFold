@@ -669,10 +669,10 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         ccd_model_path, ccd_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "ccd", "0")
         smiles_model_path, smiles_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "smiles", "0")
         
-        # Use a fixed "seed" value for Boltz-1
-        all_seeds = ["0"]
-        ccd_model_dict = {"0": {"model_path": ccd_model_path, "json_path": ccd_json_path}} if ccd_model_path else {}
-        smiles_model_dict = {"0": {"model_path": smiles_model_path, "json_path": smiles_json_path}} if smiles_model_path else {}
+        # Set seed to 42 for Boltz-1
+        all_seeds = ["42"]
+        ccd_model_dict = {"42": {"model_path": ccd_model_path, "json_path": ccd_json_path}} if ccd_model_path else {}
+        smiles_model_dict = {"42": {"model_path": smiles_model_path, "json_path": smiles_json_path}} if smiles_model_path else {}
         
     else:
         # For AlphaFold: Use seed-based folder structure
@@ -742,7 +742,7 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         result_row = {
             "PDB_ID": pdb_id,
             "RELEASE_DATE": get_pdb_release_date(pdb_id) or "N/A",
-            "SEED": "N/A" if is_boltz1 else seed,
+            "SEED": 42 if is_boltz1 else seed,
             "POI_NAME": poi_name if poi_name else "N/A",
             "POI_SEQUENCE": poi_sequence if poi_sequence else "N/A",
             "E3_NAME": e3_name if e3_name else "N/A",
@@ -908,8 +908,8 @@ def main():
     parser.add_argument("--log", help="Path to output log file (default: None, logs to console only)")
     parser.add_argument("--log_level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
                         default="INFO", help="Set the logging level (default: INFO)")
-    parser.add_argument("--model_type", choices=["alphafold", "boltz1"], 
-                        default="alphafold", help="Structure prediction model type (default: alphafold)")
+    parser.add_argument("--model_type", choices=["AlphaFold3", "Boltz1"], 
+                        default="AlphaFold3", help="Structure prediction model type (default: AlphaFold3)")
     args = parser.parse_args()
     
     # Set up logging
@@ -984,10 +984,10 @@ def main():
         # Define common column order
         column_order = [
             'PDB_ID', 'RELEASE_DATE', 'SEED', 'TYPE', 'MODEL_TYPE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
-            'SMILES RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES DOCKQ SCORE', 'SMILES DOCKQ iRMSD', 'SMILES DOCKQ LRMSD',
-            'SMILES FRACTION DISORDERED', 'SMILES HAS_CLASH', 'SMILES IPTM', 'SMILES PTM', 'SMILES RANKING_SCORE',
-            'CCD RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD DOCKQ SCORE', 'CCD DOCKQ iRMSD', 'CCD DOCKQ LRMSD',
-            'CCD FRACTION DISORDERED', 'CCD HAS_CLASH', 'CCD IPTM', 'CCD PTM', 'CCD RANKING_SCORE',
+            'SMILES_RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES_DOCKQ_SCORE', 'SMILES_DOCKQ_iRMSD', 'SMILES_DOCKQ_LRMSD',
+            'SMILES_FRACTION_DISORDERED', 'SMILES_HAS_CLASH', 'SMILES_IPTM', 'SMILES_PTM', 'SMILES_RANKING_SCORE',
+            'CCD_RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD_DOCKQ_SCORE', 'CCD_DOCKQ_iRMSD', 'CCD_DOCKQ_LRMSD',
+            'CCD_FRACTION_DISORDERED', 'CCD_HAS_CLASH', 'CCD_IPTM', 'CCD_PTM', 'CCD_RANKING_SCORE',
             'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
             'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
             'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'
