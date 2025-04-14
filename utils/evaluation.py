@@ -908,8 +908,8 @@ def main():
     parser.add_argument("--log", help="Path to output log file (default: None, logs to console only)")
     parser.add_argument("--log_level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
                         default="INFO", help="Set the logging level (default: INFO)")
-    parser.add_argument("--model_type", choices=["alphafold", "boltz1"], 
-                        default="alphafold", help="Structure prediction model type (default: alphafold)")
+    parser.add_argument("--model_type", choices=["AlphaFold3", "Boltz1"], 
+                        default="AlphaFold3", help="Structure prediction model type (default: AlphaFold3)")
     args = parser.parse_args()
     
     # Set up logging
@@ -984,10 +984,10 @@ def main():
         # Define common column order
         column_order = [
             'PDB_ID', 'RELEASE_DATE', 'SEED', 'TYPE', 'MODEL_TYPE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
-            'SMILES RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES DOCKQ SCORE', 'SMILES DOCKQ iRMSD', 'SMILES DOCKQ LRMSD',
-            'SMILES FRACTION DISORDERED', 'SMILES HAS_CLASH', 'SMILES IPTM', 'SMILES PTM', 'SMILES RANKING_SCORE',
-            'CCD RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD DOCKQ SCORE', 'CCD DOCKQ iRMSD', 'CCD DOCKQ LRMSD',
-            'CCD FRACTION DISORDERED', 'CCD HAS_CLASH', 'CCD IPTM', 'CCD PTM', 'CCD RANKING_SCORE',
+            'SMILES_RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES_DOCKQ_SCORE', 'SMILES_DOCKQ_iRMSD', 'SMILES_DOCKQ_LRMSD',
+            'SMILES_FRACTION_DISORDERED', 'SMILES_HAS_CLASH', 'SMILES_IPTM', 'SMILES_PTM', 'SMILES_RANKING_SCORE',
+            'CCD_RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD_DOCKQ_SCORE', 'CCD_DOCKQ_iRMSD', 'CCD_DOCKQ_LRMSD',
+            'CCD_FRACTION_DISORDERED', 'CCD_HAS_CLASH', 'CCD_IPTM', 'CCD_PTM', 'CCD_RANKING_SCORE',
             'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
             'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
             'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'
