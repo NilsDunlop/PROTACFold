@@ -669,10 +669,10 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         ccd_model_path, ccd_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "ccd", "0")
         smiles_model_path, smiles_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "smiles", "0")
         
-        # Use a fixed "seed" value for Boltz-1
-        all_seeds = ["0"]
-        ccd_model_dict = {"0": {"model_path": ccd_model_path, "json_path": ccd_json_path}} if ccd_model_path else {}
-        smiles_model_dict = {"0": {"model_path": smiles_model_path, "json_path": smiles_json_path}} if smiles_model_path else {}
+        # Set seed to 42 for Boltz-1
+        all_seeds = ["42"]
+        ccd_model_dict = {"42": {"model_path": ccd_model_path, "json_path": ccd_json_path}} if ccd_model_path else {}
+        smiles_model_dict = {"42": {"model_path": smiles_model_path, "json_path": smiles_json_path}} if smiles_model_path else {}
         
     else:
         # For AlphaFold: Use seed-based folder structure
@@ -742,7 +742,7 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         result_row = {
             "PDB_ID": pdb_id,
             "RELEASE_DATE": get_pdb_release_date(pdb_id) or "N/A",
-            "SEED": "N/A" if is_boltz1 else seed,
+            "SEED": 42 if is_boltz1 else seed,
             "POI_NAME": poi_name if poi_name else "N/A",
             "POI_SEQUENCE": poi_sequence if poi_sequence else "N/A",
             "E3_NAME": e3_name if e3_name else "N/A",
