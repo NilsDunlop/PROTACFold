@@ -5,7 +5,7 @@ import math
 from base_plotter import BasePlotter
 from config import PlotConfig
 from data_loader import DataLoader
-from utils import categorize_by_cutoffs, save_figure
+from utils import categorize_by_cutoffs, save_figure, distribute_structures_evenly
 
 class RMSDPlotter(BasePlotter):
     """Class for creating RMSD, iRMSD, and LRMSD comparison plots."""
@@ -133,39 +133,26 @@ class RMSDPlotter(BasePlotter):
         elif display_title.startswith("RMSD Category: "):
             display_title = "RMSD: " + display_title.replace("RMSD Category:", "").strip()
         
-        # If the number of structures is relatively small, create a single plot with dynamic height
-        if len(df) <= max_structures_per_plot:
-            dynamic_height = max(8, len(df) * 0.5 + 2)
-            self._create_single_rmsd_plot(
-                df, display_title, 
-                add_threshold, threshold_value, 
-                width, dynamic_height, bar_height, bar_spacing,
-                show_y_labels_on_all, save,
-                all_figures, all_axes
-            )
+        # If no structures, return immediately
+        if len(df) == 0:
             return
-        
-        # For larger datasets, paginate the plots
-        num_plots = math.ceil(len(df) / max_structures_per_plot)
-        
-        for i in range(num_plots):
-            start_idx = i * max_structures_per_plot
-            end_idx = min((i + 1) * max_structures_per_plot, len(df))
             
-            # Get structures for this page
-            page_df = df.iloc[start_idx:end_idx].copy()
-            
-            # Calculate height based on number of structures on this page
-            page_height = max(8, len(page_df) * 0.5 + 2)
+        # Use the utility function for even distribution across pages
+        pages, structures_per_page = distribute_structures_evenly(df, max_structures_per_plot)
+        
+        # Create plots with consistent number of structures per page
+        for i, page_df in enumerate(pages):
+            # Calculate plot dimensions based on number of structures
+            plot_width, plot_height = self.calculate_plot_dimensions(len(page_df), width)
             
             # Create page filename info that includes pagination info
-            page_filename = f"{category_title} (Page {i+1} of {num_plots})"
+            page_filename = f"{category_title} (Page {i+1} of {len(pages)})"
             
             # Create the plot - don't include page numbers in the displayed title
             self._create_single_rmsd_plot(
                 page_df, display_title,
                 add_threshold, threshold_value, 
-                width, page_height, bar_height, bar_spacing,
+                plot_width, plot_height, bar_height, bar_spacing,
                 show_y_labels_on_all, save,
                 all_figures, all_axes,
                 filename_with_page=page_filename  # Only used for filename, not display

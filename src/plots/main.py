@@ -8,6 +8,7 @@ from config import PlotConfig
 from data_loader import DataLoader
 from horizontal_bars import HorizontalBarPlotter
 from rmsd_plotter import RMSDPlotter
+from ptm_plotter import PTMPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -30,10 +31,13 @@ class PlottingApp:
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
         self.rmsd_plotter = RMSDPlotter()
+        self.ptm_plotter = PTMPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
         self.cutoff_molecular_glue = None
+        self.cutoff_ptm_protac = None
+        self.cutoff_ptm_molecular_glue = None
         
         # Set up output directory
         self.output_dir = os.path.abspath('../../data/plots')
@@ -62,6 +66,17 @@ class PlottingApp:
                     np.percentile(ccd_rmsd_mean_protac, 80)
                 ]
             
+            # Calculate pTM cutoffs for PROTACs
+            ccd_ptm_mean_protac = self.df_af3_agg.loc[protac_mask, 'CCD_pTM_mean'].dropna()
+            
+            if len(ccd_ptm_mean_protac) > 0:
+                self.cutoff_ptm_protac = [
+                    np.percentile(ccd_ptm_mean_protac, 20),
+                    np.percentile(ccd_ptm_mean_protac, 40),
+                    np.percentile(ccd_ptm_mean_protac, 60),
+                    np.percentile(ccd_ptm_mean_protac, 80)
+                ]
+            
             # Calculate cutoffs for Molecular Glues
             molecular_glue_mask = self.df_af3_agg['TYPE'] == 'Molecular Glue'
             ccd_rmsd_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_RMSD_mean'].dropna()
@@ -72,6 +87,17 @@ class PlottingApp:
                     np.percentile(ccd_rmsd_mean_molecular_glue, 40),
                     np.percentile(ccd_rmsd_mean_molecular_glue, 60),
                     np.percentile(ccd_rmsd_mean_molecular_glue, 80)
+                ]
+            
+            # Calculate pTM cutoffs for Molecular Glues
+            ccd_ptm_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_pTM_mean'].dropna()
+            
+            if len(ccd_ptm_mean_molecular_glue) > 0:
+                self.cutoff_ptm_molecular_glue = [
+                    np.percentile(ccd_ptm_mean_molecular_glue, 20),
+                    np.percentile(ccd_ptm_mean_molecular_glue, 40),
+                    np.percentile(ccd_ptm_mean_molecular_glue, 60),
+                    np.percentile(ccd_ptm_mean_molecular_glue, 80)
                 ]
                 
         except Exception as e:
@@ -207,6 +233,51 @@ class PlottingApp:
             import traceback
             traceback.print_exc()
     
+    def plot_ptm_bars(self):
+        """Generate pTM and ipTM horizontal bar plots."""
+        if self.df_af3_agg is None:
+            print("Error: AF3 aggregated data not loaded. Please load data first.")
+            return
+        
+        # Get user input for plot parameters
+        print("\npTM Plot Settings:")
+        molecule_type = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
+        
+        # Select cutoffs based on molecule type
+        cutoffs = self.cutoff_ptm_protac if molecule_type == "PROTAC" else self.cutoff_ptm_molecular_glue
+        
+        # Ask for threshold display
+        add_threshold = input("Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+        threshold_value = 0.5
+        if add_threshold:
+            threshold_input = input("Threshold value [0.5]: ").strip()
+            if threshold_input:
+                threshold_value = float(threshold_input)
+        
+        # Max structure per plot
+        max_structures = 15
+        
+        print("Generating pTM and ipTM plots...")
+        try:
+            figs, axes = self.ptm_plotter.plot_ptm_bars(
+                self.df_af3_agg,
+                molecule_type=molecule_type,
+                classification_cutoff=cutoffs,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                show_y_labels_on_all=True,
+                max_structures_per_plot=max_structures,
+                save=False
+            )
+            
+            # Save the plots with appropriate naming
+            self.save_plots(figs, f"ptm_iptm_comparison_{molecule_type}")
+            
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def plot_comparison(self, comparison_type="boltz1"):
         """Compare AF3 results with other methods."""
         if self.df_af3_agg is None:
@@ -236,9 +307,10 @@ class PlottingApp:
         print("\nAvailable Plot Types:")
         print("1. Horizontal Bars (Mean & Std Dev)")
         print("2. RMSD, iRMSD, LRMSD Plots")
-        print("3. AF3 vs Boltz1 Comparison")
-        print("4. AF3 vs HAL Comparison")
-        print("5. Generate All Plot Types")
+        print("3. pTM and ipTM Plots")
+        print("4. AF3 vs Boltz1 Comparison")
+        print("5. AF3 vs HAL Comparison")
+        print("6. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -264,10 +336,11 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '5':
+            if choice == '6':
                 # Generate all plot types
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
+                self.plot_ptm_bars()
                 self.plot_comparison("boltz1")
                 self.plot_comparison("hal")
                 continue
@@ -283,8 +356,10 @@ class PlottingApp:
                 elif plot_choice == '2':
                     self.plot_rmsd_horizontal_bars()
                 elif plot_choice == '3':
-                    self.plot_comparison("boltz1")
+                    self.plot_ptm_bars()
                 elif plot_choice == '4':
+                    self.plot_comparison("boltz1")
+                elif plot_choice == '5':
                     self.plot_comparison("hal")
                 elif not plot_choice:
                     continue

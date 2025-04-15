@@ -37,3 +37,20 @@ class BasePlotter:
             ax.legend(handles, labels, **legend_defaults)
         else:
             ax.legend(**legend_defaults)
+    
+    def calculate_plot_dimensions(self, num_structures, base_width=12, 
+                                height_per_structure=0.5, min_height=8):
+        """
+        Calculate appropriate figure dimensions based on the number of structures.
+        
+        Args:
+            num_structures: Number of structures to display
+            base_width: Base width for the figure
+            height_per_structure: Height to allocate per structure
+            min_height: Minimum height for the figure
+            
+        Returns:
+            width, height: Appropriate dimensions for the figure
+        """
+        height = max(min_height, num_structures * height_per_structure + 2)
+        return base_width, height
