@@ -28,6 +28,12 @@ class PlotConfig:
     TEAL = '#1B998B'
     YELLOW = '#EAC435'
     
+    # Model comparison colors
+    AF3_CCD_COLOR = '#FA6347'      # red (same as CCD_PRIMARY)
+    AF3_SMILES_COLOR = '#1E8FFF'    # blue (same as SMILES_PRIMARY)
+    BOLTZ1_CCD_COLOR = '#931652'    # dark magenta
+    BOLTZ1_SMILES_COLOR = '#188f52' # green
+    
     # Font sizes
     TITLE_SIZE = 14
     AXIS_LABEL_SIZE = 12

@@ -9,6 +9,7 @@ from data_loader import DataLoader
 from horizontal_bars import HorizontalBarPlotter
 from rmsd_plotter import RMSDPlotter
 from ptm_plotter import PTMPlotter
+from comparison_plotter import ComparisonPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -26,12 +27,12 @@ class PlottingApp:
         self.df_af3 = None
         self.df_af3_agg = None
         self.df_boltz1 = None
-        self.df_hal = None
         
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
         self.rmsd_plotter = RMSDPlotter()
         self.ptm_plotter = PTMPlotter()
+        self.comparison_plotter = ComparisonPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -67,7 +68,7 @@ class PlottingApp:
                 ]
             
             # Calculate pTM cutoffs for PROTACs
-            ccd_ptm_mean_protac = self.df_af3_agg.loc[protac_mask, 'CCD_pTM_mean'].dropna()
+            ccd_ptm_mean_protac = self.df_af3_agg.loc[protac_mask, 'CCD_PTM_mean'].dropna()
             
             if len(ccd_ptm_mean_protac) > 0:
                 self.cutoff_ptm_protac = [
@@ -90,7 +91,7 @@ class PlottingApp:
                 ]
             
             # Calculate pTM cutoffs for Molecular Glues
-            ccd_ptm_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_pTM_mean'].dropna()
+            ccd_ptm_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_PTM_mean'].dropna()
             
             if len(ccd_ptm_mean_molecular_glue) > 0:
                 self.cutoff_ptm_molecular_glue = [
@@ -107,15 +108,17 @@ class PlottingApp:
         try:
             self.df_boltz1 = DataLoader.load_data('../../data/boltz1_results/boltz1_results.csv')
             print("✓ Boltz1 data loaded successfully")
+            
+            # Also try to load combined results if available
+            try:
+                self.df_combined = DataLoader.load_data('../../data/af3_results/combined_results.csv')
+                print("✓ Combined results data loaded successfully")
+            except Exception as e:
+                self.df_combined = None
+                print(f"Note: Combined results data not loaded: {e}")
+                
         except Exception as e:
             print(f"Error loading Boltz1 data: {e}")
-        
-        # Load HAL results
-        try:
-            self.df_hal = DataLoader.load_data('../../data/hal_04732948/hal_results.csv')
-            print("✓ HAL data loaded successfully")
-        except Exception as e:
-            print(f"Error loading HAL data: {e}")
     
     def save_plots(self, figs, base_name):
         """Save all figures with a common base name and timestamp."""
@@ -287,17 +290,68 @@ class PlottingApp:
         if comparison_type == "boltz1" and self.df_boltz1 is None:
             print("Error: Boltz1 data not loaded. Please load data first.")
             return
-            
-        if comparison_type == "hal" and self.df_hal is None:
-            print("Error: HAL data not loaded. Please load data first.")
+        
+        # Check for combined results data
+        if not hasattr(self, 'df_combined') or self.df_combined is None:
+            print("\nError: Combined results data not found.")
+            print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE and SEED columns.")
             return
         
         print(f"\n{comparison_type.upper()} comparison plots:")
-        print("This feature is not fully implemented yet.")
-        print("It would compare metrics between AF3 and other methods.")
         
-        # Here you would implement the comparison plots between methods
-        input("\nPress Enter to continue...")
+        # Default settings
+        add_threshold = True
+        threshold_value = 4.0  # Default for RMSD
+        metric_type = 'RMSD'
+        molecule_type = 'PROTAC'  # Default to PROTAC
+        
+        # Get user input for plot parameters
+        print("\nComparison Plot Settings:")
+        
+        # Select molecule type (PROTAC or Molecular Glue)
+        molecule_type_input = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
+        if molecule_type_input in ['PROTAC', 'Molecular Glue']:
+            molecule_type = molecule_type_input
+        
+        # Select metric type
+        metric_type_input = input("Metric type (RMSD/DOCKQ) [RMSD]: ").strip().upper() or "RMSD"
+        if metric_type_input in ['RMSD', 'DOCKQ']:
+            metric_type = metric_type_input
+        
+        # Set appropriate threshold value based on metric type
+        if metric_type == 'RMSD':
+            threshold_value = 4.0
+        elif metric_type == 'DOCKQ':
+            threshold_value = 0.23
+        
+        # Ask for threshold display
+        add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
+        add_threshold = add_threshold_input != 'n'
+        
+        print(f"Generating AlphaFold3 vs Boltz1 comparison plots for {molecule_type} {metric_type}...")
+        try:
+            # Call plot_af3_vs_boltz1 with the correct parameters
+            figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
+                df=self.df_combined,
+                metric_type=metric_type,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                show_y_labels_on_all=True,
+                width=12,
+                height=14,
+                max_structures=25,
+                save=False,
+                molecule_type=molecule_type
+            )
+            
+            # Save the plots with appropriate naming
+            self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
+            
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
     
     def display_menu(self):
         """Display the main menu."""
@@ -309,8 +363,7 @@ class PlottingApp:
         print("2. RMSD, iRMSD, LRMSD Plots")
         print("3. pTM and ipTM Plots")
         print("4. AF3 vs Boltz1 Comparison")
-        print("5. AF3 vs HAL Comparison")
-        print("6. Generate All Plot Types")
+        print("5. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -336,13 +389,12 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '6':
+            if choice == '5':
                 # Generate all plot types
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
                 self.plot_comparison("boltz1")
-                self.plot_comparison("hal")
                 continue
             
             # Process comma-separated choices
@@ -359,8 +411,6 @@ class PlottingApp:
                     self.plot_ptm_bars()
                 elif plot_choice == '4':
                     self.plot_comparison("boltz1")
-                elif plot_choice == '5':
-                    self.plot_comparison("hal")
                 elif not plot_choice:
                     continue
                 else:
