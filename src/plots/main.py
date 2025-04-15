@@ -7,6 +7,7 @@ import subprocess
 from config import PlotConfig
 from data_loader import DataLoader
 from horizontal_bars import HorizontalBarPlotter
+from rmsd_plotter import RMSDPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -28,6 +29,7 @@ class PlottingApp:
         
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
+        self.rmsd_plotter = RMSDPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -162,8 +164,8 @@ class PlottingApp:
     
     def plot_rmsd_horizontal_bars(self):
         """Generate RMSD, iRMSD, LRMSD horizontal bar plots."""
-        if self.df_af3 is None:
-            print("Error: AF3 data not loaded. Please load data first.")
+        if self.df_af3_agg is None:
+            print("Error: AF3 aggregated data not loaded. Please load data first.")
             return
         
         # Get user input for plot parameters
@@ -181,22 +183,29 @@ class PlottingApp:
             if threshold_input:
                 threshold_value = float(threshold_input)
         
+        # Max structure per plot for RMSD plots
+        max_structures = 17
+        
         print("Generating RMSD plots...")
         try:
             figs, axes = self.rmsd_plotter.plot_rmsd_bars(
-                self.df_af3,
+                self.df_af3_agg,
                 molecule_type=molecule_type,
                 classification_cutoff=cutoffs,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
+                show_y_labels_on_all=True,
+                max_structures_per_plot=max_structures,
                 save=False
             )
             
             # Save the plots with appropriate naming
-            self.save_plots(figs, f"rmsd_bars_{molecule_type}")
+            self.save_plots(figs, f"rmsd_comparison_{molecule_type}")
             
         except Exception as e:
             print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
     
     def plot_comparison(self, comparison_type="boltz1"):
         """Compare AF3 results with other methods."""
