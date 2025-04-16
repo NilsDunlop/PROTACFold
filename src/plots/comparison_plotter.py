@@ -87,21 +87,8 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             tuple: (figures, axes)
         """
-        # Print debug information about the input dataframe
-        print("\nDEBUG INFO FOR COMPARISON PLOTTING:")
-        print(f"Input DataFrame shape: {df.shape}")
-        
         # Check if MOLECULE_TYPE column exists, otherwise use TYPE column
         molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in df.columns else 'TYPE'
-        if molecule_type_col in df.columns:
-            print(f"{molecule_type_col} column detected with values: {df[molecule_type_col].unique()}")
-        else:
-            print(f"WARNING: Neither MOLECULE_TYPE nor TYPE column found in the data")
-        
-        print(f"MODEL_TYPE values: {df['MODEL_TYPE'].unique()}")
-        print(f"SEED values: {df['SEED'].unique() if 'SEED' in df.columns else 'No SEED column'}")
-        print(f"Target metric: {metric_type}")
-        print(f"Filtering for molecule type: {molecule_type}")
         
         if model_types is None:
             model_types = ["AlphaFold3", "Boltz1"]
@@ -115,19 +102,34 @@ class ComparisonPlotter(BasePlotter):
         # Filter the dataframe for the specified molecule type
         if molecule_type_col in df.columns:
             df_filtered = df[df[molecule_type_col] == molecule_type].copy()
-            print(f"After filtering for {molecule_type} using column {molecule_type_col}: {df_filtered.shape} rows")
         else:
             df_filtered = df.copy()
-            print("No molecule type filtering applied (column not found)")
+            print("Warning: TYPE column not found, no molecule type filtering applied")
+        
+        # For DockQ plots, filter out PDB IDs where both Boltz-1 CCD and SMILES DOCKQ scores are 'N/A'
+        if metric_type.upper() == 'DOCKQ':
+            # Convert string 'N/A' values to actual NaN for proper filtering
+            for col in df_filtered.columns:
+                if df_filtered[col].dtype == 'object':
+                    df_filtered[col] = df_filtered[col].replace('N/A', np.nan)
+            
+            # Identify PDB IDs where both Boltz-1 CCD and SMILES DOCKQ scores are NaN
+            boltz1_df = df_filtered[df_filtered['MODEL_TYPE'] == 'Boltz1']
+            problematic_pdb_ids = boltz1_df[
+                boltz1_df['CCD_DOCKQ_SCORE'].isna() & 
+                boltz1_df['SMILES_DOCKQ_SCORE'].isna()
+            ]['PDB_ID'].unique()
+            
+            # Filter out these PDB IDs from the dataset
+            if len(problematic_pdb_ids) > 0:
+                df_filtered = df_filtered[~df_filtered['PDB_ID'].isin(problematic_pdb_ids)]
         
         # Filter for specified model types
         df_filtered = df_filtered[df_filtered['MODEL_TYPE'].isin(model_types)]
-        print(f"After filtering for model types {model_types}: {df_filtered.shape} rows")
         
         # Filter for specified seeds
         if 'SEED' in df_filtered.columns:
             df_filtered = df_filtered[df_filtered['SEED'].isin(seeds)]
-            print(f"After filtering for seeds {seeds}: {df_filtered.shape} rows")
         
         # Create title suffix based on molecule type if not provided
         if not title_suffix and molecule_type:
@@ -141,16 +143,13 @@ class ComparisonPlotter(BasePlotter):
         try:
             # Check if we have any data after filtering
             if df_filtered.empty:
-                print(f"ERROR: No data available after filtering for {molecule_type}, {model_types}, and seeds {seeds}")
+                print(f"ERROR: No data available after filtering")
                 return None, None
             
             # Get the appropriate metric columns based on metric_type
-            # For RMSD, we need to use the actual column names CCD_RMSD and SMILES_RMSD
-            # For DOCKQ, we need to use CCD_DOCKQ_SCORE and SMILES_DOCKQ_SCORE
             metric_columns = self._get_metric_columns(metric_type)
             if not metric_columns:
                 print(f"ERROR: Metric type '{metric_type}' not supported.")
-                print("Supported metric types are: RMSD, DOCKQ")
                 return None, None
                 
             smiles_col, ccd_col, _ = metric_columns
@@ -158,13 +157,7 @@ class ComparisonPlotter(BasePlotter):
             # Verify metric columns exist
             if smiles_col not in df_filtered.columns or ccd_col not in df_filtered.columns:
                 print(f"ERROR: Required metric columns not found in dataframe")
-                print(f"Looking for: {smiles_col} and {ccd_col}")
-                print(f"Available columns: {df_filtered.columns.tolist()}")
                 return None, None
-            
-            # For debugging, show a sample of the filtered data
-            print("\nSample of filtered data:")
-            print(df_filtered[['PDB_ID', 'MODEL_TYPE'] + (['SEED'] if 'SEED' in df_filtered.columns else []) + [smiles_col, ccd_col]].head())
             
             # Now create comparison plots with the filtered data
             return self._create_comparison_plots(
@@ -175,8 +168,6 @@ class ComparisonPlotter(BasePlotter):
             )
         except Exception as e:
             print(f"Error in plot_af3_vs_boltz1: {e}")
-            import traceback
-            traceback.print_exc()
             return None, None
     
     def _get_metric_columns(self, metric_type):
@@ -217,7 +208,6 @@ class ComparisonPlotter(BasePlotter):
         metric_columns = self._get_metric_columns(metric_type)
         if not metric_columns:
             print(f"Error: Metric type '{metric_type}' not supported.")
-            print("Supported metric types are: RMSD, DOCKQ")
             return [], []
         
         smiles_col, ccd_col, _ = metric_columns
@@ -225,8 +215,6 @@ class ComparisonPlotter(BasePlotter):
         # Check if these columns exist in the dataframe
         if smiles_col not in df.columns or ccd_col not in df.columns:
             print(f"ERROR: Required columns not found in dataframe.")
-            print(f"Looking for: {smiles_col} and {ccd_col}")
-            print(f"Available: {df.columns.tolist()}")
             return [], []
         
         # Get PDB IDs
@@ -299,14 +287,9 @@ class ComparisonPlotter(BasePlotter):
         metric_columns = self._get_metric_columns(metric_type)
         if not metric_columns:
             print(f"Error: Metric type '{metric_type}' not supported.")
-            print("Supported metric types are: RMSD, DOCKQ")
             return [], []
             
         smiles_col, ccd_col, axis_label = metric_columns
-        
-        # Debug info
-        print(f"\nDEBUG: Creating comparison plot for {metric_type}")
-        print(f"Threshold value: {threshold_value}")
         
         # Create the figure
         fig, ax = plt.subplots(figsize=(width, height))
@@ -324,7 +307,6 @@ class ComparisonPlotter(BasePlotter):
         
         # Sort by release date
         sorted_pdb_ids = sorted(pdb_ids, key=lambda x: pdb_release_dates.get(x, pd.Timestamp.min))
-        print(f"Sorted PDBs by release date")
         
         # Set up positions for the bars
         n_pdbs = len(sorted_pdb_ids)
@@ -353,9 +335,6 @@ class ComparisonPlotter(BasePlotter):
         # Track structures that exceed thresholds (for bolding labels)
         exceed_threshold = np.zeros(n_pdbs, dtype=bool)
         
-        # Debug - create a dictionary to track which values pass the threshold
-        pdb_values = {pdb_id: {'pass_threshold': False, 'values': []} for pdb_id in sorted_pdb_ids}
-        
         # Plot bars for each model type and metric
         for i, pdb_id in enumerate(sorted_pdb_ids):
             pdb_data = df[df['PDB_ID'] == pdb_id]
@@ -377,17 +356,13 @@ class ComparisonPlotter(BasePlotter):
                             linewidth=0.5,
                             orientation='vertical'
                         )
-                        # Track values for debugging
-                        pdb_values[pdb_id]['values'].append(f"AF3_CCD: {ccd_value:.2f}")
                         
                         # Check threshold based on metric type
                         if metric_type == 'RMSD' and ccd_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
                         elif metric_type == 'DOCKQ' and ccd_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
-                        
+                
                 # Plot AF3 SMILES
                 if smiles_col in af3_data.columns:
                     if not af3_data[smiles_col].isna().all():
@@ -401,16 +376,12 @@ class ComparisonPlotter(BasePlotter):
                             linewidth=0.5,
                             orientation='vertical'
                         )
-                        # Track values for debugging
-                        pdb_values[pdb_id]['values'].append(f"AF3_SMILES: {smiles_value:.2f}")
                         
                         # Check threshold based on metric type
                         if metric_type == 'RMSD' and smiles_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
                         elif metric_type == 'DOCKQ' and smiles_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
             
             # Plot Boltz1 data (if available)
             boltz1_data = pdb_data[pdb_data['MODEL_TYPE'] == 'Boltz1']
@@ -429,16 +400,12 @@ class ComparisonPlotter(BasePlotter):
                             linewidth=0.5,
                             orientation='vertical'
                         )
-                        # Track values for debugging
-                        pdb_values[pdb_id]['values'].append(f"Boltz1_CCD: {ccd_value:.2f}")
                         
                         # Check threshold based on metric type
                         if metric_type == 'RMSD' and ccd_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
                         elif metric_type == 'DOCKQ' and ccd_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
                 
                 # Plot Boltz1 SMILES
                 if smiles_col in boltz1_data.columns:
@@ -453,25 +420,12 @@ class ComparisonPlotter(BasePlotter):
                             linewidth=0.5,
                             orientation='vertical'
                         )
-                        # Track values for debugging
-                        pdb_values[pdb_id]['values'].append(f"Boltz1_SMILES: {smiles_value:.2f}")
                         
                         # Check threshold based on metric type
                         if metric_type == 'RMSD' and smiles_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
                         elif metric_type == 'DOCKQ' and smiles_value > threshold_value:
                             exceed_threshold[i] = True
-                            pdb_values[pdb_id]['pass_threshold'] = True
-        
-        # Debug output - print which PDBs meet the threshold
-        print(f"\nPDBs that meet the threshold ({metric_type} {'>' if metric_type == 'RMSD' else '>'} {threshold_value}):")
-        bold_count = 0
-        for pdb_id, data in pdb_values.items():
-            if data['pass_threshold']:
-                bold_count += 1
-                print(f"- {pdb_id} (BOLD): {', '.join(data['values'])}")
-        print(f"\nTotal PDBs to be bolded: {bold_count} out of {len(sorted_pdb_ids)}")
         
         # Add threshold if requested
         if add_threshold and threshold_value is not None:
@@ -496,7 +450,6 @@ class ComparisonPlotter(BasePlotter):
         for i, label in enumerate(ax.get_xticklabels()):
             if exceed_threshold[i]:
                 label.set_fontweight('bold')
-                print(f"Setting bold for label {i}: {pdb_labels[i]}")
         
         # Set constant y-tick intervals
         if metric_type == 'RMSD':
@@ -504,7 +457,6 @@ class ComparisonPlotter(BasePlotter):
             # Set fixed y-axis limits for RMSD
             if fixed_ylim:
                 ax.set_ylim(0, 20)  # 0-20 Å range for RMSD
-                print("Using fixed y-axis limits (0-20) for RMSD")
             else:
                 # Use dynamic limits
                 ax.set_ylim(0)
@@ -536,10 +488,11 @@ class ComparisonPlotter(BasePlotter):
             edgecolor='none'
         )
         
-        # Add page number to title if multiple pages
-        title = f"AlphaFold3 vs Boltz1 Comparison: {axis_label} {title_suffix}"
-        if total_pages > 1:
-            title = f"{title} (Page {page_num} of {total_pages})"
+        # Add plot title without page numbers
+        if metric_type == 'RMSD':
+            title = f"AlphaFold3 vs Boltz1 RMSD"
+        else:  # DOCKQ
+            title = f"AlphaFold3 vs Boltz1 DockQ Score"
         
         fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE)
         
@@ -547,12 +500,14 @@ class ComparisonPlotter(BasePlotter):
         
         # Save the plot if requested
         if save:
-            metric_name = axis_label.lower().replace(' ', '_').replace('(', '').replace(')', '')
+            if metric_type == 'RMSD':
+                filename = f"af3_vs_boltz1_rmsd"
+            else:  # DOCKQ
+                filename = f"af3_vs_boltz1_dockq"
             
+            # Add page number if multiple pages
             if total_pages > 1:
-                filename = f"af3_vs_boltz1_{metric_name}_page_{page_num}of{total_pages}"
-            else:
-                filename = f"af3_vs_boltz1_{metric_name}"
+                filename += f"_page_{page_num}of{total_pages}"
             
             save_figure(fig, filename)
         
