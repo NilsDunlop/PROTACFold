@@ -758,13 +758,13 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             result_row[prop] = mol_properties.get(prop, "N/A")
         
         # Initialize metrics with default values
-        for metric in ["SMILES RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
-                      "SMILES DOCKQ SCORE", "SMILES DOCKQ iRMSD", "SMILES DOCKQ LRMSD",
-                      "CCD RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
-                      "CCD DOCKQ SCORE", "CCD DOCKQ iRMSD", "CCD DOCKQ LRMSD",
-                      "SMILES FRACTION DISORDERED", "SMILES HAS_CLASH", "SMILES IPTM", 
-                      "SMILES PTM", "SMILES RANKING_SCORE", "CCD FRACTION DISORDERED", 
-                      "CCD HAS_CLASH", "CCD IPTM", "CCD PTM", "CCD RANKING_SCORE"]:
+        for metric in ["SMILES_RMSD", "SMILES_POI_RMSD", "SMILES_E3_RMSD", 
+                       "SMILES_DOCKQ_SCORE", "SMILES_DOCKQ_iRMSD", "SMILES_DOCKQ_LRMSD",
+                       "CCD_RMSD", "CCD_POI_RMSD", "CCD_E3_RMSD", 
+                       "CCD_DOCKQ_SCORE", "CCD_DOCKQ_iRMSD", "CCD_DOCKQ_LRMSD",
+                       "SMILES_FRACTION_DISORDERED", "SMILES_HAS_CLASH", "SMILES_IPTM", 
+                       "SMILES_PTM", "SMILES_RANKING_SCORE", "CCD_FRACTION_DISORDERED", 
+                       "CCD_HAS_CLASH", "CCD_IPTM", "CCD_PTM", "CCD_RANKING_SCORE"]:
             result_row[metric] = "N/A"
         
         # Process SMILES model for this seed
@@ -775,7 +775,7 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             try:
                 # Compute overall RMSD
                 smiles_rmsd = compute_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, f"smiles_{seed}")
-                result_row["SMILES RMSD"] = smiles_rmsd
+                result_row["SMILES_RMSD"] = smiles_rmsd
                 logging.debug(f"{pdb_id} seed {seed} SMILES RMSD: {smiles_rmsd}")
                 
                 # Compute component-specific RMSD if sequences are available
@@ -792,9 +792,9 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
                 smiles_dockq_output = run_dockq(smiles_model_path, ref_path)
                 if smiles_dockq_output:
                     dockq_score, irmsd, lrmsd = extract_dockq_values(smiles_dockq_output)
-                    result_row["SMILES DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
-                    result_row["SMILES DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
-                    result_row["SMILES DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    result_row["SMILES_DOCKQ_SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                    result_row["SMILES_DOCKQ_iRMSD"] = irmsd if irmsd is not None else "N/A"
+                    result_row["SMILES_DOCKQ_LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} SMILES DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
                     
             except Exception as e:
@@ -804,11 +804,11 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             if smiles_json_path:
                 try:
                     fraction_disordered, has_clash, iptm, ptm, ranking_score = model_adapter.extract_confidence_values(smiles_json_path)
-                    result_row["SMILES FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
-                    result_row["SMILES HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
-                    result_row["SMILES IPTM"] = iptm if iptm is not None else "N/A"
-                    result_row["SMILES PTM"] = ptm if ptm is not None else "N/A"
-                    result_row["SMILES RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                    result_row["SMILES_FRACTION_DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                    result_row["SMILES_HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                    result_row["SMILES_IPTM"] = iptm if iptm is not None else "N/A"
+                    result_row["SMILES_PTM"] = ptm if ptm is not None else "N/A"
+                    result_row["SMILES_RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} SMILES confidence metrics extracted")
                 except Exception as e:
                     logging.error(f"Error extracting SMILES confidence values for {pdb_id} with seed {seed}: {e}")
@@ -821,7 +821,7 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             try:
                 # Compute overall RMSD
                 ccd_rmsd = compute_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, f"ccd_{seed}")
-                result_row["CCD RMSD"] = ccd_rmsd
+                result_row["CCD_RMSD"] = ccd_rmsd
                 logging.debug(f"{pdb_id} seed {seed} CCD RMSD: {ccd_rmsd}")
                 
                 # Compute component-specific RMSD if sequences are available
@@ -838,9 +838,9 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
                 ccd_dockq_output = run_dockq(ccd_model_path, ref_path)
                 if ccd_dockq_output:
                     dockq_score, irmsd, lrmsd = extract_dockq_values(ccd_dockq_output)
-                    result_row["CCD DOCKQ SCORE"] = dockq_score if dockq_score is not None else "N/A"
-                    result_row["CCD DOCKQ iRMSD"] = irmsd if irmsd is not None else "N/A"
-                    result_row["CCD DOCKQ LRMSD"] = lrmsd if lrmsd is not None else "N/A"
+                    result_row["CCD_DOCKQ_SCORE"] = dockq_score if dockq_score is not None else "N/A"
+                    result_row["CCD_DOCKQ_iRMSD"] = irmsd if irmsd is not None else "N/A"
+                    result_row["CCD_DOCKQ_LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} CCD DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
                     
             except Exception as e:
@@ -850,11 +850,11 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             if ccd_json_path:
                 try:
                     fraction_disordered, has_clash, iptm, ptm, ranking_score = model_adapter.extract_confidence_values(ccd_json_path)
-                    result_row["CCD FRACTION DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
-                    result_row["CCD HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
-                    result_row["CCD IPTM"] = iptm if iptm is not None else "N/A"
-                    result_row["CCD PTM"] = ptm if ptm is not None else "N/A"
-                    result_row["CCD RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
+                    result_row["CCD_FRACTION_DISORDERED"] = fraction_disordered if fraction_disordered is not None else "N/A"
+                    result_row["CCD_HAS_CLASH"] = has_clash if has_clash is not None else "N/A"
+                    result_row["CCD_IPTM"] = iptm if iptm is not None else "N/A"
+                    result_row["CCD_PTM"] = ptm if ptm is not None else "N/A"
+                    result_row["CCD_RANKING_SCORE"] = ranking_score if ranking_score is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} CCD confidence metrics extracted")
                 except Exception as e:
                     logging.error(f"Error extracting CCD confidence values for {pdb_id} with seed {seed}: {e}")
