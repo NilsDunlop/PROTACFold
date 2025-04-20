@@ -162,3 +162,61 @@ class DataLoader:
             metrics['improvements']['SMILES'] = (means["Boltz1_SMILES"] - means["AlphaFold3_SMILES"]) / means["Boltz1_SMILES"] * 100
         
         return metrics
+
+    @staticmethod
+    def filter_comparison_data(df, molecule_type, model_types=None, seeds=None, metric_type=None, get_metric_columns_func=None):
+        """
+        Filter data based on common criteria for model comparison plots.
+        
+        Args:
+            df: DataFrame containing the data to filter
+            molecule_type: Type of molecule to filter by ('PROTAC' or 'Molecular Glue')
+            model_types: List of model types to include (None for all)
+            seeds: List of seeds to include (None for all)
+            metric_type: Type of metric to filter by ('RMSD' or 'DOCKQ')
+            get_metric_columns_func: Function to get metric columns
+            
+        Returns:
+            Filtered DataFrame or None if empty
+        """
+        # Check if MOLECULE_TYPE column exists, otherwise use TYPE column
+        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in df.columns else 'TYPE'
+        
+        if model_types is None:
+            model_types = ["AlphaFold3", "Boltz1"]
+        
+        if seeds is None:
+            if 'SEED' in df.columns:
+                seeds = sorted(df['SEED'].unique())
+            else:
+                seeds = [1]  # Default if no SEED column
+                
+        # Filter the dataframe for the specified molecule type
+        if molecule_type_col in df.columns:
+            df_filtered = df[df[molecule_type_col] == molecule_type].copy()
+        else:
+            df_filtered = df.copy()
+            print("Warning: TYPE column not found, no molecule type filtering applied")
+        
+        # Filter for specified model types
+        df_filtered = df_filtered[df_filtered['MODEL_TYPE'].isin(model_types)]
+        
+        # Filter for specified seeds
+        if 'SEED' in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered['SEED'].isin(seeds)]
+            
+        # Filter out N/A values if metric_type is provided
+        if metric_type is not None and get_metric_columns_func is not None:
+            metric_columns = get_metric_columns_func(metric_type)
+            if metric_columns:
+                smiles_col, ccd_col, _ = metric_columns
+                # Filter out rows where both metric columns are N/A
+                has_data_mask = ~(df_filtered[smiles_col].isna() & df_filtered[ccd_col].isna())
+                df_filtered = df_filtered[has_data_mask]
+                
+        # Check if we have any data after filtering
+        if df_filtered.empty:
+            print(f"ERROR: No data available after filtering")
+            return None
+                
+        return df_filtered

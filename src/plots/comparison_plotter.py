@@ -53,7 +53,14 @@ class ComparisonPlotter(BasePlotter):
             tuple: (figures, axes)
         """
         # Get filtered dataframe
-        df_filtered = self._filter_data(df, molecule_type, model_types, seeds)
+        df_filtered = DataLoader.filter_comparison_data(
+            df, 
+            molecule_type, 
+            model_types, 
+            seeds, 
+            metric_type, 
+            self._get_metric_columns
+        )
         if df_filtered is None or df_filtered.empty:
             return None, None
         
@@ -165,7 +172,14 @@ class ComparisonPlotter(BasePlotter):
                 seeds = [specific_seed]
             
             # Get filtered dataframe
-            df_filtered = self._filter_data(df, molecule_type, model_types, seeds)
+            df_filtered = DataLoader.filter_comparison_data(
+                df, 
+                molecule_type, 
+                model_types, 
+                seeds, 
+                metric_type,
+                self._get_metric_columns
+            )
             if df_filtered is None or df_filtered.empty:
                 print(f"Error: No data available for molecule type '{molecule_type}' after filtering")
                 if is_seed_specific:
@@ -271,9 +285,15 @@ class ComparisonPlotter(BasePlotter):
             # Add value labels directly on the bars
             for i, (bar, value) in enumerate(zip(bars, values)):
                 height = bar.get_height()
+                # Use a dynamic offset based on metric type
+                if metric_type == 'DOCKQ':
+                    offset = 0.005
+                else:
+                    offset = 0.05
+                
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,
-                    height + error_values[i] + 0.05,
+                    height + error_values[i] + offset,  # Position just above error bar
                     f"{value:.2f}",
                     ha='center',
                     va='bottom',
@@ -335,8 +355,12 @@ class ComparisonPlotter(BasePlotter):
             
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
+            # Set y-axis limit appropriately based on metric type
             if metric_type == 'RMSD' and threshold_value >= 4.0:
-                ax.set_ylim(0, 4.5)
+                ax.set_ylim(0, max(4.5, ymax * 1.1))
+            elif metric_type == 'DOCKQ':
+                # DockQ scores range from 0 to 1
+                ax.set_ylim(0, min(1.05, max(0.5, ymax * 1.1)))
             else:
                 ax.set_ylim(0, ymax * 1.1)
             
@@ -411,41 +435,6 @@ class ComparisonPlotter(BasePlotter):
             molecule_type=molecule_type,
             specific_seed=specific_seed
         )
-
-    def _filter_data(self, df, molecule_type, model_types=None, seeds=None):
-        """Helper method to filter data based on common criteria."""
-        # Check if MOLECULE_TYPE column exists, otherwise use TYPE column
-        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in df.columns else 'TYPE'
-        
-        if model_types is None:
-            model_types = ["AlphaFold3", "Boltz1"]
-        
-        if seeds is None:
-            if 'SEED' in df.columns:
-                seeds = sorted(df['SEED'].unique())
-            else:
-                seeds = [1]  # Default if no SEED column
-                
-        # Filter the dataframe for the specified molecule type
-        if molecule_type_col in df.columns:
-            df_filtered = df[df[molecule_type_col] == molecule_type].copy()
-        else:
-            df_filtered = df.copy()
-            print("Warning: TYPE column not found, no molecule type filtering applied")
-        
-        # Filter for specified model types
-        df_filtered = df_filtered[df_filtered['MODEL_TYPE'].isin(model_types)]
-        
-        # Filter for specified seeds
-        if 'SEED' in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered['SEED'].isin(seeds)]
-            
-        # Check if we have any data after filtering
-        if df_filtered.empty:
-            print(f"ERROR: No data available after filtering")
-            return None
-            
-        return df_filtered
 
     def _get_metric_columns(self, metric_type):
         """Get the column names for a specific metric type."""
