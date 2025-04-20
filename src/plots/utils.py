@@ -97,3 +97,35 @@ def save_figure(fig, filename_base, save_path='../data/plots', dpi=300):
         except:
             print("Failed to save figure.")
         return False
+
+def distribute_pdb_ids(pdb_ids, max_per_page):
+    """
+    Distribute PDB IDs evenly across multiple pages for plotting.
+    
+    Args:
+        pdb_ids: Array of PDB IDs
+        max_per_page: Maximum number of PDB IDs per page
+        
+    Returns:
+        List of lists containing PDB IDs for each page
+    """
+    total_ids = len(pdb_ids)
+    
+    # If all IDs fit on one page, return them all
+    if total_ids <= max_per_page:
+        return [pdb_ids]
+    
+    # Calculate number of pages needed
+    num_pages = math.ceil(total_ids / max_per_page)
+    
+    # Distribute IDs evenly
+    ids_per_page = math.ceil(total_ids / num_pages)
+    ids_per_page = min(ids_per_page, max_per_page)
+    
+    # Create batches
+    batches = []
+    for i in range(0, total_ids, ids_per_page):
+        batch = pdb_ids[i:min(i + ids_per_page, total_ids)]
+        batches.append(batch)
+        
+    return batches

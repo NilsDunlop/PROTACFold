@@ -125,9 +125,14 @@ class PlottingApp:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_paths = []
         
-        for i, fig in enumerate(figs):
+        valid_figs = [fig for fig in figs if fig is not None]
+        if not valid_figs:
+            print(f"Warning: No valid figures to save for {base_name}")
+            return saved_paths
+            
+        for i, fig in enumerate(valid_figs):
             # Create a descriptive filename
-            filename = f"{base_name}_{i+1}of{len(figs)}_{timestamp}.png"
+            filename = f"{base_name}_{i+1}of{len(valid_figs)}_{timestamp}.png"
             filepath = os.path.join(self.output_dir, filename)
             
             # Save the figure
@@ -305,6 +310,7 @@ class PlottingApp:
         threshold_value = 4.0  # Default for RMSD
         metric_type = 'RMSD'
         molecule_type = 'PROTAC'  # Default to PROTAC
+        specific_seed = None  # Default to no specific seed filtering
         
         # Get user input for plot parameters
         print("\nComparison Plot Settings:")
@@ -329,30 +335,69 @@ class PlottingApp:
         add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
         add_threshold = add_threshold_input != 'n'
         
-        print(f"Generating AlphaFold3 vs Boltz1 comparison plots for {molecule_type} {metric_type}...")
+        # Ask for comparison type (general or seed-specific)
+        comparison_choice = input("Comparison type (1=General, 2=Seed-specific) [1]: ").strip()
+        is_seed_specific = comparison_choice == '2'
+        
+        # If seed-specific, ask for the seed
+        if is_seed_specific:
+            seed_input = input("Specific seed to filter by [42]: ").strip()
+            specific_seed = int(seed_input) if seed_input and seed_input.isdigit() else 42
+        
         try:
-            # Call plot_af3_vs_boltz1 with the correct parameters
-            figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
+            # Generate comparison plot - now uses the same method with different parameters
+            print(f"Generating {'Seed-specific' if is_seed_specific else 'Mean'} {metric_type} comparison between AlphaFold3 and Boltz1 for {molecule_type}...")
+            
+            # Use the unified plot_mean_comparison method with optional specific_seed parameter
+            fig, ax = self.comparison_plotter.plot_mean_comparison(
                 df=self.df_combined,
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                show_y_labels_on_all=True,
-                width=12,
-                height=14,
-                max_structures=25,
+                width=10,
+                height=8,
                 save=False,
-                molecule_type=molecule_type
+                molecule_type=molecule_type,
+                specific_seed=specific_seed
             )
             
-            # Save the plots with appropriate naming
-            self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
+            if fig is not None:
+                # Use appropriate filename based on comparison type
+                if is_seed_specific:
+                    self.save_plots([fig], f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}")
+                else:
+                    self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
+                    
+                    # Only for general comparison, ask if user wants to see individual structure plots
+                    show_individual = input("Show individual structure plots? (y/n) [n]: ").strip().lower() == 'y'
+                    
+                    # Only generate per-structure plots if requested
+                    if show_individual:
+                        print(f"Generating per-structure comparison plots for {molecule_type} {metric_type}...")
+                        
+                        # Call the plot method
+                        figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
+                            df=self.df_combined,
+                            metric_type=metric_type,
+                            add_threshold=add_threshold,
+                            threshold_value=threshold_value,
+                            width=12,
+                            height=14,
+                            max_structures=25,
+                            save=False,
+                            molecule_type=molecule_type
+                        )
+                        
+                        # Save the plots with appropriate naming
+                        self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
+            else:
+                print(f"Warning: Failed to generate {'seed-specific' if is_seed_specific else 'mean'} comparison plot")
             
         except Exception as e:
             print(f"Error: {e}")
             import traceback
             traceback.print_exc()
-    
+
     def display_menu(self):
         """Display the main menu."""
         print("\n" + "="*50)

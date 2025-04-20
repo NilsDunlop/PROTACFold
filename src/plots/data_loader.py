@@ -95,3 +95,70 @@ class DataLoader:
         
         df_with_binary['is_binary'] = binary_mask
         return df_with_binary
+        
+    @staticmethod
+    def calculate_comparison_metrics(df, model_types, metric_columns):
+        """
+        Calculate mean, standard error, and count statistics for each model and ligand type.
+        
+        Args:
+            df: DataFrame containing filtered data
+            model_types: List of model types (e.g., ["AlphaFold3", "Boltz1"])
+            metric_columns: Tuple of (smiles_col, ccd_col, label)
+            
+        Returns:
+            Dictionary containing means, errors, and counts for each model/metric combination
+        """
+        smiles_col, ccd_col, _ = metric_columns
+        
+        # Handle None value for model_types
+        if model_types is None:
+            model_types = ["AlphaFold3", "Boltz1"]
+        
+        # Initialize dictionaries to store values
+        means = {}
+        errors = {}
+        counts = {}
+        
+        # For each model type, calculate metrics
+        for model in model_types:
+            model_df = df[df['MODEL_TYPE'] == model]
+            
+            # Calculate CCD metrics
+            ccd_values = model_df[ccd_col].dropna()
+            if len(ccd_values) > 0:
+                means[f"{model}_CCD"] = ccd_values.mean()
+                errors[f"{model}_CCD"] = ccd_values.std() / np.sqrt(len(ccd_values))  # Standard error
+                counts[f"{model}_CCD"] = len(ccd_values)
+            else:
+                means[f"{model}_CCD"] = 0
+                errors[f"{model}_CCD"] = 0
+                counts[f"{model}_CCD"] = 0
+                
+            # Calculate SMILES metrics
+            smiles_values = model_df[smiles_col].dropna()
+            if len(smiles_values) > 0:
+                means[f"{model}_SMILES"] = smiles_values.mean()
+                errors[f"{model}_SMILES"] = smiles_values.std() / np.sqrt(len(smiles_values))
+                counts[f"{model}_SMILES"] = len(smiles_values)
+            else:
+                means[f"{model}_SMILES"] = 0
+                errors[f"{model}_SMILES"] = 0
+                counts[f"{model}_SMILES"] = 0
+        
+        # Calculate improvement percentages
+        metrics = {
+            'means': means,
+            'errors': errors,
+            'counts': counts,
+            'improvements': {}
+        }
+        
+        # Calculate improvement percentages if data exists
+        if "AlphaFold3_CCD" in means and "Boltz1_CCD" in means and means["Boltz1_CCD"] > 0:
+            metrics['improvements']['CCD'] = (means["Boltz1_CCD"] - means["AlphaFold3_CCD"]) / means["Boltz1_CCD"] * 100
+            
+        if "AlphaFold3_SMILES" in means and "Boltz1_SMILES" in means and means["Boltz1_SMILES"] > 0:
+            metrics['improvements']['SMILES'] = (means["Boltz1_SMILES"] - means["AlphaFold3_SMILES"]) / means["Boltz1_SMILES"] * 100
+        
+        return metrics
