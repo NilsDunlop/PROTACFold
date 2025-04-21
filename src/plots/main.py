@@ -10,6 +10,7 @@ from horizontal_bars import HorizontalBarPlotter
 from rmsd_plotter import RMSDPlotter
 from ptm_plotter import PTMPlotter
 from comparison_plotter import ComparisonPlotter
+from training_cutoff_plotter import TrainingCutoffPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -33,6 +34,7 @@ class PlottingApp:
         self.rmsd_plotter = RMSDPlotter()
         self.ptm_plotter = PTMPlotter()
         self.comparison_plotter = ComparisonPlotter()
+        self.training_cutoff_plotter = TrainingCutoffPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -345,10 +347,13 @@ class PlottingApp:
         elif metric_type == 'LRMSD':
             threshold_value = 4.0
         elif metric_type == 'PTM':
-            threshold_value = 0.7  # Default threshold for PTM score - won't be displayed
-            add_threshold = False  # Disable threshold line for PTM plots
+            threshold_value = 0.8
+            add_threshold = False
+        else:
+            threshold_value = 4.0
         
         # Ask for threshold display (only for non-PTM metrics)
+        add_threshold = True
         if metric_type != 'PTM':
             add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
             add_threshold = add_threshold_input != 'n'
@@ -416,6 +421,86 @@ class PlottingApp:
             import traceback
             traceback.print_exc()
 
+    def plot_training_cutoff(self):
+        """
+        Generate plots comparing model performance on structures from before
+        and after the 2021-09-30 training cutoff date.
+        """
+        if not hasattr(self, 'df_combined') or self.df_combined is None:
+            print("\nError: Combined results data not found.")
+            print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE and RELEASE_DATE columns.")
+            return
+        
+        print("\nTraining Cutoff Comparison Plot Settings:")
+        
+        # Select molecule type
+        molecule_type_input = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
+        if molecule_type_input in ['PROTAC', 'Molecular Glue']:
+            molecule_type = molecule_type_input
+        else:
+            molecule_type = "PROTAC"
+        
+        # Select model type
+        model_type_input = input("Model type (AlphaFold3/Boltz1) [AlphaFold3]: ").strip() or "AlphaFold3"
+        if model_type_input in ['AlphaFold3', 'Boltz1']:
+            model_type = model_type_input
+        else:
+            model_type = "AlphaFold3"
+        
+        # Select metric type
+        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD/PTM) [RMSD]: ").strip().upper() or "RMSD"
+        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']:
+            metric_type = metric_type_input
+        else:
+            metric_type = "RMSD"
+        
+        # Set appropriate threshold value based on metric type
+        if metric_type == 'RMSD':
+            threshold_value = 4.0
+        elif metric_type == 'DOCKQ':
+            threshold_value = 0.23
+        elif metric_type == 'LRMSD':
+            threshold_value = 4.0
+        elif metric_type == 'PTM':
+            threshold_value = 0.8
+            add_threshold = False
+        else:
+            threshold_value = 4.0
+        
+        # Ask for threshold display (only for non-PTM metrics)
+        add_threshold = True
+        if metric_type != 'PTM':
+            add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
+            add_threshold = add_threshold_input != 'n'
+        
+        try:
+            print(f"Generating {model_type} training cutoff comparison for {metric_type} ({molecule_type})...")
+            
+            # Use the training cutoff plotter
+            fig, ax = self.training_cutoff_plotter.plot_training_cutoff_comparison(
+                df=self.df_combined,
+                metric_type=metric_type,
+                model_type=model_type,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                width=10,
+                height=8,
+                save=False,  # We'll handle saving ourselves
+                molecule_type=molecule_type
+            )
+            
+            if fig is not None:
+                # Save the plot with appropriate name
+                self.save_plots([fig], f"{model_type.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}")
+            else:
+                print(f"Warning: Failed to generate training cutoff comparison plot")
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+
     def display_menu(self):
         """Display the main menu."""
         print("\n" + "="*50)
@@ -426,7 +511,8 @@ class PlottingApp:
         print("2. RMSD, iRMSD, LRMSD Plots")
         print("3. pTM and ipTM Plots")
         print("4. AF3 vs Boltz1 Comparison")
-        print("5. Generate All Plot Types")
+        print("5. Training Cutoff Comparison")
+        print("6. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -452,12 +538,13 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '5':
+            if choice == '6':
                 # Generate all plot types
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
                 self.plot_comparison("boltz1")
+                self.plot_training_cutoff()
                 continue
             
             # Process comma-separated choices
@@ -474,6 +561,8 @@ class PlottingApp:
                     self.plot_ptm_bars()
                 elif plot_choice == '4':
                     self.plot_comparison("boltz1")
+                elif plot_choice == '5':
+                    self.plot_training_cutoff()
                 elif not plot_choice:
                     continue
                 else:
