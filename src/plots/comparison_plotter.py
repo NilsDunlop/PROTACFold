@@ -60,6 +60,8 @@ class ComparisonPlotter(BasePlotter):
                 threshold_value = 0.5
             elif metric_type.upper() == 'LRMSD':
                 threshold_value = 4.0
+            elif metric_type.upper() == 'PTM':
+                threshold_value = 0.7  # Default threshold for PTM score
             else:
                 threshold_value = 4.0
         
@@ -183,6 +185,8 @@ class ComparisonPlotter(BasePlotter):
                     threshold_value = 0.5
                 elif metric_type.upper() == 'LRMSD':
                     threshold_value = 4.0
+                elif metric_type.upper() == 'PTM':
+                    threshold_value = 0.7  # Default threshold for PTM score
                 else:
                     threshold_value = 4.0
             
@@ -290,12 +294,8 @@ class ComparisonPlotter(BasePlotter):
                 error_kw={'ecolor': 'black', 'capsize': 4, 'capthick': 1, 'alpha': 0.7}
             )
             
-            # Apply hatches to the SMILES bars for visual differentiation
-            bars[1].set_hatch('/')  # AF3 SMILES 
-            bars[3].set_hatch('/')  # Boltz-1 SMILES
-            
             # Add threshold line if requested
-            if add_threshold:
+            if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = ax.axhline(
                     y=threshold_value,
                     color='black',
@@ -310,8 +310,10 @@ class ComparisonPlotter(BasePlotter):
                 # Use a dynamic offset based on metric type
                 if metric_type == 'DOCKQ':
                     offset = 0.005
+                elif metric_type.upper() == 'PTM':
+                    offset = 0.01  # Smaller offset for PTM plots
                 else:
-                    offset = 0.05
+                    offset = 0.03
                 
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,
@@ -348,10 +350,10 @@ class ComparisonPlotter(BasePlotter):
                 )
                 legend_handles.append(threshold_line)
             
-            # Add the legend to the top-right corner
+            # Add the legend to the upper center for all plot types
             ax.legend(
                 handles=legend_handles, 
-                loc='upper right',
+                loc='upper center',
                 facecolor='white',
                 edgecolor='lightgray',
                 borderpad=0.8
@@ -369,11 +371,21 @@ class ComparisonPlotter(BasePlotter):
             
             # Create appropriate title based on whether we're filtering by seed
             if is_seed_specific:
-                title = f"Mean {metric_type} (Seed {specific_seed})"
+                # Use proper capitalization for specific metrics
+                if metric_type.upper() == 'DOCKQ':
+                    title = f"Seed {specific_seed}"
+                elif metric_type.upper() == 'PTM':
+                    title = f"Seed {specific_seed}"
+                else:
+                    title = f"Seed {specific_seed}"
             else:
-                title = f"Mean {metric_type}"
+                # No title as requested
+                title = ""
                 
-            fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE, fontweight='bold')
+            # Only set a title if there's actually title text
+            if title:
+                fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE, fontweight='bold')
+            # If title is empty, don't set a title at all
             
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
@@ -386,6 +398,9 @@ class ComparisonPlotter(BasePlotter):
             elif metric_type.upper() == 'LRMSD':
                 # Use a larger y-axis limit for LRMSD to prevent label overlapping
                 ax.set_ylim(0, 40)
+            elif metric_type.upper() == 'PTM':
+                # PTM scores range from 0 to 1
+                ax.set_ylim(0, 1.0)
             else:
                 ax.set_ylim(0, ymax * 1.1)
             
@@ -424,7 +439,7 @@ class ComparisonPlotter(BasePlotter):
         width=10,
         height=8,
         save=True,
-        molecule_type="PROTAC"  # Default to PROTAC
+        molecule_type="PROTAC"
     ):
         """
         Create a bar plot showing metric values for a specific seed value.
@@ -447,8 +462,12 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig, ax: The created figure and axis
         """
+        # No threshold for PTM
+        if metric_type.upper() == 'PTM':
+            add_threshold = False
+
         # Set default threshold values based on metric type if not provided
-        if threshold_value is None:
+        elif threshold_value is None:
             if metric_type.upper() == 'RMSD':
                 threshold_value = 4.0
             elif metric_type.upper() == 'DOCKQ':
@@ -480,6 +499,8 @@ class ComparisonPlotter(BasePlotter):
             return ('SMILES_DOCKQ_SCORE', 'CCD_DOCKQ_SCORE', 'DockQ Score')
         elif metric_type.upper() == 'LRMSD':
             return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'Ligand RMSD (Å)')
+        elif metric_type.upper() == 'PTM':
+            return ('SMILES_PTM', 'CCD_PTM', 'pTM Score')
         else:
             return None
 
@@ -621,7 +642,7 @@ class ComparisonPlotter(BasePlotter):
                 max_value = max(max_value, smiles_value)
         
         # Add threshold line if requested
-        if add_threshold:
+        if add_threshold and metric_type.upper() != 'PTM':
             threshold_line = ax.axhline(
                 y=threshold_value,
                 color='black',
@@ -673,6 +694,8 @@ class ComparisonPlotter(BasePlotter):
                 filename = f"af3_vs_boltz1_dockq"
             elif metric_type.upper() == 'LRMSD':
                 filename = f"af3_vs_boltz1_lrmsd"
+            elif metric_type.upper() == 'PTM':
+                filename = f"af3_vs_boltz1_ptm"
             else:
                 filename = f"af3_vs_boltz1_{metric_type.lower()}"
             

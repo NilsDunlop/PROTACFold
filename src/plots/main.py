@@ -291,10 +291,11 @@ class PlottingApp:
         Compare AF3 results with other methods.
         
         This function generates comparison plots between AlphaFold3 and Boltz1 models.
-        It supports three types of metrics:
+        It supports four types of metrics:
         - RMSD: Root Mean Square Deviation
         - DOCKQ: A scoring function for ranking protein-protein docking models
         - LRMSD: Ligand RMSD, showing the deviation of ligand positions
+        - PTM: Predicted TM-score, confidence metric for structure quality
         
         Args:
             comparison_type: Type of comparison to make ("boltz1" currently supported)
@@ -332,8 +333,8 @@ class PlottingApp:
             molecule_type = molecule_type_input
         
         # Select metric type
-        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD) [RMSD]: ").strip().upper() or "RMSD"
-        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD']:
+        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD/PTM) [RMSD]: ").strip().upper() or "RMSD"
+        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']:
             metric_type = metric_type_input
         
         # Set appropriate threshold value based on metric type
@@ -343,10 +344,14 @@ class PlottingApp:
             threshold_value = 0.23
         elif metric_type == 'LRMSD':
             threshold_value = 4.0
+        elif metric_type == 'PTM':
+            threshold_value = 0.7  # Default threshold for PTM score - won't be displayed
+            add_threshold = False  # Disable threshold line for PTM plots
         
-        # Ask for threshold display
-        add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
-        add_threshold = add_threshold_input != 'n'
+        # Ask for threshold display (only for non-PTM metrics)
+        if metric_type != 'PTM':
+            add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
+            add_threshold = add_threshold_input != 'n'
         
         # Ask for comparison type (general or seed-specific)
         comparison_choice = input("Comparison type (1=General, 2=Seed-specific) [1]: ").strip()
