@@ -23,13 +23,13 @@ class ComparisonPlotter(BasePlotter):
         model_types=None,
         seeds=None,
         add_threshold=True,
-        threshold_value=4.0,
+        threshold_value=None,
         width=12,
         height=9,
         max_structures=20,
         save=True,
         title_suffix="",
-        molecule_type="PROTAC"  # Default to PROTAC
+        molecule_type="PROTAC"
     ):
         """
         Create simplified horizontal bar plots comparing AlphaFold3 and Boltz1 predictions.
@@ -37,11 +37,11 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD' or 'DOCKQ')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
             model_types (list): List of model types to include (None for all)
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
-            threshold_value (float): Value for the threshold line
+            threshold_value (float): Value for the threshold line, if None will use default based on metric_type
             width (int): Figure width
             height (int): Figure height
             max_structures (int): Maximum number of structures to show
@@ -52,6 +52,17 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             tuple: (figures, axes)
         """
+        # Set default threshold values based on metric type if not provided
+        if threshold_value is None:
+            if metric_type.upper() == 'RMSD':
+                threshold_value = 4.0
+            elif metric_type.upper() == 'DOCKQ':
+                threshold_value = 0.5
+            elif metric_type.upper() == 'LRMSD':
+                threshold_value = 4.0
+            else:
+                threshold_value = 4.0
+        
         # Get filtered dataframe
         df_filtered = DataLoader.filter_comparison_data(
             df, 
@@ -135,12 +146,12 @@ class ComparisonPlotter(BasePlotter):
         model_types=None,
         seeds=None,
         add_threshold=True,
-        threshold_value=4.0,
+        threshold_value=None,
         width=10,
         height=8,
         save=True,
-        molecule_type="PROTAC",  # Default to PROTAC
-        specific_seed=None  # New parameter to make seed filtering optional
+        molecule_type="PROTAC",
+        specific_seed=None
     ):
         """
         Create a bar plot showing the mean metric values across all structures
@@ -149,11 +160,11 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD' or 'DOCKQ')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
             model_types (list): List of model types to include (None for all)
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
-            threshold_value (float): Value for the threshold line
+            threshold_value (float): Value for the threshold line, if None will use default based on metric_type
             width (int): Figure width
             height (int): Figure height
             save (bool): Whether to save the plot
@@ -164,6 +175,17 @@ class ComparisonPlotter(BasePlotter):
             fig, ax: The created figure and axis
         """
         try:
+            # Set default threshold values based on metric type if not provided
+            if threshold_value is None:
+                if metric_type.upper() == 'RMSD':
+                    threshold_value = 4.0
+                elif metric_type.upper() == 'DOCKQ':
+                    threshold_value = 0.5
+                elif metric_type.upper() == 'LRMSD':
+                    threshold_value = 4.0
+                else:
+                    threshold_value = 4.0
+            
             # Check if we're filtering by a specific seed
             is_seed_specific = specific_seed is not None
             
@@ -356,11 +378,14 @@ class ComparisonPlotter(BasePlotter):
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
             # Set y-axis limit appropriately based on metric type
-            if metric_type == 'RMSD' and threshold_value >= 4.0:
+            if metric_type.upper() == 'RMSD' and threshold_value >= 4.0:
                 ax.set_ylim(0, max(4.5, ymax * 1.1))
-            elif metric_type == 'DOCKQ':
+            elif metric_type.upper() == 'DOCKQ':
                 # DockQ scores range from 0 to 1
                 ax.set_ylim(0, min(1.05, max(0.5, ymax * 1.1)))
+            elif metric_type.upper() == 'LRMSD':
+                # Use a larger y-axis limit for LRMSD to prevent label overlapping
+                ax.set_ylim(0, 40)
             else:
                 ax.set_ylim(0, ymax * 1.1)
             
@@ -395,7 +420,7 @@ class ComparisonPlotter(BasePlotter):
         model_types=None,
         specific_seed=42,
         add_threshold=True,
-        threshold_value=4.0,
+        threshold_value=None,
         width=10,
         height=8,
         save=True,
@@ -409,11 +434,11 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD' or 'DOCKQ')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
             model_types (list): List of model types to include (None for all)
             specific_seed (int): The specific seed value to filter by
             add_threshold (bool): Whether to add a threshold line
-            threshold_value (float): Value for the threshold line
+            threshold_value (float): Value for the threshold line, if None will use default based on metric_type
             width (int): Figure width
             height (int): Figure height
             save (bool): Whether to save the plot
@@ -422,6 +447,17 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig, ax: The created figure and axis
         """
+        # Set default threshold values based on metric type if not provided
+        if threshold_value is None:
+            if metric_type.upper() == 'RMSD':
+                threshold_value = 4.0
+            elif metric_type.upper() == 'DOCKQ':
+                threshold_value = 0.5
+            elif metric_type.upper() == 'LRMSD':
+                threshold_value = 4.0
+            else:
+                threshold_value = 4.0
+                
         return self.plot_mean_comparison(
             df=df,
             metric_type=metric_type,
@@ -442,6 +478,8 @@ class ComparisonPlotter(BasePlotter):
             return ('SMILES_RMSD', 'CCD_RMSD', 'RMSD (Å)')
         elif metric_type.upper() == 'DOCKQ':
             return ('SMILES_DOCKQ_SCORE', 'CCD_DOCKQ_SCORE', 'DockQ Score')
+        elif metric_type.upper() == 'LRMSD':
+            return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'Ligand RMSD (Å)')
         else:
             return None
 
@@ -629,10 +667,14 @@ class ComparisonPlotter(BasePlotter):
         
         # Save the plot if requested
         if save:
-            if metric_type == 'RMSD':
+            if metric_type.upper() == 'RMSD':
                 filename = f"af3_vs_boltz1_rmsd"
-            else:  # DOCKQ
+            elif metric_type.upper() == 'DOCKQ':
                 filename = f"af3_vs_boltz1_dockq"
+            elif metric_type.upper() == 'LRMSD':
+                filename = f"af3_vs_boltz1_lrmsd"
+            else:
+                filename = f"af3_vs_boltz1_{metric_type.lower()}"
             
             # Add page number if multiple pages
             if total_pages > 1:

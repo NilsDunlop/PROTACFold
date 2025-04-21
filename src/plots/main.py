@@ -287,7 +287,18 @@ class PlottingApp:
             traceback.print_exc()
     
     def plot_comparison(self, comparison_type="boltz1"):
-        """Compare AF3 results with other methods."""
+        """
+        Compare AF3 results with other methods.
+        
+        This function generates comparison plots between AlphaFold3 and Boltz1 models.
+        It supports three types of metrics:
+        - RMSD: Root Mean Square Deviation
+        - DOCKQ: A scoring function for ranking protein-protein docking models
+        - LRMSD: Ligand RMSD, showing the deviation of ligand positions
+        
+        Args:
+            comparison_type: Type of comparison to make ("boltz1" currently supported)
+        """
         if self.df_af3_agg is None:
             print("Error: AF3 aggregated data not loaded. Please load data first.")
             return
@@ -321,8 +332,8 @@ class PlottingApp:
             molecule_type = molecule_type_input
         
         # Select metric type
-        metric_type_input = input("Metric type (RMSD/DOCKQ) [RMSD]: ").strip().upper() or "RMSD"
-        if metric_type_input in ['RMSD', 'DOCKQ']:
+        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD) [RMSD]: ").strip().upper() or "RMSD"
+        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD']:
             metric_type = metric_type_input
         
         # Set appropriate threshold value based on metric type
@@ -330,6 +341,8 @@ class PlottingApp:
             threshold_value = 4.0
         elif metric_type == 'DOCKQ':
             threshold_value = 0.23
+        elif metric_type == 'LRMSD':
+            threshold_value = 4.0
         
         # Ask for threshold display
         add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
