@@ -11,6 +11,7 @@ from rmsd_plotter import RMSDPlotter
 from ptm_plotter import PTMPlotter
 from comparison_plotter import ComparisonPlotter
 from training_cutoff_plotter import TrainingCutoffPlotter
+from poi_e3l_plotter import POI_E3LPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -35,6 +36,7 @@ class PlottingApp:
         self.ptm_plotter = PTMPlotter()
         self.comparison_plotter = ComparisonPlotter()
         self.training_cutoff_plotter = TrainingCutoffPlotter()
+        self.poi_e3l_plotter = POI_E3LPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -501,6 +503,59 @@ class PlottingApp:
             import traceback
             traceback.print_exc()
 
+    def plot_poi_e3l_rmsd(self):
+        """Generate POI and E3L RMSD plots."""
+        if not hasattr(self, 'df_combined') or self.df_combined is None:
+            print("\nError: Combined results data not found.")
+            print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, SEED, SIMPLE_POI_NAME, and SIMPLE_E3_NAME columns.")
+            return
+        
+        print("\nPOI and E3L RMSD Plot Settings:")
+        
+        # Get model type
+        model_type_input = input("Model type (AlphaFold3/Boltz-1) [AlphaFold3]: ").strip() or "AlphaFold3"
+        model_type = model_type_input if model_type_input in ["AlphaFold3", "Boltz-1"] else "AlphaFold3"
+        
+        # Ask for threshold display
+        add_threshold = input("Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+        threshold_value = 4.0
+        if add_threshold:
+            threshold_input = input("Threshold value [4.0]: ").strip()
+            if threshold_input:
+                threshold_value = float(threshold_input)
+        
+        try:
+            print(f"Generating POI and E3L RMSD plots for {model_type}...")
+            
+            figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
+                df=self.df_combined,
+                model_type=model_type,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                save=False  # We'll handle saving ourselves
+            )
+            
+            # Save the POI plots
+            if figs_poi:
+                for i, fig_poi in enumerate(figs_poi):
+                    if fig_poi is not None:
+                        self.save_plots([fig_poi], f"poi_rmsd_{model_type.lower().replace('-', '_')}_part{i+1}")
+                print(f"Saved {len(figs_poi)} POI plots")
+            else:
+                print("Warning: No POI plots were generated. Check your data.")
+            
+            # Save the E3L plot
+            if fig_e3l is not None:
+                self.save_plots([fig_e3l], f"e3l_rmsd_{model_type.lower().replace('-', '_')}")
+            else:
+                print("Warning: No E3L plot was generated. Check your data.")
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+
     def display_menu(self):
         """Display the main menu."""
         print("\n" + "="*50)
@@ -512,7 +567,8 @@ class PlottingApp:
         print("3. pTM and ipTM Plots")
         print("4. AF3 vs Boltz1 Comparison")
         print("5. Training Cutoff Comparison")
-        print("6. Generate All Plot Types")
+        print("6. POI and E3L Analysis")
+        print("7. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -538,13 +594,14 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '6':
+            if choice == '7':
                 # Generate all plot types
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
                 self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
+                self.plot_poi_e3l_rmsd()
                 continue
             
             # Process comma-separated choices
@@ -563,6 +620,8 @@ class PlottingApp:
                     self.plot_comparison("boltz1")
                 elif plot_choice == '5':
                     self.plot_training_cutoff()
+                elif plot_choice == '6':
+                    self.plot_poi_e3l_rmsd()
                 elif not plot_choice:
                     continue
                 else:
