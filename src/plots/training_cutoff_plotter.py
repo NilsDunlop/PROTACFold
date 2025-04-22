@@ -182,7 +182,7 @@ class TrainingCutoffPlotter(BasePlotter):
                     f"{value:.2f}",
                     ha='center',
                     va='bottom',
-                    fontsize=9,
+                    fontsize=12,
                     fontweight='bold',
                     color='black'
                 )
@@ -212,24 +212,37 @@ class TrainingCutoffPlotter(BasePlotter):
                 )
                 legend_handles.append(threshold_line)
             
-            # Add the legend to the upper center
-            ax.legend(
-                handles=legend_handles, 
-                loc='upper center',
-                facecolor='white',
-                edgecolor='lightgray',
-                borderpad=0.8
-            )
+            # Add legend
+            if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
+                # Use background when data values are near or below threshold
+                ax.legend(
+                    handles=legend_handles, 
+                    loc='upper center',
+                    frameon=True,
+                    facecolor='white',
+                    framealpha=0.8,
+                    edgecolor='lightgray',
+                    borderpad=0.8,
+                    fontsize=12
+                )
+            else:
+                ax.legend(
+                    handles=legend_handles, 
+                    loc='upper center',
+                    frameon=False,
+                    borderpad=0.8,
+                    fontsize=12
+                )
             
             # Remove x-ticks and labels since we have the legend
             ax.set_xticks([])
             ax.set_xticklabels([])
             
-            # Add subtle grid lines
+            # Add grid lines for x-axis only
             ax.grid(axis='y', linestyle='--', alpha=0.2)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
             
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
@@ -247,6 +260,9 @@ class TrainingCutoffPlotter(BasePlotter):
                 ax.set_ylim(0, 1.0)
             else:
                 ax.set_ylim(0, ymax * 1.1)
+            
+            # Set tick label font sizes
+            ax.tick_params(axis='both', which='major', labelsize=11)
             
             # Use tight layout for better spacing
             plt.tight_layout()

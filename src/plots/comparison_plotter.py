@@ -321,7 +321,7 @@ class ComparisonPlotter(BasePlotter):
                     f"{value:.2f}",
                     ha='center',
                     va='bottom',
-                    fontsize=9,
+                    fontsize=12,
                     fontweight='bold',
                     color='black'
                 )
@@ -350,14 +350,14 @@ class ComparisonPlotter(BasePlotter):
                 )
                 legend_handles.append(threshold_line)
             
-            # Add the legend to the upper center for all plot types
-            ax.legend(
-                handles=legend_handles, 
-                loc='upper center',
-                facecolor='white',
-                edgecolor='lightgray',
-                borderpad=0.8
-            )
+            # Add legend
+            if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
+                # Use background for low-value plots where threshold line might cross the legend
+                ax.legend(handles=legend_handles, loc='upper center', frameon=True, 
+                          facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=12)
+            else:
+                # No background needed
+                ax.legend(handles=legend_handles, loc='upper center', frameon=False, fontsize=12)
             
             # Remove x-ticks and labels since we have the legend
             ax.set_xticks([])
@@ -367,7 +367,7 @@ class ComparisonPlotter(BasePlotter):
             ax.grid(axis='y', linestyle='--', alpha=0.2)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
             
             # Create appropriate title based on whether we're filtering by seed
             if is_seed_specific:
@@ -661,10 +661,10 @@ class ComparisonPlotter(BasePlotter):
         
         # Set x-ticks and labels
         ax.set_xticks(x_positions)
-        ax.set_xticklabels(pdb_labels, rotation=90, ha='center')
+        ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=11)
         
         # Set axis labels and title
-        ax.set_ylabel(y_label)
+        ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
         
         # Set the title
         title = f"AlphaFold3 vs. Boltz1 - {metric_type}{title_suffix}"
@@ -682,7 +682,12 @@ class ComparisonPlotter(BasePlotter):
         ax.grid(axis='y', linestyle='--', alpha=0.3)
         
         # Add legend
-        ax.legend(handles=legend_handles, loc='upper right', framealpha=0.8)
+        if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max_value < threshold_value * 1.5:
+            # Use background for low-value plots where threshold line might cross the legend
+            ax.legend(handles=legend_handles, loc='upper center', frameon=True, 
+                      facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=12)
+        else:
+            ax.legend(handles=legend_handles, loc='upper center', frameon=False, fontsize=12)
         
         plt.tight_layout()
         

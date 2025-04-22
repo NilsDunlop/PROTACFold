@@ -35,13 +35,13 @@ class PlotConfig:
     BOLTZ1_SMILES_COLOR = '#188f52' # green
     
     # Font sizes
-    TITLE_SIZE = 14
-    AXIS_LABEL_SIZE = 12
-    TICK_LABEL_SIZE = 10
-    LEGEND_TITLE_SIZE = 12
-    LEGEND_TEXT_SIZE = 10
-    ANNOTATION_SIZE = 8
-    SUBPLOT_LABEL_SIZE = 12
+    TITLE_SIZE = 16
+    AXIS_LABEL_SIZE = 14
+    TICK_LABEL_SIZE = 12
+    LEGEND_TITLE_SIZE = 14
+    LEGEND_TEXT_SIZE = 12
+    ANNOTATION_SIZE = 10
+    SUBPLOT_LABEL_SIZE = 14
     
     # Line properties
     GRID_ALPHA = 0.3
