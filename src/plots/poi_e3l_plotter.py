@@ -56,44 +56,64 @@ class POI_E3LPlotter(BasePlotter):
         self,
         df,
         model_type='AlphaFold3',
+        metric_type='RMSD',
         add_threshold=True,
         threshold_value=4.0,
         width=12,
         height=None,
         bar_width=0.7,
-        save=True
+        save=True,
+        legend_position=None
     ):
         """
-        Plot RMSD for POIs and E3Ls.
+        Plot RMSD or DockQ for POIs and E3Ls.
         
         Args:
             df: DataFrame with RMSD data
             model_type: 'AlphaFold3' or 'Boltz-1'
+            metric_type: 'RMSD' or 'DockQ'
             add_threshold: Whether to add a threshold line
             threshold_value: Value for the threshold line
             width: Figure width
             height: Figure height (calculated automatically if None)
             bar_width: Width of the bars
             save: Whether to save the figure
+            legend_position: Position for the legend ('upper center', 'upper right', etc.)
             
         Returns:
             tuple: (fig_poi_list, fig_e3l) - the created figures, where fig_poi_list is a list of POI figures
         """
-        # Filter data based on model type
-        filtered_df = df[df['MODEL_TYPE'] == model_type].copy()
+        # Filter data based on model type - accept both 'Boltz1' and 'Boltz-1'
+        if model_type == 'Boltz-1':
+            model_variants = ['Boltz-1', 'Boltz1']
+            filtered_df = df[df['MODEL_TYPE'].isin(model_variants)].copy()
+        else:
+            filtered_df = df[df['MODEL_TYPE'] == model_type].copy()
         
+        if len(filtered_df) == 0:
+            return [], None
+        
+        # Determine valid seeds based on model type
         if model_type == 'AlphaFold3':
             valid_seeds = [24, 37, 42]
         else:  # Boltz-1
             valid_seeds = [42]
             
+        # Filter by seeds
         filtered_df = filtered_df[filtered_df['SEED'].isin(valid_seeds)]
         
+        if len(filtered_df) == 0:
+            return [], None
+        
         # Process POI data
-        poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', self.POI_GROUPS)
+        poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', self.POI_GROUPS, metric_type)
         
         # Process E3L data
-        e3l_results = self._process_protein_data(filtered_df, 'SIMPLE_E3_NAME', self.E3_GROUPS)
+        e3l_results = self._process_protein_data(filtered_df, 'SIMPLE_E3_NAME', self.E3_GROUPS, metric_type)
+        
+        # If no results, return early
+        if not poi_results and not e3l_results:
+            return [], None
         
         # Reorder E3L results in the desired order
         e3l_order = ["Other", "TRIM_Family", "DDB1_CUL4_Complex", "F-box_SCF_Family", "VHL_Complex", "CRBN_Complex"]
@@ -108,48 +128,65 @@ class POI_E3LPlotter(BasePlotter):
         legend_order = list(reversed(e3l_order))
         
         # Split POI results into multiple plots with at most 25 structures each
-        poi_fig_list = self._create_split_poi_plots(
-            poi_results, 
-            self.POI_COLOR_MAP,
-            model_type, 
-            add_threshold, 
-            threshold_value, 
-            width, 
-            height, 
-            bar_width, 
-            save
-        )
+        poi_fig_list = []
+        if poi_results:
+            poi_fig_list = self._create_split_poi_plots(
+                poi_results, 
+                self.POI_COLOR_MAP,
+                model_type, 
+                metric_type,
+                add_threshold, 
+                threshold_value, 
+                width, 
+                height, 
+                bar_width, 
+                save,
+                legend_position=legend_position
+            )
         
         # Create E3L plot
-        fig_e3l = self._create_rmsd_plot(
-            sorted_e3l_results, 
-            'E3L', 
-            self.E3_COLOR_MAP,
-            model_type, 
-            add_threshold, 
-            threshold_value, 
-            width, 
-            height, 
-            bar_width, 
-            save,
-            custom_legend_order=legend_order
-        )
+        fig_e3l = None
+        if sorted_e3l_results:
+            fig_e3l = self._create_rmsd_plot(
+                sorted_e3l_results, 
+                'E3L', 
+                self.E3_COLOR_MAP,
+                model_type,
+                metric_type,
+                add_threshold, 
+                threshold_value, 
+                width, 
+                height, 
+                bar_width, 
+                save,
+                custom_legend_order=legend_order,
+                legend_position=legend_position
+            )
         
         return poi_fig_list, fig_e3l
-
-    def _process_protein_data(self, df, name_column, groups):
+        
+    def _process_protein_data(self, df, name_column, groups, metric_type='RMSD'):
         """
-        Process protein data to calculate mean RMSD.
+        Process protein data to calculate mean metric values.
         
         Args:
-            df: DataFrame with RMSD data
+            df: DataFrame with data
             name_column: Column with protein names ('SIMPLE_POI_NAME' or 'SIMPLE_E3_NAME')
             groups: Dictionary with protein groups
+            metric_type: 'RMSD' or 'DockQ'
             
         Returns:
             list: List of dictionaries with processed data
         """
         results = []
+        
+        # Determine column names based on metric type
+        if metric_type == 'RMSD':
+            smiles_col = 'SMILES_RMSD'
+            ccd_col = 'CCD_RMSD'
+        else:  # DockQ
+            smiles_col = 'SMILES_DOCKQ_SCORE'
+            ccd_col = 'CCD_DOCKQ_SCORE'
         
         # Create a flat mapping of protein names to their groups
         protein_to_group = {}
@@ -161,37 +198,40 @@ class POI_E3LPlotter(BasePlotter):
         unique_proteins = df[name_column].unique()
         
         for protein in unique_proteins:
+            # Skip empty or NaN values
             if pd.isna(protein) or protein == '':
                 continue
                 
             protein_df = df[df[name_column] == protein]
             
-            # Calculate mean RMSD for each seed (combining SMILES and CCD)
-            seed_mean_rmsd = []
+            # Calculate mean metric for each seed (combining SMILES and CCD)
+            seed_mean_metric = []
             seed_values = protein_df['SEED'].unique()
             
             for seed in seed_values:
                 seed_df = protein_df[protein_df['SEED'] == seed]
                 
-                # Calculate mean of SMILES_RMSD and CCD_RMSD for this seed
-                smiles_rmsd = seed_df['SMILES_RMSD'].mean()
-                ccd_rmsd = seed_df['CCD_RMSD'].mean()
+                # Calculate mean of SMILES and CCD metrics for this seed
+                smiles_metric = seed_df[smiles_col].mean()
+                ccd_metric = seed_df[ccd_col].mean()
                 
-                if pd.isna(smiles_rmsd) and pd.isna(ccd_rmsd):
+                # Skip if both values are NaN
+                if pd.isna(smiles_metric) and pd.isna(ccd_metric):
                     continue
                 
                 # Calculate combined mean
-                rmsd_values = [val for val in [smiles_rmsd, ccd_rmsd] if not pd.isna(val)]
-                if rmsd_values:
-                    combined_mean = np.nanmean(rmsd_values)
-                    seed_mean_rmsd.append(combined_mean)
+                metric_values = [val for val in [smiles_metric, ccd_metric] if not pd.isna(val)]
+                if metric_values:
+                    combined_mean = np.nanmean(metric_values)
+                    seed_mean_metric.append(combined_mean)
             
-            if not seed_mean_rmsd:
+            # Skip if no valid metric values
+            if not seed_mean_metric:
                 continue
                 
             # Get overall mean and std across seeds
-            overall_mean = np.nanmean(seed_mean_rmsd)
-            overall_std = np.nanstd(seed_mean_rmsd) if len(seed_mean_rmsd) > 1 else 0
+            overall_mean = np.nanmean(seed_mean_metric)
+            overall_std = np.nanstd(seed_mean_metric) if len(seed_mean_metric) > 1 else 0
             
             # Determine the group this protein belongs to
             group = protein_to_group.get(protein, 'Other')
@@ -199,13 +239,13 @@ class POI_E3LPlotter(BasePlotter):
             results.append({
                 'name': protein,
                 'group': group,
-                'mean_rmsd': overall_mean,
-                'std_rmsd': overall_std,
+                'mean_metric': overall_mean,
+                'std_metric': overall_std,
                 'count': len(protein_df)
             })
         
-        # Sort results by group and then by mean RMSD
-        results.sort(key=lambda x: (list(groups.keys()).index(x['group']), x['mean_rmsd']))
+        # Sort results by group and then by mean metric
+        results.sort(key=lambda x: (list(groups.keys()).index(x['group']), x['mean_metric']))
         
         return results
         
@@ -214,26 +254,30 @@ class POI_E3LPlotter(BasePlotter):
         data, 
         color_map,
         model_type, 
+        metric_type,
         add_threshold, 
         threshold_value, 
         width, 
         height, 
         bar_width, 
-        save
+        save,
+        legend_position=None
     ):
         """
-        Create multiple POI RMSD plots with at most 25 structures each.
+        Create multiple POI metric plots with at most 25 structures each.
         
         Args:
             data: Processed data from _process_protein_data
             color_map: Dictionary mapping groups to colors
             model_type: 'AlphaFold3' or 'Boltz-1'
+            metric_type: 'RMSD' or 'DockQ'
             add_threshold: Whether to add a threshold line
             threshold_value: Value for the threshold line
             width: Figure width
             height: Figure height
             bar_width: Width of the bars
             save: Whether to save the figure
+            legend_position: Position for the legend
             
         Returns:
             list: List of matplotlib figures
@@ -245,13 +289,12 @@ class POI_E3LPlotter(BasePlotter):
         priority_groups = ["Bromodomain", "Transcription_Factor", "Kinase"]
         
         # Define the order for the second plot
-        secondary_groups = ["Other", "Ubiquitin_Proteasome", "RNA_Binding"]
+        secondary_groups = ["RNA_Binding", "Ubiquitin_Proteasome", "Other"]
         
         # Separate data into priority groups and other groups
         priority_data = []
         for group in priority_groups:
             group_data = [item for item in data if item['group'] == group]
-            # Sort by name within group
             group_data.sort(key=lambda x: x['name'])
             priority_data.extend(group_data)
             
@@ -259,14 +302,16 @@ class POI_E3LPlotter(BasePlotter):
         other_data = []
         for group in secondary_groups:
             group_data = [item for item in data if item['group'] == group]
-            # Sort by name within group
             group_data.sort(key=lambda x: x['name'])
             other_data.extend(group_data)
         
+        # Calculate how many structures to include in the first plot
         if len(priority_data) <= 25:
             first_plot_data = priority_data
             second_plot_data = other_data
         else:
+            # Need to limit first plot to 25 structures
+            # Find a good split point that doesn't break a group
             current_group = priority_data[0]['group']
             split_index = 0
             
@@ -277,6 +322,7 @@ class POI_E3LPlotter(BasePlotter):
                         split_index = i
                         break
                 
+            # If we didn't find a good split point, just use 25
             if split_index == 0:
                 split_index = 25
                 
@@ -298,14 +344,16 @@ class POI_E3LPlotter(BasePlotter):
                 plot_data, 
                 f'POI (Plot {i+1} of {len(plot_data_sets)})', 
                 color_map,
-                model_type, 
+                model_type,
+                metric_type,
                 add_threshold, 
                 threshold_value, 
                 width, 
                 height, 
                 bar_width, 
                 save,
-                suffix=f"_part{i+1}"
+                suffix=f"_part{i+1}",
+                legend_position=legend_position
             )
             figures.append(fig)
             
@@ -316,7 +364,8 @@ class POI_E3LPlotter(BasePlotter):
         data, 
         protein_type, 
         color_map,
-        model_type, 
+        model_type,
+        metric_type,
         add_threshold, 
         threshold_value, 
         width, 
@@ -324,16 +373,18 @@ class POI_E3LPlotter(BasePlotter):
         bar_width, 
         save,
         suffix="",
-        custom_legend_order=None
+        custom_legend_order=None,
+        legend_position=None
     ):
         """
-        Create RMSD plot for either POI or E3L.
+        Create plot for either POI or E3L with RMSD or DockQ metrics.
         
         Args:
             data: Processed data from _process_protein_data
             protein_type: 'POI' or 'E3L'
             color_map: Dictionary mapping groups to colors
             model_type: 'AlphaFold3' or 'Boltz-1'
+            metric_type: 'RMSD' or 'DockQ'
             add_threshold: Whether to add a threshold line
             threshold_value: Value for the threshold line
             width: Figure width
@@ -342,6 +393,8 @@ class POI_E3LPlotter(BasePlotter):
             save: Whether to save the figure
             suffix: Optional suffix to add to the filename
             custom_legend_order: Optional custom order for legend groups
+            legend_position: Fixed position for the legend ('upper center', 'upper right', etc.)
+                            If None, position will be determined automatically
             
         Returns:
             matplotlib.figure.Figure: The created figure
@@ -361,8 +414,8 @@ class POI_E3LPlotter(BasePlotter):
         
         # Prepare data for plotting
         names = [item['name'] for item in data]
-        means = [item['mean_rmsd'] for item in data]
-        stds = [item['std_rmsd'] for item in data]
+        means = [item['mean_metric'] for item in data]
+        stds = [item['std_metric'] for item in data]
         groups = [item['group'] for item in data]
         colors = [color_map[group] for group in groups]
         
@@ -379,7 +432,12 @@ class POI_E3LPlotter(BasePlotter):
         # Customize the plot
         ax.set_yticks(positions)
         ax.set_yticklabels(names)
-        ax.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE)
+        
+        # Set appropriate x-axis label based on metric type
+        if metric_type == 'RMSD':
+            ax.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE)
+        else:  # DockQ
+            ax.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE)
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -390,9 +448,9 @@ class POI_E3LPlotter(BasePlotter):
         if custom_legend_order:
             for group in custom_legend_order:
                 if group in groups:
-                    legend_elements.append(Patch(facecolor=color_map[group], label=group))
+                    display_name = group.replace('_', ' ')
+                    legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
         else:
-            # Get unique groups in order of appearance in the plot (from top to bottom)
             unique_groups = []
             for group in groups:
                 if group not in unique_groups:
@@ -401,7 +459,8 @@ class POI_E3LPlotter(BasePlotter):
             # Reverse the order to match visual appearance in plot (top to bottom)
             unique_groups.reverse()
             for group in unique_groups:
-                legend_elements.append(Patch(facecolor=color_map[group], label=group))
+                display_name = group.replace('_', ' ')
+                legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
         
         # Add threshold to legend if it exists
         if add_threshold and threshold_value is not None:
@@ -409,16 +468,52 @@ class POI_E3LPlotter(BasePlotter):
             threshold_line = Line2D([0], [0], color=PlotConfig.GRAY, linestyle='--',
                                    label='Threshold')
             legend_elements.append(threshold_line)
-                
-        ax.legend(handles=legend_elements, loc='upper right', 
-                 fontsize=PlotConfig.LEGEND_TEXT_SIZE, framealpha=0)
+        
+        # Calculate number of rows and columns for the legend
+        num_elements = len(legend_elements)
+        ncol = min(2, num_elements)
+        
+        # Determine legend position based on data distribution or use provided position
+        if legend_position is None:
+            xmax = max(means) if means else 0
+            
+            # Default legend position
+            legend_loc = 'upper center'
+            
+            # For DockQ plots, check the topmost bar
+            if metric_type == 'DOCKQ':
+                if len(means) > 0:
+                    topmost_bar = means[-1]
+                    if topmost_bar > 0.5 * xmax:
+                        legend_loc = 'upper right'
+            else:
+                top_bars = means[-3:] if len(means) >= 3 else means
+                for bar_value in top_bars:
+                    if bar_value > 0.4 * xmax:
+                        legend_loc = 'upper right'
+                        break
+        else:
+            legend_loc = legend_position
+        
+        # Create the legend
+        legend = ax.legend(
+            handles=legend_elements,
+            loc=legend_loc,
+            ncol=ncol,
+            fontsize=12,
+            framealpha=0.7,
+            facecolor='white',
+            columnspacing=1.0,
+            handletextpad=0.5
+        )
         
         # Adjust layout
         plt.tight_layout()
         
         # Save figure if requested
         if save:
-            filename = f"{protein_type.lower().split()[0]}_rmsd_{model_type.lower().replace('-', '_')}{suffix}"
+            metric_abbr = metric_type.lower()
+            filename = f"{protein_type.lower().split()[0]}_{metric_abbr}_{model_type.lower().replace('-', '_')}{suffix}"
             self.save_plot(fig, filename)
             
         return fig 

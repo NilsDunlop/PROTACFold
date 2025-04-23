@@ -504,33 +504,48 @@ class PlottingApp:
             traceback.print_exc()
 
     def plot_poi_e3l_rmsd(self):
-        """Generate POI and E3L RMSD plots."""
+        """Generate POI and E3L RMSD or DockQ plots."""
         if not hasattr(self, 'df_combined') or self.df_combined is None:
             print("\nError: Combined results data not found.")
             print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
             print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, SEED, SIMPLE_POI_NAME, and SIMPLE_E3_NAME columns.")
             return
         
-        print("\nPOI and E3L RMSD Plot Settings:")
+        print("\nPOI and E3L Analysis Plot Settings:")
         
         # Get model type
-        model_type_input = input("Model type (AlphaFold3/Boltz-1) [AlphaFold3]: ").strip() or "AlphaFold3"
-        model_type = model_type_input if model_type_input in ["AlphaFold3", "Boltz-1"] else "AlphaFold3"
+        model_type_input = input("Model type (AlphaFold3/Boltz1) [AlphaFold3]: ").strip() or "AlphaFold3"
+        
+        # Standardize model type
+        if model_type_input.lower() in ["boltz1", "boltz-1"]:
+            model_type = "Boltz-1"  # Use this internally for consistency
+        elif model_type_input == "AlphaFold3":
+            model_type = "AlphaFold3"
+        else:
+            model_type = "AlphaFold3"  # Default
+        
+        # Get metric type
+        metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
+        metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
+        
+        # Set default threshold based on metric type
+        default_threshold = 4.0 if metric_type == "RMSD" else 0.23
         
         # Ask for threshold display
-        add_threshold = input("Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
-        threshold_value = 4.0
+        add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+        threshold_value = default_threshold
         if add_threshold:
-            threshold_input = input("Threshold value [4.0]: ").strip()
+            threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
             if threshold_input:
                 threshold_value = float(threshold_input)
         
         try:
-            print(f"Generating POI and E3L RMSD plots for {model_type}...")
+            print(f"Generating POI and E3L {metric_type} plots for {model_type}...")
             
             figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
                 df=self.df_combined,
                 model_type=model_type,
+                metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
                 save=False  # We'll handle saving ourselves
@@ -540,16 +555,16 @@ class PlottingApp:
             if figs_poi:
                 for i, fig_poi in enumerate(figs_poi):
                     if fig_poi is not None:
-                        self.save_plots([fig_poi], f"poi_rmsd_{model_type.lower().replace('-', '_')}_part{i+1}")
+                        self.save_plots([fig_poi], f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_part{i+1}")
                 print(f"Saved {len(figs_poi)} POI plots")
             else:
-                print("Warning: No POI plots were generated. Check your data.")
+                print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
             
             # Save the E3L plot
             if fig_e3l is not None:
-                self.save_plots([fig_e3l], f"e3l_rmsd_{model_type.lower().replace('-', '_')}")
+                self.save_plots([fig_e3l], f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}")
             else:
-                print("Warning: No E3L plot was generated. Check your data.")
+                print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
                 
         except Exception as e:
             print(f"Error: {e}")

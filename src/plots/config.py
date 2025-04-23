@@ -36,7 +36,7 @@ class PlotConfig:
     
     # Font sizes
     TITLE_SIZE = 16
-    AXIS_LABEL_SIZE = 14
+    AXIS_LABEL_SIZE = 12
     TICK_LABEL_SIZE = 12
     LEGEND_TITLE_SIZE = 14
     LEGEND_TEXT_SIZE = 14
