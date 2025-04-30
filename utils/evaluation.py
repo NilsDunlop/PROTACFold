@@ -658,77 +658,75 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
     if ligand_info["LIGAND_SMILES"] != "N/A":
         mol_properties = calculate_molecular_properties_from_smiles(ligand_info["LIGAND_SMILES"])
     
-    # Find and process models based on whether it's AlphaFold (with seeds) or Boltz-1 (no seeds)
-    is_boltz1 = isinstance(model_adapter, Boltz1Adapter)
+    # Find model folders with seed information for both AlphaFold and Boltz-1
+    ccd_model_dict = {}
+    smiles_model_dict = {}
     
-    if is_boltz1:
-        # For Boltz-1: Direct file lookup without seed logic
-        logging.info(f"Processing Boltz-1 model for {pdb_id}...")
+    # Collect all folders in the PDB ID directory
+    all_folders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
+    
+    # Pattern for folders with seed numbers
+    # Handle both regular and ternary naming patterns
+    model_patterns = [
+        re.compile(f"{pdb_id.lower()}_([a-z]+)_(\d+)"),
+        re.compile(f"{pdb_id.lower()}_ternary_([a-z]+)_(\d+)")
+    ]
+    
+    # Find all model folders with seeds
+    for folder_name in all_folders:
+        match = None
+        is_ternary = False
         
-        # Get paths for both CCD and SMILES models directly
+        # Try both regular and ternary patterns
+        for pattern in model_patterns:
+            match = pattern.match(folder_name)
+            if match:
+                is_ternary = "ternary" in folder_name
+                break
+                
+        if match:
+            model_type, seed = match.groups()
+            
+            # Get model paths using the adapter
+            model_path, json_path = model_adapter.get_model_paths(
+                folder_path, folder_name, pdb_id, model_type, seed, is_ternary=(is_ternary)
+            )
+            
+            if not model_path:
+                logging.debug(f"No model file found for {folder_name}")
+                continue
+            
+            # Store model information
+            if model_type == "ccd":
+                ccd_model_dict[seed] = {
+                    "model_path": model_path,
+                    "json_path": json_path
+                }
+                logging.debug(f"Found CCD model with seed {seed}: {model_path}")
+            elif model_type == "smiles":
+                smiles_model_dict[seed] = {
+                    "model_path": model_path,
+                    "json_path": json_path
+                }
+                logging.debug(f"Found SMILES model with seed {seed}: {model_path}")
+    
+    # Check for legacy Boltz-1 single model format as fallback
+    is_boltz1 = isinstance(model_adapter, Boltz1Adapter)
+    if is_boltz1 and not ccd_model_dict and not smiles_model_dict:
+        logging.info(f"No seed folders found for {pdb_id}, checking for legacy Boltz-1 format...")
+        
+        # Try to find models directly in the main folder
         ccd_model_path, ccd_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "ccd", "0")
         smiles_model_path, smiles_json_path = model_adapter.get_model_paths(folder_path, "", pdb_id, "smiles", "0")
         
-        # Set seed to 42 for Boltz-1
-        all_seeds = ["42"]
-        ccd_model_dict = {"42": {"model_path": ccd_model_path, "json_path": ccd_json_path}} if ccd_model_path else {}
-        smiles_model_dict = {"42": {"model_path": smiles_model_path, "json_path": smiles_json_path}} if smiles_model_path else {}
-        
-    else:
-        # For AlphaFold: Use seed-based folder structure
-        ccd_model_dict = {}
-        smiles_model_dict = {}
-        
-        # Collect all folders in the PDB ID directory
-        all_folders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
-        
-        # Pattern for folders with seed numbers
-        # Handle both regular and ternary naming patterns
-        model_patterns = [
-            re.compile(f"{pdb_id.lower()}_([a-z]+)_(\d+)"),
-            re.compile(f"{pdb_id.lower()}_ternary_([a-z]+)_(\d+)")
-        ]
-        
-        # Find all model folders with seeds
-        for folder_name in all_folders:
-            match = None
-            is_ternary = False
-            
-            # Try both regular and ternary patterns
-            for pattern in model_patterns:
-                match = pattern.match(folder_name)
-                if match:
-                    is_ternary = "ternary" in folder_name
-                    break
-                    
-            if match:
-                model_type, seed = match.groups()
-                
-                # Get model paths using the adapter
-                model_path, json_path = model_adapter.get_model_paths(
-                    folder_path, folder_name, pdb_id, model_type, seed, is_ternary=(is_ternary)
-                )
-                
-                if not model_path:
-                    logging.debug(f"No model file found for {folder_name}")
-                    continue
-                
-                # Store model information
-                if model_type == "ccd":
-                    ccd_model_dict[seed] = {
-                        "model_path": model_path,
-                        "json_path": json_path
-                    }
-                    logging.debug(f"Found CCD model with seed {seed}: {model_path}")
-                elif model_type == "smiles":
-                    smiles_model_dict[seed] = {
-                        "model_path": model_path,
-                        "json_path": json_path
-                    }
-                    logging.debug(f"Found SMILES model with seed {seed}: {model_path}")
-        
-        # Get all unique seeds
-        all_seeds = sorted(set(list(ccd_model_dict.keys()) + list(smiles_model_dict.keys())))
+        # Use 42 as the default seed for legacy format
+        if ccd_model_path:
+            ccd_model_dict["42"] = {"model_path": ccd_model_path, "json_path": ccd_json_path}
+        if smiles_model_path:
+            smiles_model_dict["42"] = {"model_path": smiles_model_path, "json_path": smiles_json_path}
+    
+    # Get all unique seeds
+    all_seeds = sorted(set(list(ccd_model_dict.keys()) + list(smiles_model_dict.keys())))
     
     # Exit if no models found
     if not all_seeds:
@@ -736,13 +734,13 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         return
         
     for seed in all_seeds:
-        logging.info(f"Processing {pdb_id} with {'default model' if is_boltz1 else 'seed '+seed}...")
+        logging.info(f"Processing {pdb_id} with seed {seed}...")
         
         # Start with PDB ID and common information
         result_row = {
             "PDB_ID": pdb_id,
             "RELEASE_DATE": get_pdb_release_date(pdb_id) or "N/A",
-            "SEED": 42 if is_boltz1 else seed,
+            "SEED": seed,
             "POI_NAME": poi_name if poi_name else "N/A",
             "POI_SEQUENCE": poi_sequence if poi_sequence else "N/A",
             "E3_NAME": e3_name if e3_name else "N/A",
@@ -865,44 +863,36 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
             ccd_model_path = ccd_model_dict[seed]["model_path"]
             
             try:
-                # For Boltz-1 (no seeds), use a simpler folder structure
-                if is_boltz1:
-                    side_by_side_screenshots = capture_side_by_side_views(
-                        pdb_id,  # No seed suffix for Boltz-1
-                        smiles_model_path,
-                        ccd_model_path,
-                        ref_path,
-                        images_folder,  # Save directly to images folder, not seed subfolder
-                        ligand_id
-                    )
-                else:
-                    # Create seed-specific image directory for AlphaFold
-                    seed_images_folder = os.path.join(images_folder, f"seed_{seed}")
-                    os.makedirs(seed_images_folder, exist_ok=True)
-                    
-                    side_by_side_screenshots = capture_side_by_side_views(
-                        f"{pdb_id}_seed_{seed}",
-                        smiles_model_path,
-                        ccd_model_path,
-                        ref_path,
-                        seed_images_folder,
-                        ligand_id
-                    )
+                # Create seed-specific image directory
+                seed_images_folder = os.path.join(images_folder, f"seed_{seed}")
+                os.makedirs(seed_images_folder, exist_ok=True)
+                
+                side_by_side_screenshots = capture_side_by_side_views(
+                    f"{pdb_id}_seed_{seed}",
+                    smiles_model_path,
+                    ccd_model_path,
+                    ref_path,
+                    seed_images_folder,
+                    ligand_id
+                )
                 
                 if not side_by_side_screenshots:
-                    logging.warning(f"Failed to create side-by-side ligand views for {pdb_id}")
+                    logging.warning(f"Failed to create side-by-side ligand views for {pdb_id} with seed {seed}")
                 else:
-                    logging.debug(f"Created {len(side_by_side_screenshots)} side-by-side views for {pdb_id}")
+                    logging.debug(f"Created {len(side_by_side_screenshots)} side-by-side views for {pdb_id} with seed {seed}")
             except Exception as e:
-                logging.error(f"Error creating side-by-side ligand views for {pdb_id}: {e}")
+                logging.error(f"Error creating side-by-side ligand views for {pdb_id} with seed {seed}: {e}")
         
         results.append(result_row)
-        logging.info(f"Completed processing {pdb_id}")
+        logging.info(f"Completed processing {pdb_id} with seed {seed}")
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate structure predictions against experimental structures.")
-    parser.add_argument("protac_folder", help="Path to the folder containing PROTAC PDB ID folders")
-    parser.add_argument("--glue_folder", help="Optional path to the folder containing Molecular Glue PDB ID folders")
+    parser.add_argument("--protac", help="Path to the folder containing PROTAC PDB ID folders")
+    parser.add_argument("--glue", help="Path to the folder containing Molecular Glue PDB ID folders")
+    parser.add_argument("--e3_ligand", help="Path to the folder containing E3 Ligand PDB ID folders")
+    parser.add_argument("--linker", help="Path to the folder containing Linker PDB ID folders")
+    parser.add_argument("--warhead", help="Path to the folder containing Warhead PDB ID folders")
     parser.add_argument("--output", "-o", default="evaluation_results.csv", 
                         help="Output CSV file name or full path (default: saves to ../data/af3_results/)")
     parser.add_argument("--log", help="Path to output log file (default: None, logs to console only)")
@@ -918,16 +908,6 @@ def main():
     
     # Initialize the appropriate model adapter
     model_adapter = get_model_adapter(args.model_type)
-    
-    # Check if the PROTAC folder exists
-    if not os.path.exists(args.protac_folder):
-        logging.error(f"Error: PROTAC folder {args.protac_folder} does not exist.")
-        sys.exit(1)
-    
-    # Check if the Glue folder exists if provided
-    if args.glue_folder and not os.path.exists(args.glue_folder):
-        logging.error(f"Error: Molecular Glue folder {args.glue_folder} does not exist.")
-        sys.exit(1)
     
     # Determine output path
     if os.path.isabs(args.output) or '/' in args.output or '\\' in args.output:
@@ -945,34 +925,40 @@ def main():
     
     results = []
     
-    # Process PROTAC folders
-    logging.info("Processing PROTAC structures...")
-    for item in os.listdir(args.protac_folder):
-        folder_path = os.path.join(args.protac_folder, item)
-        if os.path.isdir(folder_path):
-            logging.info(f"Processing PROTAC {item}...")
-            process_pdb_folder(folder_path, item, results, model_adapter)
-            
-    # Add type information for PROTAC
-    for result in results:
-        result["TYPE"] = "PROTAC"
+    # Define folder types with their corresponding TYPE values
+    folder_mapping = {
+        "protac_folder": {"path": args.protac, "type": "PROTAC"},
+        "glue_folder": {"path": args.glue, "type": "MOLECULAR GLUE"},
+        "e3_ligand_folder": {"path": args.e3_ligand, "type": "E3 LIGAND"},
+        "linker_folder": {"path": args.linker, "type": "LINKER"},
+        "warhead_folder": {"path": args.warhead, "type": "WARHEAD"}
+    }
     
-    # Process Molecular Glue folders if provided
-    if args.glue_folder:
-        logging.info("Processing Molecular Glue structures...")
-        glue_results = []
-        for item in os.listdir(args.glue_folder):
-            folder_path = os.path.join(args.glue_folder, item)
-            if os.path.isdir(folder_path):
-                logging.info(f"Processing Molecular Glue {item}...")
-                process_pdb_folder(folder_path, item, glue_results, model_adapter)
+    # Process each folder type
+    for folder_key, folder_info in folder_mapping.items():
+        folder_path = folder_info["path"]
+        if not folder_path:
+            continue
+            
+        if not os.path.exists(folder_path):
+            logging.error(f"Error: {folder_key} {folder_path} does not exist.")
+            continue
         
-        # Add type information for Molecular Glue
-        for result in glue_results:
-            result["TYPE"] = "Molecular Glue"
+        logging.info(f"Processing {folder_info['type']} structures...")
+        folder_results = []
         
-        # Add glue results to the final results
-        results.extend(glue_results)
+        for item in os.listdir(folder_path):
+            item_path = os.path.join(folder_path, item)
+            if os.path.isdir(item_path):
+                logging.info(f"Processing {folder_info['type']} {item}...")
+                process_pdb_folder(item_path, item, folder_results, model_adapter)
+        
+        # Add type information
+        for result in folder_results:
+            result["TYPE"] = folder_info["type"]
+        
+        # Add results to the final results list
+        results.extend(folder_results)
     
     # Create dataframe and save to CSV
     if results:
