@@ -436,25 +436,48 @@ class PlottingApp:
         
         print("\nTraining Cutoff Comparison Plot Settings:")
         
+        # Determine which molecule type column is available
+        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in self.df_combined.columns else 'TYPE'
+        
+        # Get available molecule types
+        if molecule_type_col in self.df_combined.columns:
+            available_types = sorted(self.df_combined[molecule_type_col].unique())
+            print(f"Available molecule types: {', '.join(available_types)}")
+            default_type = "PROTAC" if "PROTAC" in available_types else available_types[0]
+        else:
+            available_types = ["PROTAC", "Molecular Glue"]
+            default_type = "PROTAC"
+            print("Warning: No molecule type column found in data")
+        
         # Select molecule type
-        molecule_type_input = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
-        if molecule_type_input in ['PROTAC', 'Molecular Glue']:
+        molecule_type_input = input(f"Molecule type ({'/'.join(available_types)}) [{default_type}]: ").strip() or default_type
+        if molecule_type_input in available_types:
             molecule_type = molecule_type_input
         else:
-            molecule_type = "PROTAC"
+            print(f"Invalid molecule type. Using default: {default_type}")
+            molecule_type = default_type
+        
+        # Get available model types
+        available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
+        default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
+        print(f"Available model types: {', '.join(available_models)}")
         
         # Select model type
-        model_type_input = input("Model type (AlphaFold3/Boltz1) [AlphaFold3]: ").strip() or "AlphaFold3"
-        if model_type_input in ['AlphaFold3', 'Boltz1']:
+        model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
+        if model_type_input in available_models:
             model_type = model_type_input
         else:
-            model_type = "AlphaFold3"
+            print(f"Invalid model type. Using default: {default_model}")
+            model_type = default_model
         
         # Select metric type
-        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD/PTM) [RMSD]: ").strip().upper() or "RMSD"
-        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']:
+        metric_types = ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']
+        print(f"Available metrics: {', '.join(metric_types)}")
+        metric_type_input = input(f"Metric type ({'/'.join(metric_types)}) [RMSD]: ").strip().upper() or "RMSD"
+        if metric_type_input in metric_types:
             metric_type = metric_type_input
         else:
+            print("Invalid metric type. Using default: RMSD")
             metric_type = "RMSD"
         
         # Set appropriate threshold value based on metric type
@@ -476,8 +499,14 @@ class PlottingApp:
             add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
             add_threshold = add_threshold_input != 'n'
         
+        # Ask if debug mode should be enabled
+        debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
+        debug_mode = debug_mode_input == 'y'
+        
         try:
             print(f"Generating {model_type} training cutoff comparison for {metric_type} ({molecule_type})...")
+            if debug_mode:
+                print("Debug mode enabled - detailed diagnostic information will be displayed")
             
             # Use the training cutoff plotter
             fig, ax = self.training_cutoff_plotter.plot_training_cutoff_comparison(
@@ -488,13 +517,17 @@ class PlottingApp:
                 threshold_value=threshold_value,
                 width=10,
                 height=8,
-                save=False,  # We'll handle saving ourselves
-                molecule_type=molecule_type
+                save=False,
+                molecule_type=molecule_type,
+                debug=debug_mode
             )
             
             if fig is not None:
                 # Save the plot with appropriate name
-                self.save_plots([fig], f"{model_type.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}")
+                filename = f"{model_type.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
+                if debug_mode:
+                    filename += "_debug"
+                self.save_plots([fig], filename)
             else:
                 print(f"Warning: Failed to generate training cutoff comparison plot")
                 
@@ -513,16 +546,43 @@ class PlottingApp:
         
         print("\nPOI and E3L Analysis Plot Settings:")
         
+        # Determine which molecule type column is available
+        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in self.df_combined.columns else 'TYPE'
+        
+        # Get available molecule types
+        if molecule_type_col in self.df_combined.columns:
+            available_types = sorted(self.df_combined[molecule_type_col].unique())
+            print(f"Available molecule types: {', '.join(available_types)}")
+            default_type = "PROTAC" if "PROTAC" in available_types else available_types[0]
+        else:
+            available_types = ["PROTAC", "Molecular Glue"]
+            default_type = "PROTAC"
+            print("Warning: No molecule type column found in data")
+        
+        # Select molecule type
+        molecule_type_input = input(f"Molecule type ({'/'.join(available_types)}) [{default_type}]: ").strip() or default_type
+        if molecule_type_input in available_types:
+            molecule_type = molecule_type_input
+        else:
+            print(f"Invalid molecule type. Using default: {default_type}")
+            molecule_type = default_type
+        
+        # Get available model types
+        available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
+        print(f"Available model types: {', '.join(available_models)}")
+        default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
+        
         # Get model type
-        model_type_input = input("Model type (AlphaFold3/Boltz1) [AlphaFold3]: ").strip() or "AlphaFold3"
+        model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
         
         # Standardize model type
         if model_type_input.lower() in ["boltz1", "boltz-1"]:
             model_type = "Boltz-1"  # Use this internally for consistency
-        elif model_type_input == "AlphaFold3":
-            model_type = "AlphaFold3"
+        elif model_type_input in available_models:
+            model_type = model_type_input
         else:
-            model_type = "AlphaFold3"  # Default
+            print(f"Invalid model type. Using default: {default_model}")
+            model_type = default_model
         
         # Get metric type
         metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
@@ -539,8 +599,14 @@ class PlottingApp:
             if threshold_input:
                 threshold_value = float(threshold_input)
         
+        # Ask if debug mode should be enabled
+        debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
+        debug_mode = debug_mode_input == 'y'
+        
         try:
-            print(f"Generating POI and E3L {metric_type} plots for {model_type}...")
+            print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
+            if debug_mode:
+                print("Debug mode enabled - detailed diagnostic information will be displayed")
             
             figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
                 df=self.df_combined,
@@ -548,21 +614,29 @@ class PlottingApp:
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                save=False  # We'll handle saving ourselves
+                save=False,
+                molecule_type=molecule_type,
+                debug=debug_mode
             )
             
             # Save the POI plots
             if figs_poi:
                 for i, fig_poi in enumerate(figs_poi):
                     if fig_poi is not None:
-                        self.save_plots([fig_poi], f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_part{i+1}")
+                        filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower()}_part{i+1}"
+                        if debug_mode:
+                            filename += "_debug"
+                        self.save_plots([fig_poi], filename)
                 print(f"Saved {len(figs_poi)} POI plots")
             else:
                 print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
             
             # Save the E3L plot
             if fig_e3l is not None:
-                self.save_plots([fig_e3l], f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}")
+                filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower()}"
+                if debug_mode:
+                    filename += "_debug"
+                self.save_plots([fig_e3l], filename)
             else:
                 print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
                 
