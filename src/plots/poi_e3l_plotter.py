@@ -8,50 +8,86 @@ from config import PlotConfig
 from utils import save_figure
 
 class POI_E3LPlotter(BasePlotter):
-    """Plotter for POI and E3L RMSD analysis."""
-
-    def __init__(self):
-        """Initialize the POI_E3L plotter."""
+    """Class for plotting POI and E3 ligase metrics."""
+    
+    def __init__(self, debug=False):
+        """Initialize the plotter with color maps and protein groupings."""
         super().__init__()
+        self.debug = debug
         
-        # Define POI and E3L groups
-        self.POI_GROUPS = {
-            "Kinase": ["CSNK1A1", "PAK6", "CDK12", "BRAF", "BTK", "JAK2", "CAMK1D", "DYRK1A", "PLK1", "WEE1", "PTK2"],
-            "Transcription_Factor": ["BCL6", "IKZF1", "IKZF2", "SALL4", "STAT5A", "STAT6", "ZNF692", "ZNFN1A2", "SMARCA2", "SMARCA4", "WIZ"],
-            "Bromodomain": ["BRD2", "BRD4", "BRD9"],
-            "Ubiquitin_Proteasome": ["ADRM1", "DDB1", "WDR5", "BCL2", "BCL2L1"],
-            "RNA_Binding": ["RBM39", "EIF4E"],
-            "Other": ["GSPT1", "CTNNB1", "CA2", "R1AB", "FKBP5", "FKBP1A", "KRAS", "POLG_CXB3N", "EPHX2", "PTPN2", "IRAK4", "CDO1", "HDAC1", "PRDX1", "NR1I2"]
+        # PROTAC-specific POI groups
+        self.PROTAC_POI_GROUPS = {
+            "Kinases": ["BTK", "PTK2", "WEE1"],
+            "Nuclear_Regulators": ["SMARCA2", "SMARCA4", "STAT5A", "STAT6", "BRD2", "BRD4", "BRD9", "WDR5"],
+            "Signaling_Modulators": ["FKBP1A", "FKBP5", "KRAS", "PTPN2"],
+            "Apoptosis_Regulators": ["BCL2", "BCL2L1"],
+            "Diverse_Enzymes": ["CA2", "EPHX2", "R1AB"]
+        }
+        
+        # PROTAC-specific E3 ligase groups
+        self.PROTAC_E3_GROUPS = {
+            "CRBN": ["CRBN"],
+            "VHL": ["VHL"],
+            "BIRC2": ["BIRC2"],
+            "DCAF1": ["DCAF1"]
+        }
+        
+        # Molecular glue POI groups
+        self.MG_POI_GROUPS = {
+            "Kinases": ["CDK12", "CSNK1A1", "PAK6"],
+            "Epigenetic_Regulators": ["BRD4", "HDAC1", "WIZ"],
+            "Transcription_Factors": ["IKZF1", "IKZF2", "SALL4", "ZNFN1A2", "ZNF692"],
+            "RNA_Translation_Regulators": ["RBM39", "GSPT1"],
+            "Signaling_Metabolism": ["CTNNB1", "CDO1"]
+        }
+        
+        # Molecular glue E3 ligase groups
+        self.MG_E3_GROUPS = {
+            "CRBN": ["CRBN", "MGR_0879"],
+            "VHL": ["VHL"],
+            "CRL_Others": ["BTRC", "DDB1", "KBTBD4"],
+            "DCAF_Receptors": ["DCAF15", "DCAF16"],
+            "TRIM_Ligase": ["TRIM21"]
+        }
+        
+        # PROTAC-specific color maps
+        self.PROTAC_POI_COLOR_MAP = {
+            "Kinases": PlotConfig.SMILES_PRIMARY,
+            "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
+            "Signaling_Modulators": PlotConfig.SMILES_SECONDARY,
+            "Apoptosis_Regulators": PlotConfig.CCD_PRIMARY,
+            "Diverse_Enzymes": PlotConfig.CCD_SECONDARY,
+        }
+        
+        self.PROTAC_E3_COLOR_MAP = {
+            "CRBN": PlotConfig.CCD_PRIMARY,
+            "VHL": PlotConfig.SMILES_TERTIARY,
+            "BIRC2": PlotConfig.SMILES_PRIMARY,
+            "DCAF1": PlotConfig.CCD_SECONDARY,
+        }
+        
+        # Molecular glue color maps
+        self.MG_POI_COLOR_MAP = {
+            "Kinases": PlotConfig.SMILES_PRIMARY,
+            "Epigenetic_Regulators": PlotConfig.SMILES_TERTIARY,
+            "Transcription_Factors": PlotConfig.SMILES_SECONDARY,
+            "RNA_Translation_Regulators": PlotConfig.CCD_PRIMARY,
+            "Signaling_Metabolism": PlotConfig.CCD_SECONDARY,
+        }
+        
+        self.MG_E3_COLOR_MAP = {
+            "CRBN": PlotConfig.CCD_PRIMARY,
+            "VHL": PlotConfig.SMILES_TERTIARY,
+            "CRL_Others": PlotConfig.SMILES_PRIMARY,
+            "DCAF_Receptors": PlotConfig.CCD_SECONDARY,
+            "TRIM_Ligase": PlotConfig.TEAL,
         }
 
-        self.E3_GROUPS = {
-            "CRBN_Complex": ["CRBN", "MGR_0879"],
-            "VHL_Complex": ["VHL"],
-            "F-box_SCF_Family": ["BTRC"],
-            "DDB1_CUL4_Complex": ["DDB1", "DCAF1", "DCAF15", "DCAF16"],
-            "TRIM_Family": ["TRIM33", "TRIM21"],
-            "Other": ["BIRC2", "KBTBD4"]
-        }
-
-        # Define color maps
-        self.POI_COLOR_MAP = {
-            "Kinase": PlotConfig.SMILES_PRIMARY,
-            "Transcription_Factor": PlotConfig.SMILES_TERTIARY,
-            "Bromodomain": PlotConfig.SMILES_SECONDARY,
-            "Ubiquitin_Proteasome": PlotConfig.CCD_SECONDARY,
-            "RNA_Binding": PlotConfig.CCD_PRIMARY,
-            "Other": PlotConfig.GRAY
-        }
-
-        self.E3_COLOR_MAP = {
-            "CRBN_Complex": PlotConfig.CCD_PRIMARY,
-            "VHL_Complex": PlotConfig.SMILES_TERTIARY,
-            "F-box_SCF_Family": PlotConfig.SMILES_SECONDARY,
-            "DDB1_CUL4_Complex": PlotConfig.SMILES_PRIMARY,
-            "TRIM_Family": PlotConfig.CCD_SECONDARY,
-            "Other": PlotConfig.GRAY
-        }
-
+    def _debug_print(self, message):
+        """Print debug information if debug mode is enabled."""
+        if self.debug:
+            print(f"[DEBUG] POI_E3LPlotter: {message}")
+    
     def plot_poi_e3l_rmsd(
         self,
         df,
@@ -63,7 +99,9 @@ class POI_E3LPlotter(BasePlotter):
         height=None,
         bar_width=0.7,
         save=True,
-        legend_position=None
+        legend_position=None,
+        molecule_type="PROTAC",
+        debug=False
     ):
         """
         Plot RMSD or DockQ for POIs and E3Ls.
@@ -79,10 +117,20 @@ class POI_E3LPlotter(BasePlotter):
             bar_width: Width of the bars
             save: Whether to save the figure
             legend_position: Position for the legend ('upper center', 'upper right', etc.)
+            molecule_type: Type of molecule to filter by ('PROTAC' or 'MOLECULAR GLUE')
+            debug: Enable debugging output
             
         Returns:
             tuple: (fig_poi_list, fig_e3l) - the created figures, where fig_poi_list is a list of POI figures
         """
+        # Enable debugging for this call if requested
+        self.debug = debug or self.debug
+        
+        # Verify that the dataframe is not empty
+        if df.empty:
+            print(f"Error: Input dataframe is empty")
+            return [], None
+        
         # Filter data based on model type - accept both 'Boltz1' and 'Boltz-1'
         if model_type == 'Boltz-1':
             model_variants = ['Boltz-1', 'Boltz1']
@@ -91,7 +139,23 @@ class POI_E3LPlotter(BasePlotter):
             filtered_df = df[df['MODEL_TYPE'] == model_type].copy()
         
         if len(filtered_df) == 0:
+            print(f"Error: No data available for model type '{model_type}'")
             return [], None
+        
+        # Filter by molecule type
+        # Check if we have MOLECULE_TYPE column (newer datasets) or TYPE column (older datasets)
+        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in filtered_df.columns else 'TYPE'
+        
+        if molecule_type_col in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df[molecule_type_col] == molecule_type].copy()
+            
+            if filtered_df.empty:
+                print(f"Error: No data available for molecule type '{molecule_type}'")
+                available_types = df[df['MODEL_TYPE'] == model_type][molecule_type_col].unique()
+                print(f"Available molecule types: {available_types}")
+                return [], None
+        else:
+            print(f"Warning: No '{molecule_type_col}' column found in data, skipping molecule type filtering")
         
         # Determine valid seeds based on model type
         if model_type == 'AlphaFold3':
@@ -103,36 +167,58 @@ class POI_E3LPlotter(BasePlotter):
         filtered_df = filtered_df[filtered_df['SEED'].isin(valid_seeds)]
         
         if len(filtered_df) == 0:
+            print(f"Error: No data available for selected seeds")
             return [], None
+            
+        # Select appropriate groups and color maps based on molecule type
+        if molecule_type == "PROTAC":
+            poi_groups = self.PROTAC_POI_GROUPS
+            e3_groups = self.PROTAC_E3_GROUPS
+            poi_color_map = self.PROTAC_POI_COLOR_MAP
+            e3_color_map = self.PROTAC_E3_COLOR_MAP
+            
+            # For PROTAC, we want to default legend to upper center
+            # but only do this if user hasn't specified a position
+            e3_legend_position = "upper center" if legend_position is None else legend_position
+        else:  # MOLECULAR GLUE
+            poi_groups = self.MG_POI_GROUPS
+            e3_groups = self.MG_E3_GROUPS
+            poi_color_map = self.MG_POI_COLOR_MAP
+            e3_color_map = self.MG_E3_COLOR_MAP
+            e3_legend_position = legend_position
         
         # Process POI data
-        poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', self.POI_GROUPS, metric_type)
+        poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', poi_groups, metric_type)
         
         # Process E3L data
-        e3l_results = self._process_protein_data(filtered_df, 'SIMPLE_E3_NAME', self.E3_GROUPS, metric_type)
+        e3l_results = self._process_protein_data(filtered_df, 'SIMPLE_E3_NAME', e3_groups, metric_type)
         
         # If no results, return early
         if not poi_results and not e3l_results:
+            print("No valid POI or E3L data found after filtering")
             return [], None
         
-        # Reorder E3L results in the desired order
-        e3l_order = ["Other", "TRIM_Family", "DDB1_CUL4_Complex", "F-box_SCF_Family", "VHL_Complex", "CRBN_Complex"]
+        # Get sorted E3L results based on molecule type
+        sorted_e3l_results = self._get_sorted_e3l_results(molecule_type, e3l_results)
         
-        # Sort the E3L results to match this order
-        sorted_e3l_results = []
-        for group in e3l_order:
-            group_proteins = [item for item in e3l_results if item['group'] == group]
-            group_proteins.sort(key=lambda x: x['name'])
-            sorted_e3l_results.extend(group_proteins)
-        
-        legend_order = list(reversed(e3l_order))
-        
-        # Split POI results into multiple plots with at most 25 structures each
+        # Create POI plots
         poi_fig_list = []
         if poi_results:
+            # Define ordering for POI groups
+            if molecule_type == "PROTAC":
+                poi_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators", 
+                             "Apoptosis_Regulators", "Diverse_Enzymes"]
+            else:  # MOLECULAR GLUE
+                poi_order = ["Transcription_Factors", "Epigenetic_Regulators", "Kinases",
+                            "RNA_Translation_Regulators", "Signaling_Metabolism"]
+            
+            # Sort POI results by group order
+            sorted_poi_results = self._sort_results_by_group_order(poi_results, poi_order)
+            
+            # Create the POI plots
             poi_fig_list = self._create_split_poi_plots(
-                poi_results, 
-                self.POI_COLOR_MAP,
+                sorted_poi_results, 
+                poi_color_map,
                 model_type, 
                 metric_type,
                 add_threshold, 
@@ -141,16 +227,23 @@ class POI_E3LPlotter(BasePlotter):
                 height, 
                 bar_width, 
                 save,
-                legend_position=legend_position
+                legend_position=legend_position,
+                molecule_type=molecule_type
             )
         
         # Create E3L plot
         fig_e3l = None
         if sorted_e3l_results:
+            # Define the visual order for legend groups (top to bottom on the plot)
+            if molecule_type == "PROTAC":
+                legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
+            else:  # MOLECULAR GLUE
+                legend_order = ["CRBN", "DCAF_Receptors", "VHL", "CRL_Others", "TRIM_Ligase"]
+                
             fig_e3l = self._create_rmsd_plot(
                 sorted_e3l_results, 
                 'E3L', 
-                self.E3_COLOR_MAP,
+                e3_color_map,
                 model_type,
                 metric_type,
                 add_threshold, 
@@ -160,10 +253,72 @@ class POI_E3LPlotter(BasePlotter):
                 bar_width, 
                 save,
                 custom_legend_order=legend_order,
-                legend_position=legend_position
+                legend_position=e3_legend_position,
+                molecule_type=molecule_type
             )
         
         return poi_fig_list, fig_e3l
+    
+    def _get_sorted_e3l_results(self, molecule_type, e3l_results):
+        """
+        Sort E3L results based on molecule type for consistent visual presentation.
+        
+        Args:
+            molecule_type: Type of molecule ("PROTAC" or "MOLECULAR GLUE")
+            e3l_results: List of processed E3L data
+            
+        Returns:
+            List of sorted E3L results
+        """
+        # Define E3L visual order (top to bottom on the plot)
+        if molecule_type == "PROTAC":
+            visual_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
+        else:  # MOLECULAR GLUE
+            visual_order = ["CRBN", "DCAF_Receptors", "VHL", "CRL_Others", "TRIM_Ligase"]
+        
+        # Sort E3L results to match the visual order (top to bottom)
+        # We need to reverse this for plotting since matplotlib plots from bottom to top
+        plot_order = list(reversed(visual_order))
+        
+        # Sort the E3L results to match the plot order (bottom to top)
+        sorted_e3l_results = []
+        for group in plot_order:
+            group_proteins = [item for item in e3l_results if item['group'] == group]
+            group_proteins.sort(key=lambda x: x['name'])
+            sorted_e3l_results.extend(group_proteins)
+        
+        # Add any proteins not in the predefined order at the end
+        remaining_proteins = [item for item in e3l_results if item['group'] not in visual_order]
+        if remaining_proteins:
+            remaining_proteins.sort(key=lambda x: x['name'])
+            sorted_e3l_results.extend(remaining_proteins)
+            
+        return sorted_e3l_results
+    
+    def _sort_results_by_group_order(self, results, group_order):
+        """
+        Sort results according to defined group order.
+        
+        Args:
+            results: List of protein result dictionaries
+            group_order: List of groups in desired order
+            
+        Returns:
+            List of sorted results
+        """
+        sorted_results = []
+        for group in group_order:
+            group_proteins = [item for item in results if item['group'] == group]
+            group_proteins.sort(key=lambda x: x['name'])
+            sorted_results.extend(group_proteins)
+        
+        # Add any proteins not in the predefined groups at the end
+        remaining_proteins = [item for item in results if item['group'] not in group_order]
+        if remaining_proteins:
+            remaining_proteins.sort(key=lambda x: x['name'])
+            sorted_results.extend(remaining_proteins)
+            
+        return sorted_results
         
     def _process_protein_data(self, df, name_column, groups, metric_type='RMSD'):
         """
@@ -244,9 +399,6 @@ class POI_E3LPlotter(BasePlotter):
                 'count': len(protein_df)
             })
         
-        # Sort results by group and then by mean metric
-        results.sort(key=lambda x: (list(groups.keys()).index(x['group']), x['mean_metric']))
-        
         return results
         
     def _create_split_poi_plots(
@@ -261,7 +413,8 @@ class POI_E3LPlotter(BasePlotter):
         height, 
         bar_width, 
         save,
-        legend_position=None
+        legend_position=None,
+        molecule_type="PROTAC"
     ):
         """
         Create multiple POI metric plots with at most 25 structures each.
@@ -278,6 +431,7 @@ class POI_E3LPlotter(BasePlotter):
             bar_width: Width of the bars
             save: Whether to save the figure
             legend_position: Position for the legend
+            molecule_type: Type of molecule being plotted
             
         Returns:
             list: List of matplotlib figures
@@ -285,79 +439,24 @@ class POI_E3LPlotter(BasePlotter):
         if not data:
             return []
             
-        # Define the priority order of groups for the first plot
-        priority_groups = ["Bromodomain", "Transcription_Factor", "Kinase"]
-        
-        # Define the order for the second plot
-        secondary_groups = ["RNA_Binding", "Ubiquitin_Proteasome", "Other"]
-        
-        # Separate data into priority groups and other groups
-        priority_data = []
-        for group in priority_groups:
-            group_data = [item for item in data if item['group'] == group]
-            group_data.sort(key=lambda x: x['name'])
-            priority_data.extend(group_data)
-            
-        # Order the other data by the secondary groups order
-        other_data = []
-        for group in secondary_groups:
-            group_data = [item for item in data if item['group'] == group]
-            group_data.sort(key=lambda x: x['name'])
-            other_data.extend(group_data)
-        
-        # Calculate how many structures to include in the first plot
-        if len(priority_data) <= 25:
-            first_plot_data = priority_data
-            second_plot_data = other_data
-        else:
-            # Need to limit first plot to 25 structures
-            # Find a good split point that doesn't break a group
-            current_group = priority_data[0]['group']
-            split_index = 0
-            
-            for i, item in enumerate(priority_data):
-                if item['group'] != current_group:
-                    current_group = item['group']
-                    if i >= 25:
-                        split_index = i
-                        break
-                
-            # If we didn't find a good split point, just use 25
-            if split_index == 0:
-                split_index = 25
-                
-            first_plot_data = priority_data[:split_index]
-            second_plot_data = priority_data[split_index:] + other_data
-        
-        # Further split the second plot if necessary
-        plot_data_sets = [first_plot_data]
-        
-        while second_plot_data:
-            current_batch = second_plot_data[:25]
-            plot_data_sets.append(current_batch)
-            second_plot_data = second_plot_data[25:]
-        
-        # Create plots for each data set
-        figures = []
-        for i, plot_data in enumerate(plot_data_sets):
-            fig = self._create_rmsd_plot(
-                plot_data, 
-                f'POI (Plot {i+1} of {len(plot_data_sets)})', 
-                color_map,
-                model_type,
-                metric_type,
-                add_threshold, 
-                threshold_value, 
-                width, 
-                height, 
-                bar_width, 
-                save,
-                suffix=f"_part{i+1}",
-                legend_position=legend_position
-            )
-            figures.append(fig)
-            
-        return figures
+        # Create a single plot with all POIs
+        fig = self._create_rmsd_plot(
+            data, 
+            'POI', 
+            color_map,
+            model_type,
+            metric_type,
+            add_threshold, 
+            threshold_value, 
+            width, 
+            height, 
+            bar_width, 
+            save,
+            suffix="",
+            legend_position=legend_position,
+            molecule_type=molecule_type
+        )
+        return [fig] if fig else []
         
     def _create_rmsd_plot(
         self, 
@@ -374,7 +473,8 @@ class POI_E3LPlotter(BasePlotter):
         save,
         suffix="",
         custom_legend_order=None,
-        legend_position=None
+        legend_position=None,
+        molecule_type="PROTAC"
     ):
         """
         Create plot for either POI or E3L with RMSD or DockQ metrics.
@@ -395,6 +495,7 @@ class POI_E3LPlotter(BasePlotter):
             custom_legend_order: Optional custom order for legend groups
             legend_position: Fixed position for the legend ('upper center', 'upper right', etc.)
                             If None, position will be determined automatically
+            molecule_type: Type of molecule being plotted
             
         Returns:
             matplotlib.figure.Figure: The created figure
@@ -442,64 +543,19 @@ class POI_E3LPlotter(BasePlotter):
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
         
-        # Create legend for groups
-        legend_elements = []
+        # Create legend elements
+        legend_elements = self._create_legend_elements(groups, color_map, custom_legend_order, add_threshold)
         
-        if custom_legend_order:
-            for group in custom_legend_order:
-                if group in groups:
-                    display_name = group.replace('_', ' ')
-                    legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
-        else:
-            unique_groups = []
-            for group in groups:
-                if group not in unique_groups:
-                    unique_groups.append(group)
-            
-            # Reverse the order to match visual appearance in plot (top to bottom)
-            unique_groups.reverse()
-            for group in unique_groups:
-                display_name = group.replace('_', ' ')
-                legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
-        
-        # Add threshold to legend if it exists
-        if add_threshold and threshold_value is not None:
-            from matplotlib.lines import Line2D
-            threshold_line = Line2D([0], [0], color=PlotConfig.GRAY, linestyle='--',
-                                   label='Threshold')
-            legend_elements.append(threshold_line)
-        
-        # Calculate number of rows and columns for the legend
-        num_elements = len(legend_elements)
-        ncol = min(2, num_elements)
-        
-        # Determine legend position based on data distribution or use provided position
-        if legend_position is None:
-            xmax = max(means) if means else 0
-            
-            # Default legend position
-            legend_loc = 'upper center'
-            
-            # For DockQ plots, check the topmost bar
-            if metric_type == 'DOCKQ':
-                if len(means) > 0:
-                    topmost_bar = means[-1]
-                    if topmost_bar > 0.5 * xmax:
-                        legend_loc = 'upper right'
-            else:
-                top_bars = means[-3:] if len(means) >= 3 else means
-                for bar_value in top_bars:
-                    if bar_value > 0.4 * xmax:
-                        legend_loc = 'upper right'
-                        break
-        else:
-            legend_loc = legend_position
+        # Determine legend position
+        legend_loc = self._determine_legend_position(
+            legend_position, protein_type, metric_type, means
+        )
         
         # Create the legend
         legend = ax.legend(
             handles=legend_elements,
             loc=legend_loc,
-            ncol=ncol,
+            ncol=min(3, len(legend_elements)) if protein_type == 'E3L' else min(2, len(legend_elements)),
             fontsize=12,
             framealpha=0.7,
             facecolor='white',
@@ -516,4 +572,93 @@ class POI_E3LPlotter(BasePlotter):
             filename = f"{protein_type.lower().split()[0]}_{metric_abbr}_{model_type.lower().replace('-', '_')}{suffix}"
             self.save_plot(fig, filename)
             
-        return fig 
+        return fig
+
+    def _create_legend_elements(self, groups, color_map, custom_legend_order=None, add_threshold=False):
+        """
+        Create legend elements based on groups and colors.
+        
+        Args:
+            groups: List of group names for each bar
+            color_map: Dictionary mapping groups to colors
+            custom_legend_order: Optional custom order for legend groups
+            add_threshold: Whether to add threshold line to legend
+            
+        Returns:
+            list: Legend elements
+        """
+        legend_elements = []
+        
+        if custom_legend_order:
+            # Use custom order for legend groups
+            for group in custom_legend_order:
+                if group in groups:
+                    display_name = group.replace('_', ' ')
+                    legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
+        else:
+            # Use unique groups from data in reverse order to match visual appearance
+            unique_groups = []
+            for group in groups:
+                if group not in unique_groups:
+                    unique_groups.append(group)
+            
+            # Reverse the order to match visual appearance in plot (top to bottom)
+            unique_groups.reverse()
+            for group in unique_groups:
+                display_name = group.replace('_', ' ')
+                legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
+        
+        # Add threshold to legend if it exists
+        if add_threshold:
+            from matplotlib.lines import Line2D
+            threshold_line = Line2D([0], [0], color=PlotConfig.GRAY, linestyle='--',
+                                   label='Threshold')
+            legend_elements.append(threshold_line)
+        
+        return legend_elements
+    
+    def _determine_legend_position(self, legend_position, protein_type, metric_type, means):
+        """
+        Determine best legend position based on data and plot type.
+        
+        Args:
+            legend_position: User-specified position (if any)
+            protein_type: 'POI' or 'E3L'
+            metric_type: 'RMSD' or 'DockQ'
+            means: List of mean values to check for positioning
+            
+        Returns:
+            str: Legend position
+        """
+        # If legend position is specified, use that
+        if legend_position is not None:
+            return legend_position
+        
+        # For E3L plots, use upper center as default
+        if protein_type == 'E3L':
+            return 'upper center'
+        
+        # For other plots, determine based on data
+        xmax = max(means) if means else 0
+        
+        # Default legend position is upper center
+        legend_loc = 'upper center'
+        
+        # For DockQ plots, check the topmost bar
+        if metric_type == 'DOCKQ':
+            if len(means) > 0:
+                topmost_bar = means[-1]
+                threshold = 0.5 * xmax
+                if topmost_bar > threshold:
+                    legend_loc = 'upper right'
+        else:
+            # For other metrics, check top 3 bars
+            top_bars = means[-3:] if len(means) >= 3 else means
+            threshold = 0.4 * xmax
+            
+            for bar_value in top_bars:
+                if bar_value > threshold:
+                    legend_loc = 'upper right'
+                    break
+        
+        return legend_loc

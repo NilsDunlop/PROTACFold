@@ -546,26 +546,21 @@ class PlottingApp:
         
         print("\nPOI and E3L Analysis Plot Settings:")
         
-        # Determine which molecule type column is available
-        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in self.df_combined.columns else 'TYPE'
+        # Only allow PROTAC or MOLECULAR GLUE
+        allowed_types = ["PROTAC", "MOLECULAR GLUE"]
+        print(f"Available molecule types: {', '.join(allowed_types)}")
         
-        # Get available molecule types
-        if molecule_type_col in self.df_combined.columns:
-            available_types = sorted(self.df_combined[molecule_type_col].unique())
-            print(f"Available molecule types: {', '.join(available_types)}")
-            default_type = "PROTAC" if "PROTAC" in available_types else available_types[0]
-        else:
-            available_types = ["PROTAC", "Molecular Glue"]
-            default_type = "PROTAC"
-            print("Warning: No molecule type column found in data")
+        # Get molecule type - only allow PROTAC or MOLECULAR GLUE
+        molecule_type_input = input(f"Molecule type (PROTAC/MOLECULAR GLUE) [PROTAC]: ").strip() or "PROTAC"
         
-        # Select molecule type
-        molecule_type_input = input(f"Molecule type ({'/'.join(available_types)}) [{default_type}]: ").strip() or default_type
-        if molecule_type_input in available_types:
-            molecule_type = molecule_type_input
+        # Validate molecule type
+        if molecule_type_input.upper() == "MOLECULAR GLUE":
+            molecule_type = "MOLECULAR GLUE"
+        elif molecule_type_input.upper() == "PROTAC":
+            molecule_type = "PROTAC"
         else:
-            print(f"Invalid molecule type. Using default: {default_type}")
-            molecule_type = default_type
+            print(f"Invalid molecule type. Only {'/'.join(allowed_types)} are supported. Using default: PROTAC")
+            molecule_type = "PROTAC"
         
         # Get available model types
         available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
@@ -623,7 +618,7 @@ class PlottingApp:
             if figs_poi:
                 for i, fig_poi in enumerate(figs_poi):
                     if fig_poi is not None:
-                        filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower()}_part{i+1}"
+                        filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
                         if debug_mode:
                             filename += "_debug"
                         self.save_plots([fig_poi], filename)
@@ -633,7 +628,7 @@ class PlottingApp:
             
             # Save the E3L plot
             if fig_e3l is not None:
-                filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower()}"
+                filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
                 if debug_mode:
                     filename += "_debug"
                 self.save_plots([fig_e3l], filename)
