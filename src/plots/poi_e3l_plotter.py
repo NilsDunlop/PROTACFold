@@ -35,7 +35,7 @@ class POI_E3LPlotter(BasePlotter):
         # Molecular glue POI groups
         self.MG_POI_GROUPS = {
             "Kinases": ["CDK12", "CSNK1A1", "PAK6"],
-            "Epigenetic_Regulators": ["BRD4", "HDAC1", "WIZ"],
+            "Nuclear_Regulators": ["BRD4", "HDAC1", "WIZ"],
             "Transcription_Factors": ["IKZF1", "IKZF2", "SALL4", "ZNFN1A2", "ZNF692"],
             "RNA_Translation_Regulators": ["RBM39", "GSPT1"],
             "Signaling_Metabolism": ["CTNNB1", "CDO1"]
@@ -45,9 +45,9 @@ class POI_E3LPlotter(BasePlotter):
         self.MG_E3_GROUPS = {
             "CRBN": ["CRBN", "MGR_0879"],
             "VHL": ["VHL"],
-            "CRL_Others": ["BTRC", "DDB1", "KBTBD4"],
+            "TRIM_Ligase": ["TRIM21"],
             "DCAF_Receptors": ["DCAF15", "DCAF16"],
-            "TRIM_Ligase": ["TRIM21"]
+            "Others": ["BTRC", "DDB1", "KBTBD4"],
         }
         
         # PROTAC-specific color maps
@@ -69,7 +69,7 @@ class POI_E3LPlotter(BasePlotter):
         # Molecular glue color maps
         self.MG_POI_COLOR_MAP = {
             "Kinases": PlotConfig.SMILES_PRIMARY,
-            "Epigenetic_Regulators": PlotConfig.SMILES_TERTIARY,
+            "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
             "Transcription_Factors": PlotConfig.SMILES_SECONDARY,
             "RNA_Translation_Regulators": PlotConfig.CCD_PRIMARY,
             "Signaling_Metabolism": PlotConfig.CCD_SECONDARY,
@@ -78,9 +78,9 @@ class POI_E3LPlotter(BasePlotter):
         self.MG_E3_COLOR_MAP = {
             "CRBN": PlotConfig.CCD_PRIMARY,
             "VHL": PlotConfig.SMILES_TERTIARY,
-            "CRL_Others": PlotConfig.SMILES_PRIMARY,
+            "TRIM_Ligase": PlotConfig.SMILES_PRIMARY,
             "DCAF_Receptors": PlotConfig.CCD_SECONDARY,
-            "TRIM_Ligase": PlotConfig.TEAL,
+            "Others": PlotConfig.GRAY, 
         }
 
     def _debug_print(self, message):
@@ -206,10 +206,10 @@ class POI_E3LPlotter(BasePlotter):
         if poi_results:
             # Define ordering for POI groups
             if molecule_type == "PROTAC":
-                poi_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators", 
+                poi_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators",
                              "Apoptosis_Regulators", "Diverse_Enzymes"]
             else:  # MOLECULAR GLUE
-                poi_order = ["Transcription_Factors", "Epigenetic_Regulators", "Kinases",
+                poi_order = ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
                             "RNA_Translation_Regulators", "Signaling_Metabolism"]
             
             # Sort POI results by group order
@@ -238,7 +238,7 @@ class POI_E3LPlotter(BasePlotter):
             if molecule_type == "PROTAC":
                 legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
             else:  # MOLECULAR GLUE
-                legend_order = ["CRBN", "DCAF_Receptors", "VHL", "CRL_Others", "TRIM_Ligase"]
+                legend_order = ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
                 
             fig_e3l = self._create_rmsd_plot(
                 sorted_e3l_results, 

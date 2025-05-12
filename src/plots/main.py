@@ -12,6 +12,7 @@ from ptm_plotter import PTMPlotter
 from comparison_plotter import ComparisonPlotter
 from training_cutoff_plotter import TrainingCutoffPlotter
 from poi_e3l_plotter import POI_E3LPlotter
+from property_plotter import PropertyPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -37,6 +38,7 @@ class PlottingApp:
         self.comparison_plotter = ComparisonPlotter()
         self.training_cutoff_plotter = TrainingCutoffPlotter()
         self.poi_e3l_plotter = POI_E3LPlotter()
+        self.property_plotter = PropertyPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -639,6 +641,56 @@ class PlottingApp:
             print(f"Error: {e}")
             import traceback
             traceback.print_exc()
+    
+    def plot_property_vs_lrmsd(self):
+        """Generate combined plot of molecular properties vs LRMSD."""
+        if not hasattr(self, 'df_combined') or self.df_combined is None:
+            print("\nError: Combined results data not found.")
+            print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, Rotatable_Bond_Count, Heavy_Atom_Count, and Molecular_Weight columns.")
+            return
+        
+        print("\nMolecular Property vs LRMSD Plot Settings:")
+        
+        # Only allow PROTAC or MOLECULAR GLUE
+        allowed_types = ["PROTAC", "MOLECULAR GLUE"]
+        print(f"Available molecule types: {', '.join(allowed_types)}")
+        
+        # Get molecule type - only allow PROTAC or MOLECULAR GLUE
+        molecule_type_input = input(f"Molecule type (PROTAC/MOLECULAR GLUE) [PROTAC]: ").strip() or "PROTAC"
+        
+        # Validate molecule type
+        if molecule_type_input.upper() == "MOLECULAR GLUE":
+            molecule_type = "MOLECULAR GLUE"
+        elif molecule_type_input.upper() == "PROTAC":
+            molecule_type = "PROTAC"
+        else:
+            print(f"Invalid molecule type. Only {'/'.join(allowed_types)} are supported. Using default: PROTAC")
+            molecule_type = "PROTAC"
+        
+        # Generate the combined plot
+        try:
+            print(f"Generating combined property plot for {molecule_type}...")
+            
+            fig, axes = self.property_plotter.plot_combined_properties(
+                df=self.df_combined,
+                molecule_type=molecule_type,
+                width=15,  # Wider figure for 3 subplots
+                height=5,
+                save=False
+            )
+            
+            if fig is not None:
+                # Save the plot with appropriate naming
+                filename = f"{molecule_type.lower()}_lrmsd_combined_properties".lower()
+                self.save_plots([fig], filename)
+            else:
+                print(f"Warning: Failed to generate combined property plot")
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def display_menu(self):
         """Display the main menu."""
@@ -652,7 +704,8 @@ class PlottingApp:
         print("4. AF3 vs Boltz1 Comparison")
         print("5. Training Cutoff Comparison")
         print("6. POI and E3L Analysis")
-        print("7. Generate All Plot Types")
+        print("7. Property vs LRMSD Analysis")
+        print("8. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -678,7 +731,7 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '7':
+            if choice == '8':
                 # Generate all plot types
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
@@ -686,6 +739,7 @@ class PlottingApp:
                 self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
                 self.plot_poi_e3l_rmsd()
+                self.plot_property_vs_lrmsd()
                 continue
             
             # Process comma-separated choices
@@ -706,6 +760,8 @@ class PlottingApp:
                     self.plot_training_cutoff()
                 elif plot_choice == '6':
                     self.plot_poi_e3l_rmsd()
+                elif plot_choice == '7':
+                    self.plot_property_vs_lrmsd()
                 elif not plot_choice:
                     continue
                 else:

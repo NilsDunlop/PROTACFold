@@ -6,5 +6,6 @@ from training_cutoff_plotter import TrainingCutoffPlotter
 from poi_e3l_plotter import POI_E3LPlotter
 from config import PlotConfig
 from data_loader import DataLoader
+from property_plotter import PropertyPlotter
 
-__all__ = ['HorizontalBarPlotter', 'RMSDPlotter', 'PTMPlotter', 'ComparisonPlotter', 'TrainingCutoffPlotter', 'POI_E3LPlotter', 'PlotConfig', 'DataLoader']
+__all__ = ['HorizontalBarPlotter', 'RMSDPlotter', 'PTMPlotter', 'ComparisonPlotter', 'TrainingCutoffPlotter', 'POI_E3LPlotter', 'PropertyPlotter', 'PlotConfig', 'DataLoader']
