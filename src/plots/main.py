@@ -564,83 +564,133 @@ class PlottingApp:
             print(f"Invalid molecule type. Only {'/'.join(allowed_types)} are supported. Using default: PROTAC")
             molecule_type = "PROTAC"
         
-        # Get available model types
-        available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
-        print(f"Available model types: {', '.join(available_models)}")
-        default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
+        # Ask for plot type (now with 3 options)
+        plot_type_input = input("Plot type (1=Individual model, 2=Combined grid) [1]: ").strip() or "1"
+        plot_grid = plot_type_input == "2"
         
-        # Get model type
-        model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
-        
-        # Standardize model type
-        if model_type_input.lower() in ["boltz1", "boltz-1"]:
-            model_type = "Boltz-1"  # Use this internally for consistency
-        elif model_type_input in available_models:
-            model_type = model_type_input
-        else:
-            print(f"Invalid model type. Using default: {default_model}")
-            model_type = default_model
-        
-        # Get metric type
-        metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
-        metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
-        
-        # Set default threshold based on metric type
-        default_threshold = 4.0 if metric_type == "RMSD" else 0.23
-        
-        # Ask for threshold display
-        add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
-        threshold_value = default_threshold
-        if add_threshold:
-            threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
-            if threshold_input:
-                threshold_value = float(threshold_input)
-        
-        # Ask if debug mode should be enabled
-        debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
-        debug_mode = debug_mode_input == 'y'
-        
-        try:
-            print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
-            if debug_mode:
-                print("Debug mode enabled - detailed diagnostic information will be displayed")
+        if plot_grid:
+            # Get metric type
+            metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
+            metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
             
-            figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
+            # Set default threshold based on metric type
+            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+            
+            # Ask for threshold display
+            add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+            threshold_value = default_threshold
+            if add_threshold:
+                threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
+                if threshold_input:
+                    threshold_value = float(threshold_input)
+            
+            # Ask if debug mode should be enabled
+            debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
+            debug_mode = debug_mode_input == 'y'
+            
+            # For combined grid layout
+            print(f"Generating combined 2x2 grid with POI and E3L {metric_type} plots for AlphaFold3 and Boltz-1 ({molecule_type})...")
+            
+            # Create combined grid plot with POI on top and E3L on bottom
+            fig = self.poi_e3l_plotter.plot_combined_grid(
                 df=self.df_combined,
-                model_type=model_type,
+                model_types=['AlphaFold3', 'Boltz-1'],
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                save=False,
+                width=20,
+                save=True,
                 molecule_type=molecule_type,
                 debug=debug_mode
             )
             
-            # Save the POI plots
-            if figs_poi:
-                for i, fig_poi in enumerate(figs_poi):
-                    if fig_poi is not None:
-                        filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
-                        if debug_mode:
-                            filename += "_debug"
-                        self.save_plots([fig_poi], filename)
-                print(f"Saved {len(figs_poi)} POI plots")
-            else:
-                print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
-            
-            # Save the E3L plot
-            if fig_e3l is not None:
-                filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
+            # Save the grid plot
+            if fig is not None:
+                filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
                 if debug_mode:
                     filename += "_debug"
-                self.save_plots([fig_e3l], filename)
+                self.save_plots([fig], filename)
             else:
-                print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
+                print(f"Warning: No combined grid plot was generated. Check your data.")
                 
-        except Exception as e:
-            print(f"Error: {e}")
-            import traceback
-            traceback.print_exc()
+        else:
+            # Get available model types
+            available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
+            print(f"Available model types: {', '.join(available_models)}")
+            default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
+            
+            # Get model type
+            model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
+            
+            # Standardize model type
+            if model_type_input.lower() in ["boltz1", "boltz-1"]:
+                model_type = "Boltz-1"  # Use this internally for consistency
+            elif model_type_input in available_models:
+                model_type = model_type_input
+            else:
+                print(f"Invalid model type. Using default: {default_model}")
+                model_type = default_model
+            
+            # Get metric type
+            metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
+            metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
+            
+            # Set default threshold based on metric type
+            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+            
+            # Ask for threshold display
+            add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+            threshold_value = default_threshold
+            if add_threshold:
+                threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
+                if threshold_input:
+                    threshold_value = float(threshold_input)
+            
+            # Ask if debug mode should be enabled
+            debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
+            debug_mode = debug_mode_input == 'y'
+            
+            try:
+                print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
+                if debug_mode:
+                    print("Debug mode enabled - detailed diagnostic information will be displayed")
+                
+                figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
+                    df=self.df_combined,
+                    model_type=model_type,
+                    metric_type=metric_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False,
+                    molecule_type=molecule_type,
+                    debug=debug_mode
+                )
+                
+                # Save the POI plots
+                if figs_poi:
+                    for i, fig_poi in enumerate(figs_poi):
+                        if fig_poi is not None:
+                            filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
+                            if debug_mode:
+                                filename += "_debug"
+                            self.save_plots([fig_poi], filename)
+                    print(f"Saved {len(figs_poi)} POI plots")
+                else:
+                    print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
+                
+                # Save the E3L plot
+                if fig_e3l is not None:
+                    filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
+                    if debug_mode:
+                        filename += "_debug"
+                    self.save_plots([fig_e3l], filename)
+                else:
+                    print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
+                    
+            except Exception as e:
+                print(f"Error: {e}")
+                import traceback
+                traceback.print_exc()
     
     def plot_property_vs_lrmsd(self):
         """Generate combined plot of molecular properties vs LRMSD."""

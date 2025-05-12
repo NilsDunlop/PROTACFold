@@ -104,7 +104,7 @@ class POI_E3LPlotter(BasePlotter):
         debug=False
     ):
         """
-        Plot RMSD or DockQ for POIs and E3Ls.
+        Plot RMSD or DockQ for POIs and E3Ls with highest values at the top.
         
         Args:
             df: DataFrame with RMSD data
@@ -116,7 +116,7 @@ class POI_E3LPlotter(BasePlotter):
             height: Figure height (calculated automatically if None)
             bar_width: Width of the bars
             save: Whether to save the figure
-            legend_position: Position for the legend ('upper center', 'upper right', etc.)
+            legend_position: Position for the legend (defaults to bottom left if None)
             molecule_type: Type of molecule to filter by ('PROTAC' or 'MOLECULAR GLUE')
             debug: Enable debugging output
             
@@ -161,7 +161,7 @@ class POI_E3LPlotter(BasePlotter):
         if model_type == 'AlphaFold3':
             valid_seeds = [24, 37, 42]
         else:  # Boltz-1
-            valid_seeds = [42]
+            valid_seeds = [24, 37, 42]
             
         # Filter by seeds
         filtered_df = filtered_df[filtered_df['SEED'].isin(valid_seeds)]
@@ -176,16 +176,11 @@ class POI_E3LPlotter(BasePlotter):
             e3_groups = self.PROTAC_E3_GROUPS
             poi_color_map = self.PROTAC_POI_COLOR_MAP
             e3_color_map = self.PROTAC_E3_COLOR_MAP
-            
-            # For PROTAC, we want to default legend to upper center
-            # but only do this if user hasn't specified a position
-            e3_legend_position = "upper center" if legend_position is None else legend_position
         else:  # MOLECULAR GLUE
             poi_groups = self.MG_POI_GROUPS
             e3_groups = self.MG_E3_GROUPS
             poi_color_map = self.MG_POI_COLOR_MAP
             e3_color_map = self.MG_E3_COLOR_MAP
-            e3_legend_position = legend_position
         
         # Process POI data
         poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', poi_groups, metric_type)
@@ -198,13 +193,15 @@ class POI_E3LPlotter(BasePlotter):
             print("No valid POI or E3L data found after filtering")
             return [], None
         
-        # Get sorted E3L results based on molecule type
-        sorted_e3l_results = self._get_sorted_e3l_results(molecule_type, e3l_results)
+        # Sort results by metric value
+        sorted_e3l_results = self._get_sorted_e3l_results(molecule_type, e3l_results, metric_type)
         
         # Create POI plots
         poi_fig_list = []
+        poi_data_count = 0
+        poi_height = None
         if poi_results:
-            # Define ordering for POI groups
+            # Define group order for color mapping reference
             if molecule_type == "PROTAC":
                 poi_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators",
                              "Apoptosis_Regulators", "Diverse_Enzymes"]
@@ -212,9 +209,16 @@ class POI_E3LPlotter(BasePlotter):
                 poi_order = ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
                             "RNA_Translation_Regulators", "Signaling_Metabolism"]
             
-            # Sort POI results by group order
-            sorted_poi_results = self._sort_results_by_group_order(poi_results, poi_order)
+            # Sort POI results by metric value (highest at top)
+            sorted_poi_results = self._sort_results_by_group_order(poi_results, poi_order, metric_type)
+            poi_data_count = len(sorted_poi_results)
             
+            # Calculate appropriate height for POI plots if not provided
+            if height is None:
+                poi_height = max(8, poi_data_count * 0.35 + 2)
+            else:
+                poi_height = height
+                
             # Create the POI plots
             poi_fig_list = self._create_split_poi_plots(
                 sorted_poi_results, 
@@ -224,7 +228,7 @@ class POI_E3LPlotter(BasePlotter):
                 add_threshold, 
                 threshold_value, 
                 width, 
-                height, 
+                poi_height, 
                 bar_width, 
                 save,
                 legend_position=legend_position,
@@ -234,11 +238,32 @@ class POI_E3LPlotter(BasePlotter):
         # Create E3L plot
         fig_e3l = None
         if sorted_e3l_results:
-            # Define the visual order for legend groups (top to bottom on the plot)
+            # Define the legend groups order for visual consistency
             if molecule_type == "PROTAC":
                 legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
             else:  # MOLECULAR GLUE
                 legend_order = ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
+            
+            # Calculate height for E3L plot proportional to number of elements, maintaining the same bar thickness
+            e3l_data_count = len(sorted_e3l_results)
+            
+            # If we have POI data, calculate E3L height proportional to POI height, otherwise calculate directly
+            if poi_data_count > 0 and poi_height is not None:
+                # Remove fixed 2-unit padding to get just the content height, then scale by data count ratio
+                content_height = poi_height - 2
+                bar_space_ratio = poi_data_count / content_height
+                
+                # Scale the content height by number of E3L data points, then add back padding
+                e3l_content_height = e3l_data_count / bar_space_ratio
+                e3l_height = e3l_content_height + 2
+                
+                # Ensure a minimum reasonable height for small datasets
+                e3l_height = max(e3l_height, 4)
+                
+                self._debug_print(f"E3L height: {e3l_height} (POI height: {poi_height}, POI count: {poi_data_count}, E3L count: {e3l_data_count})")
+            else:
+                # Calculate directly if no POI data to reference
+                e3l_height = max(4, e3l_data_count * 0.35 + 2)
                 
             fig_e3l = self._create_rmsd_plot(
                 sorted_e3l_results, 
@@ -249,75 +274,46 @@ class POI_E3LPlotter(BasePlotter):
                 add_threshold, 
                 threshold_value, 
                 width, 
-                height, 
+                e3l_height, 
                 bar_width, 
                 save,
                 custom_legend_order=legend_order,
-                legend_position=e3_legend_position,
+                legend_position=legend_position,
                 molecule_type=molecule_type
             )
         
         return poi_fig_list, fig_e3l
     
-    def _get_sorted_e3l_results(self, molecule_type, e3l_results):
+    def _get_sorted_e3l_results(self, molecule_type, e3l_results, metric_type=None):
         """
-        Sort E3L results based on molecule type for consistent visual presentation.
+        Sort E3L results based on metric value with highest values at the top.
         
         Args:
             molecule_type: Type of molecule ("PROTAC" or "MOLECULAR GLUE")
             e3l_results: List of processed E3L data
+            metric_type: Type of metric ('RMSD' or 'DockQ') for determining sort direction
             
         Returns:
-            List of sorted E3L results
+            List of sorted E3L results with highest metric values at the top
         """
-        # Define E3L visual order (top to bottom on the plot)
-        if molecule_type == "PROTAC":
-            visual_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
-        else:  # MOLECULAR GLUE
-            visual_order = ["CRBN", "DCAF_Receptors", "VHL", "CRL_Others", "TRIM_Ligase"]
-        
-        # Sort E3L results to match the visual order (top to bottom)
-        # We need to reverse this for plotting since matplotlib plots from bottom to top
-        plot_order = list(reversed(visual_order))
-        
-        # Sort the E3L results to match the plot order (bottom to top)
-        sorted_e3l_results = []
-        for group in plot_order:
-            group_proteins = [item for item in e3l_results if item['group'] == group]
-            group_proteins.sort(key=lambda x: x['name'])
-            sorted_e3l_results.extend(group_proteins)
-        
-        # Add any proteins not in the predefined order at the end
-        remaining_proteins = [item for item in e3l_results if item['group'] not in visual_order]
-        if remaining_proteins:
-            remaining_proteins.sort(key=lambda x: x['name'])
-            sorted_e3l_results.extend(remaining_proteins)
-            
+        # Sort proteins by metric value (highest values at top)
+        sorted_e3l_results = sorted(e3l_results, key=lambda x: x['mean_metric'], reverse=False)
         return sorted_e3l_results
     
-    def _sort_results_by_group_order(self, results, group_order):
+    def _sort_results_by_group_order(self, results, group_order, metric_type=None):
         """
-        Sort results according to defined group order.
+        Sort results by metric value with highest values at the top.
         
         Args:
             results: List of protein result dictionaries
-            group_order: List of groups in desired order
+            group_order: List of groups (used only for color mapping, not for ordering)
+            metric_type: Type of metric ('RMSD' or 'DockQ')
             
         Returns:
-            List of sorted results
+            List of sorted results with highest metric values at the top
         """
-        sorted_results = []
-        for group in group_order:
-            group_proteins = [item for item in results if item['group'] == group]
-            group_proteins.sort(key=lambda x: x['name'])
-            sorted_results.extend(group_proteins)
-        
-        # Add any proteins not in the predefined groups at the end
-        remaining_proteins = [item for item in results if item['group'] not in group_order]
-        if remaining_proteins:
-            remaining_proteins.sort(key=lambda x: x['name'])
-            sorted_results.extend(remaining_proteins)
-            
+        # Sort proteins by metric value (highest values at top)
+        sorted_results = sorted(results, key=lambda x: x['mean_metric'], reverse=False)
         return sorted_results
         
     def _process_protein_data(self, df, name_column, groups, metric_type='RMSD'):
@@ -389,7 +385,7 @@ class POI_E3LPlotter(BasePlotter):
             overall_std = np.nanstd(seed_mean_metric) if len(seed_mean_metric) > 1 else 0
             
             # Determine the group this protein belongs to
-            group = protein_to_group.get(protein, 'Other')
+            group = protein_to_group.get(protein, 'Others')
             
             results.append({
                 'name': protein,
@@ -518,7 +514,19 @@ class POI_E3LPlotter(BasePlotter):
         means = [item['mean_metric'] for item in data]
         stds = [item['std_metric'] for item in data]
         groups = [item['group'] for item in data]
-        colors = [color_map[group] for group in groups]
+        
+        # Fallback color for any group not in the color map
+        default_color = PlotConfig.GRAY
+        
+        # Assign colors with fallback to default for any missing group
+        colors = []
+        for group in groups:
+            if group in color_map:
+                colors.append(color_map[group])
+            else:
+                # Log the missing group for debugging
+                self._debug_print(f"Warning: Group '{group}' not found in color map. Using default color.")
+                colors.append(default_color)
         
         # Plot bars
         bars = ax.barh(positions, means, bar_width, xerr=stds, 
@@ -589,24 +597,28 @@ class POI_E3LPlotter(BasePlotter):
         """
         legend_elements = []
         
+        # Get the list of groups to include in the legend
         if custom_legend_order:
             # Use custom order for legend groups
-            for group in custom_legend_order:
-                if group in groups:
-                    display_name = group.replace('_', ' ')
-                    legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
+            legend_groups = custom_legend_order
         else:
             # Use unique groups from data in reverse order to match visual appearance
-            unique_groups = []
+            legend_groups = []
             for group in groups:
-                if group not in unique_groups:
-                    unique_groups.append(group)
+                if group not in legend_groups:
+                    legend_groups.append(group)
             
             # Reverse the order to match visual appearance in plot (top to bottom)
-            unique_groups.reverse()
-            for group in unique_groups:
+            legend_groups.reverse()
+        
+        # Create a legend element for each group
+        for group in legend_groups:
+            # Only add groups that exist in the data
+            if group in groups:
                 display_name = group.replace('_', ' ')
-                legend_elements.append(Patch(facecolor=color_map[group], label=display_name))
+                # Use the color from the color map, or gray if not found
+                color = color_map.get(group, PlotConfig.GRAY)
+                legend_elements.append(Patch(facecolor=color, label=display_name))
         
         # Add threshold to legend if it exists
         if add_threshold:
@@ -619,13 +631,13 @@ class POI_E3LPlotter(BasePlotter):
     
     def _determine_legend_position(self, legend_position, protein_type, metric_type, means):
         """
-        Determine best legend position based on data and plot type.
+        Determine legend position for the plot.
         
         Args:
             legend_position: User-specified position (if any)
-            protein_type: 'POI' or 'E3L'
-            metric_type: 'RMSD' or 'DockQ'
-            means: List of mean values to check for positioning
+            protein_type: 'POI' or 'E3L' (not used in current implementation)
+            metric_type: 'RMSD' or 'DockQ' (not used in current implementation)
+            means: List of mean values (not used in current implementation)
             
         Returns:
             str: Legend position
@@ -634,31 +646,371 @@ class POI_E3LPlotter(BasePlotter):
         if legend_position is not None:
             return legend_position
         
-        # For E3L plots, use upper center as default
-        if protein_type == 'E3L':
-            return 'upper center'
+        # Default legend position is bottom left
+        return 'lower right'
+
+    def plot_combined_grid(
+        self,
+        df,
+        model_types=['AlphaFold3', 'Boltz-1'],
+        metric_type='RMSD',
+        add_threshold=True,
+        threshold_value=4.0,
+        width=22,
+        height=None,
+        bar_width=0.7,
+        save=True,
+        legend_position='lower right',
+        molecule_type="PROTAC",
+        debug=False
+    ):
+        """
+        Plot RMSD or DockQ for POIs and E3Ls in a 2x2 grid with POI plots on top and E3L plots at the bottom.
+        This maintains the same plotting logic as plot_combined_models but arranges the plots in a grid.
         
-        # For other plots, determine based on data
-        xmax = max(means) if means else 0
-        
-        # Default legend position is upper center
-        legend_loc = 'upper center'
-        
-        # For DockQ plots, check the topmost bar
-        if metric_type == 'DOCKQ':
-            if len(means) > 0:
-                topmost_bar = means[-1]
-                threshold = 0.5 * xmax
-                if topmost_bar > threshold:
-                    legend_loc = 'upper right'
-        else:
-            # For other metrics, check top 3 bars
-            top_bars = means[-3:] if len(means) >= 3 else means
-            threshold = 0.4 * xmax
+        Args:
+            df: DataFrame with RMSD data
+            model_types: List of model types to include, e.g. ['AlphaFold3', 'Boltz-1']
+            metric_type: 'RMSD' or 'DockQ'
+            add_threshold: Whether to add a threshold line
+            threshold_value: Value for the threshold line
+            width: Figure width
+            height: Figure height (calculated automatically if None)
+            bar_width: Width of the bars
+            save: Whether to save the figure
+            legend_position: Position for the legend (defaults to lower right)
+            molecule_type: Type of molecule to filter by ('PROTAC' or 'MOLECULAR GLUE')
+            debug: Enable debugging output
             
-            for bar_value in top_bars:
-                if bar_value > threshold:
-                    legend_loc = 'upper right'
-                    break
+        Returns:
+            matplotlib.figure.Figure: The created combined figure
+        """
+        # Enable debugging for this call if requested
+        self.debug = debug or self.debug
         
-        return legend_loc
+        # First, generate the POI and E3L data using the same logic as plot_combined_models
+        poi_data, e3l_data = self._prepare_combined_plot_data(
+            df=df,
+            model_types=model_types,
+            metric_type=metric_type,
+            molecule_type=molecule_type
+        )
+        
+        if not poi_data or not e3l_data:
+            print(f"Error: No valid POI or E3L data found after filtering")
+            return None
+        
+        # Find max number of proteins across all models
+        max_poi_count = max([len(poi_data[model_type]) for model_type in model_types])
+        max_e3l_count = max([len(e3l_data[model_type]) for model_type in model_types])
+        
+        # Calculate proportional heights to maintain same bar thickness between POI and E3L plots
+        if max_poi_count > 0 and max_e3l_count > 0:
+            # Calculate the height ratio based strictly on the data point counts
+            height_ratio = [max_poi_count, max_e3l_count]
+            
+            # Calculate base figure height with tighter margins
+            total_data_points = max_poi_count + max_e3l_count
+            base_height = total_data_points * 0.4 + 3  # Adding padding
+            
+            if height is None:
+                height = base_height
+        else:
+            height_ratio = [2, 1]  # Default ratio if we don't have data
+            if height is None:
+                height = 12
+        
+        # Find the global min and max values across all datasets for consistent x-axis
+        global_min = float('inf')
+        global_max = float('-inf')
+        
+        # Get min/max from POI data
+        for model_type in model_types:
+            for item in poi_data[model_type]:
+                metric_value = item['mean_metric']
+                error_value = item['std_metric']
+                global_min = min(global_min, metric_value - error_value if error_value else metric_value)
+                global_max = max(global_max, metric_value + error_value if error_value else metric_value)
+                
+        # Get min/max from E3L data
+        for model_type in model_types:
+            for item in e3l_data[model_type]:
+                metric_value = item['mean_metric']
+                error_value = item['std_metric']
+                global_min = min(global_min, metric_value - error_value if error_value else metric_value)
+                global_max = max(global_max, metric_value + error_value if error_value else metric_value)
+        
+        # Add a small padding to the global range
+        range_padding = (global_max - global_min) * 0.05
+        global_min = max(0, global_min - range_padding)
+        global_max = global_max + range_padding
+        
+        # Create figure with 2x2 grid
+        fig = plt.figure(figsize=(width, height), constrained_layout=True)
+        
+        # Create GridSpec with proper height ratios and minimal spacing
+        gs = fig.add_gridspec(2, 2, height_ratios=height_ratio, hspace=0.05)
+        
+        # Create a list to store all axes for later adjustments
+        all_axes = []
+        left_axes = []  # Store left column axes for label alignment
+        
+        # Process each model in the grid
+        for i, model_type in enumerate(model_types):
+            # --- TOP ROW: POI PLOTS ---
+            ax_poi = fig.add_subplot(gs[0, i])
+            all_axes.append(ax_poi)
+            if i == 0:
+                left_axes.append(ax_poi)
+            
+            # Get POI data for this model
+            poi_results = poi_data[model_type]
+            sorted_poi_results = sorted(poi_results, key=lambda x: x['mean_metric'], reverse=False)
+            
+            # Plot POI data
+            self._plot_grid_data(
+                ax=ax_poi,
+                data=sorted_poi_results,
+                color_map=self._get_color_map('POI', molecule_type),
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                bar_width=bar_width,
+                title=None,
+                legend_position=legend_position,
+                show_legend=True,
+                custom_legend_order=self._get_legend_order('POI', molecule_type)
+            )
+            
+            # Set y-label only for the first column
+            if i == 0:
+                # Don't set the label yet, we'll set it with consistent parameters later
+                pass
+            
+            # No x-axis label for top row
+            ax_poi.set_xlabel('')
+            
+            # --- BOTTOM ROW: E3L PLOTS ---
+            ax_e3l = fig.add_subplot(gs[1, i])
+            all_axes.append(ax_e3l)
+            if i == 0:
+                left_axes.append(ax_e3l)
+            
+            # Get E3L data for this model
+            e3l_results = e3l_data[model_type]
+            sorted_e3l_results = sorted(e3l_results, key=lambda x: x['mean_metric'], reverse=False)
+            
+            # Plot E3L data
+            self._plot_grid_data(
+                ax=ax_e3l,
+                data=sorted_e3l_results,
+                color_map=self._get_color_map('E3L', molecule_type),
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                bar_width=bar_width,
+                title=None,
+                legend_position=legend_position,
+                show_legend=True,
+                custom_legend_order=self._get_legend_order('E3L', molecule_type)
+            )
+            
+            # Set labels for bottom row
+            if i == 0:
+                # Don't set the label yet, we'll set it with consistent parameters later
+                pass
+                
+            # Set x-axis label based on metric type
+            if metric_type == 'RMSD':
+                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE+2)
+            else:  # DockQ
+                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE+2)
+        
+        # Set consistent x-axis limits for all subplots
+        for ax in all_axes:
+            ax.set_xlim(global_min, global_max)
+        
+        # Get largest tick label width for both axes to ensure proper alignment
+        fig.canvas.draw()  # Force draw to get text bounds
+        max_tick_width = 0
+        for ax in left_axes:
+            tick_labels = ax.get_yticklabels()
+            if tick_labels:
+                for label in tick_labels:
+                    bbox = label.get_window_extent()
+                    width_inches = bbox.width / fig.dpi
+                    max_tick_width = max(max_tick_width, width_inches)
+        
+        # Now set the y-axis labels with consistent positioning
+        label_pad = max_tick_width + 0.5  # Add a bit of padding
+        
+        # Set the labels with the consistent pad and increased font size
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE + 2, labelpad=20)
+        left_axes[1].set_ylabel('E3 Ligand', fontsize=PlotConfig.AXIS_LABEL_SIZE + 2, labelpad=20)
+        
+        # Further alignment adjustments - moved closer to the axis
+        left_axes[0].yaxis.set_label_coords(-0.11, 0.5)
+        left_axes[1].yaxis.set_label_coords(-0.11, 0.5)
+        
+        # Save figure if requested
+        if save:
+            metric_abbr = metric_type.lower()
+            models_abbr = "_".join([m.lower().replace('-', '_') for m in model_types])
+            filename = f"poi_e3l_grid_{metric_abbr}_{models_abbr}"
+            self.save_plot(fig, filename)
+            
+        return fig
+    
+    def _prepare_combined_plot_data(self, df, model_types, metric_type, molecule_type):
+        """Helper method to prepare data for combined plots (used by both combined methods)."""
+        # Create two separate filtered dataframes for each model type
+        filtered_dfs = {}
+        for model_type in model_types:
+            # Filter data based on model type - accept both 'Boltz1' and 'Boltz-1'
+            if model_type == 'Boltz-1':
+                model_variants = ['Boltz-1', 'Boltz1']
+                model_df = df[df['MODEL_TYPE'].isin(model_variants)].copy()
+            else:
+                model_df = df[df['MODEL_TYPE'] == model_type].copy()
+            
+            if len(model_df) == 0:
+                self._debug_print(f"Error: No data available for model type '{model_type}'")
+                return None, None
+            
+            # Filter by molecule type
+            # Check if we have MOLECULE_TYPE column (newer datasets) or TYPE column (older datasets)
+            molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in model_df.columns else 'TYPE'
+            
+            if molecule_type_col in model_df.columns:
+                model_df = model_df[model_df[molecule_type_col] == molecule_type].copy()
+                
+                if model_df.empty:
+                    self._debug_print(f"Error: No data available for molecule type '{molecule_type}' with model '{model_type}'")
+                    return None, None
+            else:
+                self._debug_print(f"Warning: No '{molecule_type_col}' column found in data, skipping molecule type filtering")
+            
+            # Determine valid seeds based on model type
+            if model_type == 'AlphaFold3':
+                valid_seeds = [24, 37, 42]
+            else:  # Boltz-1
+                valid_seeds = [24, 37, 42]
+            # Filter by seeds
+            model_df = model_df[model_df['SEED'].isin(valid_seeds)]
+            
+            if len(model_df) == 0:
+                self._debug_print(f"Error: No data available for selected seeds with model '{model_type}'")
+                return None, None
+                
+            # Store the filtered dataframe
+            filtered_dfs[model_type] = model_df
+        
+        # Select appropriate groups based on molecule type
+        if molecule_type == "PROTAC":
+            poi_groups = self.PROTAC_POI_GROUPS
+            e3_groups = self.PROTAC_E3_GROUPS
+        else:  # MOLECULAR GLUE
+            poi_groups = self.MG_POI_GROUPS
+            e3_groups = self.MG_E3_GROUPS
+        
+        # Process POI data for each model
+        poi_results = {}
+        for model_type, model_df in filtered_dfs.items():
+            poi_results[model_type] = self._process_protein_data(model_df, 'SIMPLE_POI_NAME', poi_groups, metric_type)
+        
+        # Process E3L data for each model
+        e3l_results = {}
+        for model_type, model_df in filtered_dfs.items():
+            e3l_results[model_type] = self._process_protein_data(model_df, 'SIMPLE_E3_NAME', e3_groups, metric_type)
+        
+        # Check if we have valid data
+        for model_type in model_types:
+            if not poi_results[model_type] or not e3l_results[model_type]:
+                self._debug_print(f"Warning: Missing data for model '{model_type}'")
+        
+        return poi_results, e3l_results
+    
+    def _get_color_map(self, protein_type, molecule_type):
+        """Helper method to get the appropriate color map."""
+        if protein_type == 'POI':
+            if molecule_type == "PROTAC":
+                return self.PROTAC_POI_COLOR_MAP
+            else:  # MOLECULAR GLUE
+                return self.MG_POI_COLOR_MAP
+        else:  # E3L
+            if molecule_type == "PROTAC":
+                return self.PROTAC_E3_COLOR_MAP
+            else:  # MOLECULAR GLUE
+                return self.MG_E3_COLOR_MAP
+    
+    def _get_legend_order(self, protein_type, molecule_type):
+        """Helper method to get the appropriate legend order."""
+        if protein_type == 'POI':
+            if molecule_type == "PROTAC":
+                return ["Kinases", "Nuclear_Regulators", "Signaling_Modulators", 
+                        "Apoptosis_Regulators", "Diverse_Enzymes"]
+            else:  # MOLECULAR GLUE
+                return ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
+                        "RNA_Translation_Regulators", "Signaling_Metabolism"]
+        else:  # E3L
+            if molecule_type == "PROTAC":
+                return ["CRBN", "VHL", "BIRC2", "DCAF1"]
+            else:  # MOLECULAR GLUE
+                return ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
+    
+    def _plot_grid_data(self, ax, data, color_map, add_threshold, threshold_value, bar_width,
+                        title=None, legend_position='lower right', show_legend=True, custom_legend_order=None):
+        """Helper method to plot data on the given axis for the combined grid."""
+        # Set up positions for bars
+        positions = np.arange(len(data))
+        
+        # Prepare data for plotting
+        names = [item['name'] for item in data]
+        means = [item['mean_metric'] for item in data]
+        stds = [item['std_metric'] for item in data]
+        groups = [item['group'] for item in data]
+        
+        # Fallback color for any group not in the color map
+        default_color = PlotConfig.GRAY
+        
+        # Assign colors with fallback to default for any missing group
+        colors = []
+        for group in groups:
+            if group in color_map:
+                colors.append(color_map[group])
+            else:
+                self._debug_print(f"Warning: Group '{group}' not found in color map. Using default color.")
+                colors.append(default_color)
+        
+        # Plot bars
+        bars = ax.barh(positions, means, bar_width, xerr=stds, 
+                     color=colors, alpha=0.8, 
+                     error_kw={'ecolor': 'black', 'capsize': 5})
+        
+        # Add threshold line if requested
+        if add_threshold and threshold_value is not None:
+            ax.axvline(x=threshold_value, color=PlotConfig.GRAY, linestyle='--', 
+                      alpha=0.7, label='Threshold')
+            
+        # Set title if provided
+        if title:
+            ax.set_title(title, fontsize=14)
+            
+        # Customize the plot
+        ax.set_yticks(positions)
+        ax.set_yticklabels(names, fontsize=13)
+        
+        # Add grid
+        ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
+        
+        # Create and show legend if requested
+        if show_legend:
+            legend_elements = self._create_legend_elements(groups, color_map, custom_legend_order, add_threshold)
+            ax.legend(
+                handles=legend_elements,
+                loc=legend_position,
+                ncol=min(2, len(legend_elements)),
+                fontsize=13,
+                framealpha=0.7,
+                facecolor='white',
+                columnspacing=1.0,
+                handletextpad=0.5
+            )
