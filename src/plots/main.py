@@ -501,14 +501,8 @@ class PlottingApp:
             add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
             add_threshold = add_threshold_input != 'n'
         
-        # Ask if debug mode should be enabled
-        debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
-        debug_mode = debug_mode_input == 'y'
-        
         try:
             print(f"Generating {model_type} training cutoff comparison for {metric_type} ({molecule_type})...")
-            if debug_mode:
-                print("Debug mode enabled - detailed diagnostic information will be displayed")
             
             # Use the training cutoff plotter
             fig, ax = self.training_cutoff_plotter.plot_training_cutoff_comparison(
@@ -520,15 +514,12 @@ class PlottingApp:
                 width=10,
                 height=8,
                 save=False,
-                molecule_type=molecule_type,
-                debug=debug_mode
+                molecule_type=molecule_type
             )
             
             if fig is not None:
                 # Save the plot with appropriate name
                 filename = f"{model_type.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
-                if debug_mode:
-                    filename += "_debug"
                 self.save_plots([fig], filename)
             else:
                 print(f"Warning: Failed to generate training cutoff comparison plot")
@@ -584,10 +575,6 @@ class PlottingApp:
                 if threshold_input:
                     threshold_value = float(threshold_input)
             
-            # Ask if debug mode should be enabled
-            debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
-            debug_mode = debug_mode_input == 'y'
-            
             # For combined grid layout
             print(f"Generating combined 2x2 grid with POI and E3L {metric_type} plots for AlphaFold3 and Boltz-1 ({molecule_type})...")
             
@@ -600,15 +587,12 @@ class PlottingApp:
                 threshold_value=threshold_value,
                 width=20,
                 save=True,
-                molecule_type=molecule_type,
-                debug=debug_mode
+                molecule_type=molecule_type
             )
             
             # Save the grid plot
             if fig is not None:
                 filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
-                if debug_mode:
-                    filename += "_debug"
                 self.save_plots([fig], filename)
             else:
                 print(f"Warning: No combined grid plot was generated. Check your data.")
@@ -646,14 +630,8 @@ class PlottingApp:
                 if threshold_input:
                     threshold_value = float(threshold_input)
             
-            # Ask if debug mode should be enabled
-            debug_mode_input = input("Enable debug mode? (y/n) [n]: ").strip().lower()
-            debug_mode = debug_mode_input == 'y'
-            
             try:
                 print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
-                if debug_mode:
-                    print("Debug mode enabled - detailed diagnostic information will be displayed")
                 
                 figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
                     df=self.df_combined,
@@ -662,8 +640,7 @@ class PlottingApp:
                     add_threshold=add_threshold,
                     threshold_value=threshold_value,
                     save=False,
-                    molecule_type=molecule_type,
-                    debug=debug_mode
+                    molecule_type=molecule_type
                 )
                 
                 # Save the POI plots
@@ -671,8 +648,6 @@ class PlottingApp:
                     for i, fig_poi in enumerate(figs_poi):
                         if fig_poi is not None:
                             filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
-                            if debug_mode:
-                                filename += "_debug"
                             self.save_plots([fig_poi], filename)
                     print(f"Saved {len(figs_poi)} POI plots")
                 else:
@@ -681,8 +656,6 @@ class PlottingApp:
                 # Save the E3L plot
                 if fig_e3l is not None:
                     filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
-                    if debug_mode:
-                        filename += "_debug"
                     self.save_plots([fig_e3l], filename)
                 else:
                     print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
@@ -701,12 +674,10 @@ class PlottingApp:
             return
         
         print("\nMolecular Property vs LRMSD Plot Settings:")
-        
-        # Only allow PROTAC or MOLECULAR GLUE
         allowed_types = ["PROTAC", "MOLECULAR GLUE"]
         print(f"Available molecule types: {', '.join(allowed_types)}")
         
-        # Get molecule type - only allow PROTAC or MOLECULAR GLUE
+        # Get molecule type
         molecule_type_input = input(f"Molecule type (PROTAC/MOLECULAR GLUE) [PROTAC]: ").strip() or "PROTAC"
         
         # Validate molecule type
@@ -717,6 +688,95 @@ class PlottingApp:
         else:
             print(f"Invalid molecule type. Only {'/'.join(allowed_types)} are supported. Using default: PROTAC")
             molecule_type = "PROTAC"
+            
+        # Ask about bin customization
+        custom_bins = input("\nWould you like to customize the bin sizes? (y/n) [n]: ").strip().lower() == 'y'
+        
+        # Set bin sizes
+        mw_bin_size = 100
+        hac_bin_size = 10
+        rbc_bin_size = 5
+        
+        if custom_bins:
+            # Get customized bin sizes
+            print("\nEnter bin sizes (press Enter to use defaults):")
+            mw_input = input("Molecular Weight bins (default 100 Da): ").strip()
+            if mw_input and mw_input.isdigit() and int(mw_input) > 0:
+                mw_bin_size = int(mw_input)
+                
+            hac_input = input("Heavy Atom Count bins (default 10 atoms): ").strip()
+            if hac_input and hac_input.isdigit() and int(hac_input) > 0:
+                hac_bin_size = int(hac_input)
+                
+            rbc_input = input("Rotatable Bond Count bins (default 10 bonds): ").strip()
+            if rbc_input and rbc_input.isdigit() and int(rbc_input) > 0:
+                rbc_bin_size = int(rbc_input)
+        
+        # Create bin settings dictionary
+        bin_settings = {
+            "Molecular_Weight": mw_bin_size,
+            "Heavy_Atom_Count": hac_bin_size,
+            "Rotatable_Bond_Count": rbc_bin_size
+        }
+
+        # Default to automatically calculating bin sizes for ~8 bins
+        ranges = self.property_plotter.get_property_ranges(self.df_combined, molecule_type)
+        target_bins = 8
+        
+        # Auto-calculate bin sizes for main properties
+        if not custom_bins:
+            if 'Molecular_Weight' in ranges:
+                mw_range = ranges['Molecular_Weight'][1] - ranges['Molecular_Weight'][0]
+                mw_bin_size = max(50, round(mw_range / target_bins / 50) * 50) 
+                
+            if 'Heavy_Atom_Count' in ranges:
+                hac_range = ranges['Heavy_Atom_Count'][1] - ranges['Heavy_Atom_Count'][0]
+                hac_bin_size = max(5, round(hac_range / target_bins / 5) * 5)
+                
+            if 'Rotatable_Bond_Count' in ranges:
+                rbc_range = ranges['Rotatable_Bond_Count'][1] - ranges['Rotatable_Bond_Count'][0]
+                rbc_bin_size = max(2, round(rbc_range / target_bins / 2) * 2)
+                
+            # Update bin settings with auto-calculated values
+            bin_settings = {
+                "Molecular_Weight": mw_bin_size,
+                "Heavy_Atom_Count": hac_bin_size,
+                "Rotatable_Bond_Count": rbc_bin_size
+            }
+        
+        # Initialize LogP, HBD, and HBA
+        logp_bin_size = 1
+        hbd_bin_size = 1
+        hba_bin_size = 2
+        
+        customize_others = input("\nWould you like to customize LogP, H-Bond Donors, and H-Bond Acceptors bin sizes? (y/n) [n]: ").strip().lower() == 'y'
+        
+        if not customize_others:
+            if 'LogP' in ranges:
+                logp_range = ranges['LogP'][1] - ranges['LogP'][0]
+                logp_bin_size = max(1, round(logp_range / target_bins))
+            
+            if 'HBD_Count' in ranges:
+                hbd_range = ranges['HBD_Count'][1] - ranges['HBD_Count'][0]
+                hbd_bin_size = max(1, round(hbd_range / target_bins))
+        else:
+            # Manual customization
+            logp_input = input("LogP bins (default 1 unit): ").strip()
+            if logp_input and logp_input.replace('.', '', 1).isdigit() and float(logp_input) > 0:
+                logp_bin_size = float(logp_input)
+                
+            hbd_input = input("H-Bond Donors bins (default 1 unit): ").strip()
+            if hbd_input and hbd_input.isdigit() and int(hbd_input) > 0:
+                hbd_bin_size = int(hbd_input)
+                
+            hba_input = input("H-Bond Acceptors bins (default 2 units): ").strip()
+            if hba_input and hba_input.isdigit() and int(hba_input) > 0:
+                hba_bin_size = int(hba_input)
+        
+        # Add the additional bin settings
+        bin_settings["LogP"] = logp_bin_size
+        bin_settings["HBD_Count"] = hbd_bin_size
+        bin_settings["HBA_Count"] = hba_bin_size
         
         # Generate the combined plot
         try:
@@ -725,8 +785,9 @@ class PlottingApp:
             fig, axes = self.property_plotter.plot_combined_properties(
                 df=self.df_combined,
                 molecule_type=molecule_type,
-                width=15,  # Wider figure for 3 subplots
+                width=15,
                 height=5,
+                bin_settings=bin_settings,
                 save=False
             )
             
