@@ -15,6 +15,13 @@ from poi_e3l_plotter import POI_E3LPlotter
 from property_plotter import PropertyPlotter
 from utils import categorize_by_cutoffs
 
+# Constants for easier manual manipulation
+# Default threshold values
+DEFAULT_RMSD_THRESHOLD = 4.0
+DEFAULT_DOCKQ_THRESHOLD = 0.23
+DEFAULT_LRMSD_THRESHOLD = 4.0
+DEFAULT_PTM_THRESHOLD = 0.8
+
 class PlottingApp:
     """Main application for generating and saving plots."""
     
@@ -318,17 +325,16 @@ class PlottingApp:
         if not hasattr(self, 'df_combined') or self.df_combined is None:
             print("\nError: Combined results data not found.")
             print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
-            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE and SEED columns.")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE columns.")
             return
         
         print(f"\n{comparison_type.upper()} comparison plots:")
         
         # Default settings
         add_threshold = True
-        threshold_value = 4.0  # Default for RMSD
+        threshold_value = DEFAULT_RMSD_THRESHOLD  # Default for RMSD
         metric_type = 'RMSD'
         molecule_type = 'PROTAC'  # Default to PROTAC
-        specific_seed = None  # Default to no specific seed filtering
         
         # Get user input for plot parameters
         print("\nComparison Plot Settings:")
@@ -345,16 +351,16 @@ class PlottingApp:
         
         # Set appropriate threshold value based on metric type
         if metric_type == 'RMSD':
-            threshold_value = 4.0
+            threshold_value = DEFAULT_RMSD_THRESHOLD
         elif metric_type == 'DOCKQ':
-            threshold_value = 0.23
+            threshold_value = DEFAULT_DOCKQ_THRESHOLD
         elif metric_type == 'LRMSD':
-            threshold_value = 4.0
+            threshold_value = DEFAULT_LRMSD_THRESHOLD
         elif metric_type == 'PTM':
-            threshold_value = 0.8
+            threshold_value = DEFAULT_PTM_THRESHOLD
             add_threshold = False
         else:
-            threshold_value = 4.0
+            threshold_value = DEFAULT_RMSD_THRESHOLD
         
         # Ask for threshold display (only for non-PTM metrics)
         add_threshold = True
@@ -362,63 +368,45 @@ class PlottingApp:
             add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
             add_threshold = add_threshold_input != 'n'
         
-        # Ask for comparison type (general or seed-specific)
-        comparison_choice = input("Comparison type (1=General, 2=Seed-specific) [1]: ").strip()
-        is_seed_specific = comparison_choice == '2'
-        
-        # If seed-specific, ask for the seed
-        if is_seed_specific:
-            seed_input = input("Specific seed to filter by [42]: ").strip()
-            specific_seed = int(seed_input) if seed_input and seed_input.isdigit() else 42
-        
         try:
-            # Generate comparison plot - now uses the same method with different parameters
-            print(f"Generating {'Seed-specific' if is_seed_specific else 'Mean'} {metric_type} comparison between AlphaFold3 and Boltz1 for {molecule_type}...")
+            # Generate comparison plot
+            print(f"Generating {metric_type} comparison between AlphaFold3 and Boltz1 for {molecule_type}...")
             
-            # Use the unified plot_mean_comparison method with optional specific_seed parameter
+            # Use the mean comparison method
             fig, ax = self.comparison_plotter.plot_mean_comparison(
                 df=self.df_combined,
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                width=10,
-                height=8,
                 save=False,
-                molecule_type=molecule_type,
-                specific_seed=specific_seed
+                molecule_type=molecule_type
             )
             
             if fig is not None:
-                # Use appropriate filename based on comparison type
-                if is_seed_specific:
-                    self.save_plots([fig], f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}")
-                else:
-                    self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
+                # Save the plot
+                self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
+                
+                # Ask if user wants to see individual structure plots
+                show_individual = input("Show individual structure plots? (y/n) [n]: ").strip().lower() == 'y'
+                
+                # Only generate per-structure plots if requested
+                if show_individual:
+                    print(f"Generating per-structure comparison plots for {molecule_type} {metric_type}...")
                     
-                    # Only for general comparison, ask if user wants to see individual structure plots
-                    show_individual = input("Show individual structure plots? (y/n) [n]: ").strip().lower() == 'y'
+                    # Call the plot method
+                    figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
+                        df=self.df_combined,
+                        metric_type=metric_type,
+                        add_threshold=add_threshold,
+                        threshold_value=threshold_value,
+                        save=False,
+                        molecule_type=molecule_type
+                    )
                     
-                    # Only generate per-structure plots if requested
-                    if show_individual:
-                        print(f"Generating per-structure comparison plots for {molecule_type} {metric_type}...")
-                        
-                        # Call the plot method
-                        figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
-                            df=self.df_combined,
-                            metric_type=metric_type,
-                            add_threshold=add_threshold,
-                            threshold_value=threshold_value,
-                            width=12,
-                            height=14,
-                            max_structures=25,
-                            save=False,
-                            molecule_type=molecule_type
-                        )
-                        
-                        # Save the plots with appropriate naming
-                        self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
+                    # Save the plots with appropriate naming
+                    self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
             else:
-                print(f"Warning: Failed to generate {'seed-specific' if is_seed_specific else 'mean'} comparison plot")
+                print(f"Warning: Failed to generate comparison plot")
             
         except Exception as e:
             print(f"Error: {e}")
@@ -484,16 +472,16 @@ class PlottingApp:
         
         # Set appropriate threshold value based on metric type
         if metric_type == 'RMSD':
-            threshold_value = 4.0
+            threshold_value = DEFAULT_RMSD_THRESHOLD
         elif metric_type == 'DOCKQ':
-            threshold_value = 0.23
+            threshold_value = DEFAULT_DOCKQ_THRESHOLD
         elif metric_type == 'LRMSD':
-            threshold_value = 4.0
+            threshold_value = DEFAULT_LRMSD_THRESHOLD
         elif metric_type == 'PTM':
-            threshold_value = 0.8
+            threshold_value = DEFAULT_PTM_THRESHOLD
             add_threshold = False
         else:
-            threshold_value = 4.0
+            threshold_value = DEFAULT_RMSD_THRESHOLD
         
         # Ask for threshold display (only for non-PTM metrics)
         add_threshold = True
@@ -534,7 +522,7 @@ class PlottingApp:
         if not hasattr(self, 'df_combined') or self.df_combined is None:
             print("\nError: Combined results data not found.")
             print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
-            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, SEED, SIMPLE_POI_NAME, and SIMPLE_E3_NAME columns.")
+            print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, SIMPLE_POI_NAME, and SIMPLE_E3_NAME columns.")
             return
         
         print("\nPOI and E3L Analysis Plot Settings:")
@@ -565,7 +553,7 @@ class PlottingApp:
             metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
             
             # Set default threshold based on metric type
-            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+            default_threshold = DEFAULT_RMSD_THRESHOLD if metric_type == "RMSD" else DEFAULT_DOCKQ_THRESHOLD
             
             # Ask for threshold display
             add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
@@ -620,7 +608,7 @@ class PlottingApp:
             metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
             
             # Set default threshold based on metric type
-            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+            default_threshold = DEFAULT_RMSD_THRESHOLD if metric_type == "RMSD" else DEFAULT_DOCKQ_THRESHOLD
             
             # Ask for threshold display
             add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'

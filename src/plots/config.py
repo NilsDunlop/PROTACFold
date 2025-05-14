@@ -31,8 +31,8 @@ class PlotConfig:
     # Model comparison colors
     AF3_CCD_COLOR = '#FA6347'      # red (same as CCD_PRIMARY)
     AF3_SMILES_COLOR = '#1E8FFF'    # blue (same as SMILES_PRIMARY)
-    BOLTZ1_CCD_COLOR = '#931652'    # dark magenta
-    BOLTZ1_SMILES_COLOR = '#188f52' # green
+    BOLTZ1_CCD_COLOR = '#A157DB'    # darker red
+    BOLTZ1_SMILES_COLOR = '#57DB80' # darker blue
     
     # Font sizes
     TITLE_SIZE = 16

@@ -12,6 +12,44 @@ from utils import save_figure, distribute_structures_evenly, distribute_pdb_ids
 class ComparisonPlotter(BasePlotter):
     """Class for creating comparison plots between different model types."""
     
+    # Plot dimensions
+    PLOT_WIDTH = 4
+    PLOT_HEIGHT = 4
+    
+    # Font sizes
+    TITLE_FONT_SIZE = 14
+    AXIS_LABEL_FONT_SIZE = 12
+    TICK_LABEL_FONT_SIZE = 11
+    VALUE_LABEL_FONT_SIZE = 12
+    LEGEND_FONT_SIZE = 12
+    
+    # Bar appearance
+    BAR_WIDTH = 0.05
+    BAR_EDGE_LINE_WIDTH = 0.5
+    BAR_SPACING_FACTOR = 2  # Controls spacing between bars
+    
+    # Error bar appearance
+    ERROR_BAR_CAPSIZE = 4
+    ERROR_BAR_THICKNESS = 1
+    ERROR_BAR_ALPHA = 0.7
+    
+    # Grid properties
+    GRID_ALPHA = 0.2
+    GRID_LINESTYLE = '--'
+    
+    # Threshold line properties
+    THRESHOLD_LINE_ALPHA = 0.7
+    THRESHOLD_LINE_WIDTH = 1.0
+    
+    # Default threshold values
+    DEFAULT_RMSD_THRESHOLD = 4.0
+    DEFAULT_DOCKQ_THRESHOLD = 0.5
+    DEFAULT_LRMSD_THRESHOLD = 4.0
+    DEFAULT_PTM_THRESHOLD = 0.7
+    
+    # Maximum structures per page
+    MAX_STRUCTURES_PER_PAGE = 20
+    
     def __init__(self):
         """Initialize the comparison plotter."""
         super().__init__()
@@ -24,9 +62,9 @@ class ComparisonPlotter(BasePlotter):
         seeds=None,
         add_threshold=True,
         threshold_value=None,
-        width=12,
-        height=9,
-        max_structures=20,
+        width=None,
+        height=None,
+        max_structures=None,
         save=True,
         title_suffix="",
         molecule_type="PROTAC"
@@ -42,9 +80,9 @@ class ComparisonPlotter(BasePlotter):
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
             threshold_value (float): Value for the threshold line, if None will use default based on metric_type
-            width (int): Figure width
-            height (int): Figure height
-            max_structures (int): Maximum number of structures to show
+            width (int): Figure width (overrides default)
+            height (int): Figure height (overrides default)
+            max_structures (int): Maximum number of structures to show (overrides default)
             save (bool): Whether to save the plots
             title_suffix (str): Suffix to add to plot titles
             molecule_type (str): Type of molecule to filter by ('PROTAC' or 'Molecular Glue')
@@ -52,18 +90,23 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             tuple: (figures, axes)
         """
+        # Use class constants if parameters are not provided
+        width = width if width is not None else self.PLOT_WIDTH
+        height = height if height is not None else self.PLOT_HEIGHT
+        max_structures = max_structures if max_structures is not None else self.MAX_STRUCTURES_PER_PAGE
+        
         # Set default threshold values based on metric type if not provided
         if threshold_value is None:
             if metric_type.upper() == 'RMSD':
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
-                threshold_value = 0.5
+                threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
             elif metric_type.upper() == 'LRMSD':
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_LRMSD_THRESHOLD
             elif metric_type.upper() == 'PTM':
-                threshold_value = 0.7  # Default threshold for PTM score
+                threshold_value = self.DEFAULT_PTM_THRESHOLD
             else:
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_RMSD_THRESHOLD
         
         # Get filtered dataframe
         df_filtered = DataLoader.filter_comparison_data(
@@ -149,8 +192,8 @@ class ComparisonPlotter(BasePlotter):
         seeds=None,
         add_threshold=True,
         threshold_value=None,
-        width=10,
-        height=8,
+        width=None,
+        height=None,
         save=True,
         molecule_type="PROTAC",
         specific_seed=None
@@ -167,8 +210,8 @@ class ComparisonPlotter(BasePlotter):
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
             threshold_value (float): Value for the threshold line, if None will use default based on metric_type
-            width (int): Figure width
-            height (int): Figure height
+            width (int): Figure width (overrides default)
+            height (int): Figure height (overrides default)
             save (bool): Whether to save the plot
             molecule_type (str): Type of molecule to filter by ('PROTAC' or 'Molecular Glue')
             specific_seed (int): If provided, filter data to only include this seed
@@ -177,18 +220,22 @@ class ComparisonPlotter(BasePlotter):
             fig, ax: The created figure and axis
         """
         try:
+            # Use class constants if parameters are not provided
+            width = width if width is not None else self.PLOT_WIDTH
+            height = height if height is not None else self.PLOT_HEIGHT
+            
             # Set default threshold values based on metric type if not provided
             if threshold_value is None:
                 if metric_type.upper() == 'RMSD':
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
-                    threshold_value = 0.5
+                    threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
                 elif metric_type.upper() == 'LRMSD':
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_LRMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
-                    threshold_value = 0.7  # Default threshold for PTM score
+                    threshold_value = self.DEFAULT_PTM_THRESHOLD
                 else:
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
             
             # Check if we're filtering by a specific seed
             is_seed_specific = specific_seed is not None
@@ -247,8 +294,9 @@ class ComparisonPlotter(BasePlotter):
             counts = metrics['counts']
             
             # Set up bar positions and width
-            bar_positions = [0, 0.9, 2.4, 3.3]
-            bar_width = 0.6
+            bar_width = self.BAR_WIDTH
+            spacing_factor = self.BAR_SPACING_FACTOR
+            bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
             
             # Define colors for each bar
             colors = [
@@ -289,9 +337,10 @@ class ComparisonPlotter(BasePlotter):
                 bar_width,
                 color=colors,
                 edgecolor='black',
-                linewidth=0.5,
+                linewidth=self.BAR_EDGE_LINE_WIDTH,
                 yerr=error_values,
-                error_kw={'ecolor': 'black', 'capsize': 4, 'capthick': 1, 'alpha': 0.7}
+                error_kw={'ecolor': 'black', 'capsize': self.ERROR_BAR_CAPSIZE, 
+                           'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA},
             )
             
             # Add threshold line if requested
@@ -300,74 +349,56 @@ class ComparisonPlotter(BasePlotter):
                     y=threshold_value,
                     color='black',
                     linestyle='--',
-                    alpha=0.7,
-                    linewidth=1.0
+                    alpha=self.THRESHOLD_LINE_ALPHA,
+                    linewidth=self.THRESHOLD_LINE_WIDTH
                 )
             
-            # Add value labels directly on the bars
-            for i, (bar, value) in enumerate(zip(bars, values)):
-                height = bar.get_height()
-                # Use a dynamic offset based on metric type
-                if metric_type == 'DOCKQ':
-                    offset = 0.005
-                elif metric_type.upper() == 'PTM':
-                    offset = 0.01  # Smaller offset for PTM plots
-                else:
-                    offset = 0.03
-                
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height + error_values[i] + offset,  # Position just above error bar
-                    f"{value:.2f}",
-                    ha='center',
-                    va='bottom',
-                    fontsize=12,
-                    fontweight='bold',
-                    color='black'
-                )
-            
-            # Create custom legend patches
+            # Create small legend
             legend_handles = []
             
+            # Add color patches for each bar type
             for i, (label, color) in enumerate(zip(bar_labels, colors)):
                 patch = plt.Rectangle(
                     (0, 0), 1, 1, 
                     facecolor=color, 
                     edgecolor='black', 
-                    linewidth=0.5, 
+                    linewidth=0.5,
                     label=label
                 )
                 legend_handles.append(patch)
             
             # Add threshold line to legend if requested
-            if add_threshold:
-                threshold_line = plt.Line2D(
+            if add_threshold and metric_type.upper() != 'PTM':
+                threshold_line_handle = Line2D(
                     [0, 1], [0, 0], 
-                    color='gray', 
+                    color='black', 
                     linestyle='--',
                     linewidth=1.0, 
                     label='Threshold'
                 )
-                legend_handles.append(threshold_line)
+                legend_handles.append(threshold_line_handle)
             
-            # Add legend
-            if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
-                # Use background for low-value plots where threshold line might cross the legend
-                ax.legend(handles=legend_handles, loc='upper center', frameon=True, 
-                          facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=12)
-            else:
-                # No background needed
-                ax.legend(handles=legend_handles, loc='upper center', frameon=False, fontsize=12)
+            # Add compact legend in best
+            ax.legend(
+                handles=legend_handles, 
+                loc='best',
+                frameon=False, 
+                fontsize=8,
+                ncol=1,
+                handlelength=1.2,
+                columnspacing=0.8,
+                handletextpad=0.5
+            )
             
-            # Remove x-ticks and labels since we have the legend
+            # Remove x-ticks and labels
             ax.set_xticks([])
             ax.set_xticklabels([])
             
             # Add subtle grid lines
-            ax.grid(axis='y', linestyle='--', alpha=0.2)
+            ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
             
             # Create appropriate title based on whether we're filtering by seed
             if is_seed_specific:
@@ -384,7 +415,7 @@ class ComparisonPlotter(BasePlotter):
                 
             # Only set a title if there's actually title text
             if title:
-                fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE, fontweight='bold')
+                fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE, fontweight='bold')
             # If title is empty, don't set a title at all
             
             # Adjust y-axis to accommodate value labels
@@ -436,8 +467,8 @@ class ComparisonPlotter(BasePlotter):
         specific_seed=42,
         add_threshold=True,
         threshold_value=None,
-        width=10,
-        height=8,
+        width=None,
+        height=None,
         save=True,
         molecule_type="PROTAC"
     ):
@@ -454,14 +485,18 @@ class ComparisonPlotter(BasePlotter):
             specific_seed (int): The specific seed value to filter by
             add_threshold (bool): Whether to add a threshold line
             threshold_value (float): Value for the threshold line, if None will use default based on metric_type
-            width (int): Figure width
-            height (int): Figure height
+            width (int): Figure width (overrides default)
+            height (int): Figure height (overrides default)
             save (bool): Whether to save the plot
             molecule_type (str): Type of molecule to filter by ('PROTAC' or 'Molecular Glue')
         
         Returns:
             fig, ax: The created figure and axis
         """
+        # Use class constants if parameters are not provided
+        width = width if width is not None else self.PLOT_WIDTH
+        height = height if height is not None else self.PLOT_HEIGHT
+        
         # No threshold for PTM
         if metric_type.upper() == 'PTM':
             add_threshold = False
@@ -469,13 +504,13 @@ class ComparisonPlotter(BasePlotter):
         # Set default threshold values based on metric type if not provided
         elif threshold_value is None:
             if metric_type.upper() == 'RMSD':
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
-                threshold_value = 0.5
+                threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
             elif metric_type.upper() == 'LRMSD':
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_LRMSD_THRESHOLD
             else:
-                threshold_value = 4.0
+                threshold_value = self.DEFAULT_RMSD_THRESHOLD
                 
         return self.plot_mean_comparison(
             df=df,
@@ -553,19 +588,28 @@ class ComparisonPlotter(BasePlotter):
         x_positions = np.arange(len(sorted_pdb_ids))
         
         # Set up bar positions and width
-        bar_width = 0.18
-        
-        # Define positions for the 4 bar types as in the sketch
-        af3_ccd_pos = -bar_width * 1.5     # Leftmost position
-        af3_smiles_pos = -bar_width * 0.5  # Second from left
-        boltz1_ccd_pos = bar_width * 0.5   # Third from left
-        boltz1_smiles_pos = bar_width * 1.5 # Rightmost position
-        
-        # Create legend handles
-        legend_handles = []
+        bar_width = self.BAR_WIDTH
+        spacing_factor = self.BAR_SPACING_FACTOR
+        bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
         
         # Track max value for y-axis scaling
         max_value = 0
+        
+        # Define bar labels
+        bar_labels = [
+            "AF3 CCD",
+            "AF3 SMILES",
+            "Boltz-1 CCD",
+            "Boltz-1 SMILES"
+        ]
+        
+        # Define colors for each bar
+        colors = [
+            PlotConfig.AF3_CCD_COLOR,      # AF3 CCD
+            PlotConfig.AF3_SMILES_COLOR,   # AF3 SMILES
+            PlotConfig.BOLTZ1_CCD_COLOR,   # Boltz1 CCD
+            PlotConfig.BOLTZ1_SMILES_COLOR # Boltz1 SMILES
+        ]
         
         # For each PDB ID, plot the 4 bars
         for i, pdb_id in enumerate(sorted_pdb_ids):
@@ -578,32 +622,26 @@ class ComparisonPlotter(BasePlotter):
             if len(af3_df) > 0 and ccd_col in af3_df.columns and not af3_df[ccd_col].isna().all():
                 ccd_value = af3_df[ccd_col].values[0]
                 bar = ax.bar(
-                    x_positions[i] + af3_ccd_pos,
+                    x_positions[i] + bar_positions[0],
                     ccd_value,
-                    width=bar_width,
-                    color=PlotConfig.AF3_CCD_COLOR,
+                    bar_width,
+                    color=colors[0],
                     edgecolor='black',
-                    linewidth=0.5,
-                    label='AF3 CCD' if i == 0 else None
+                    linewidth=self.BAR_EDGE_LINE_WIDTH,
                 )
-                if i == 0:
-                    legend_handles.append(bar)
                 max_value = max(max_value, ccd_value)
-                
+            
             # Plot AF3 SMILES
             if len(af3_df) > 0 and smiles_col in af3_df.columns and not af3_df[smiles_col].isna().all():
                 smiles_value = af3_df[smiles_col].values[0]
                 bar = ax.bar(
-                    x_positions[i] + af3_smiles_pos,
+                    x_positions[i] + bar_positions[1],
                     smiles_value,
-                    width=bar_width,
-                    color=PlotConfig.AF3_SMILES_COLOR,
+                    bar_width,
+                    color=colors[1],
                     edgecolor='black',
-                    linewidth=0.5,
-                    label='AF3 SMILES' if i == 0 else None
+                    linewidth=self.BAR_EDGE_LINE_WIDTH,
                 )
-                if i == 0:
-                    legend_handles.append(bar)
                 max_value = max(max_value, smiles_value)
             
             # Get Boltz1 data
@@ -613,32 +651,26 @@ class ComparisonPlotter(BasePlotter):
             if len(boltz1_df) > 0 and ccd_col in boltz1_df.columns and not boltz1_df[ccd_col].isna().all():
                 ccd_value = boltz1_df[ccd_col].values[0]
                 bar = ax.bar(
-                    x_positions[i] + boltz1_ccd_pos,
+                    x_positions[i] + bar_positions[2],
                     ccd_value,
-                    width=bar_width,
-                    color=PlotConfig.BOLTZ1_CCD_COLOR,
+                    bar_width,
+                    color=colors[2],
                     edgecolor='black',
-                    linewidth=0.5,
-                    label='Boltz1 CCD' if i == 0 else None
+                    linewidth=self.BAR_EDGE_LINE_WIDTH,
                 )
-                if i == 0:
-                    legend_handles.append(bar)
                 max_value = max(max_value, ccd_value)
                 
             # Plot Boltz1 SMILES
             if len(boltz1_df) > 0 and smiles_col in boltz1_df.columns and not boltz1_df[smiles_col].isna().all():
                 smiles_value = boltz1_df[smiles_col].values[0]
                 bar = ax.bar(
-                    x_positions[i] + boltz1_smiles_pos,
+                    x_positions[i] + bar_positions[3],
                     smiles_value,
-                    width=bar_width,
-                    color=PlotConfig.BOLTZ1_SMILES_COLOR,
+                    bar_width,
+                    color=colors[3],
                     edgecolor='black',
-                    linewidth=0.5,
-                    label='Boltz1 SMILES' if i == 0 else None
+                    linewidth=self.BAR_EDGE_LINE_WIDTH,
                 )
-                if i == 0:
-                    legend_handles.append(bar)
                 max_value = max(max_value, smiles_value)
         
         # Add threshold line if requested
@@ -647,8 +679,8 @@ class ComparisonPlotter(BasePlotter):
                 y=threshold_value,
                 color='black',
                 linestyle='--',
-                alpha=0.7,
-                linewidth=1.0
+                alpha=self.THRESHOLD_LINE_ALPHA,
+                linewidth=self.THRESHOLD_LINE_WIDTH
             )
         
         # Create PDB labels with asterisk for newer structures
@@ -661,10 +693,10 @@ class ComparisonPlotter(BasePlotter):
         
         # Set x-ticks and labels
         ax.set_xticks(x_positions)
-        ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=11)
+        ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
         
         # Set axis labels and title
-        ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
+        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
         
         # Set the title
         title = f"AlphaFold3 vs. Boltz1 - {metric_type}{title_suffix}"
@@ -673,21 +705,50 @@ class ComparisonPlotter(BasePlotter):
         if total_pages > 1:
             title += f" (Page {page_num} of {total_pages})"
         
-        fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE)
+        fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE)
         
         # Add some padding to the y-axis maximum for better visualization
         ax.set_ylim(0, max_value * 1.1)
         
         # Add grid lines
-        ax.grid(axis='y', linestyle='--', alpha=0.3)
+        ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
         
-        # Add legend
-        if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max_value < threshold_value * 1.5:
-            # Use background for low-value plots where threshold line might cross the legend
-            ax.legend(handles=legend_handles, loc='upper center', frameon=True, 
-                      facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=12)
-        else:
-            ax.legend(handles=legend_handles, loc='upper center', frameon=False, fontsize=12)
+        # Create small legend
+        legend_handles = []
+        
+        # Add color patches for each bar type
+        for i, (label, color) in enumerate(zip(bar_labels, colors)):
+            patch = plt.Rectangle(
+                (0, 0), 1, 1, 
+                facecolor=color, 
+                edgecolor='black', 
+                linewidth=0.5,
+                label=label
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend if requested
+        if add_threshold and metric_type.upper() != 'PTM':
+            threshold_line_handle = Line2D(
+                [0, 1], [0, 0], 
+                color='black', 
+                linestyle='--',
+                linewidth=1.0, 
+                label='Threshold'
+            )
+            legend_handles.append(threshold_line_handle)
+        
+        # Add compact legend in best
+        ax.legend(
+            handles=legend_handles, 
+            loc='best',
+            frameon=False, 
+            fontsize=8,
+            ncol=1,
+            handlelength=1.2,
+            columnspacing=0.8,
+            handletextpad=0.5
+        )
         
         plt.tight_layout()
         
