@@ -65,9 +65,6 @@ class ComparisonPlotter(BasePlotter):
         width=None,
         height=None,
         max_structures=None,
-        width=None,
-        height=None,
-        max_structures=None,
         save=True,
         title_suffix="",
         molecule_type="PROTAC"
@@ -208,8 +205,6 @@ class ComparisonPlotter(BasePlotter):
         seeds=None,
         add_threshold=True,
         threshold_value=None,
-        width=None,
-        height=None,
         width=None,
         height=None,
         save=True,
@@ -502,8 +497,6 @@ class ComparisonPlotter(BasePlotter):
         threshold_value=None,
         width=None,
         height=None,
-        width=None,
-        height=None,
         save=True,
         molecule_type="PROTAC"
     ):
@@ -735,8 +728,6 @@ class ComparisonPlotter(BasePlotter):
                 y=threshold_value,
                 color='black',
                 linestyle='--',
-                alpha=self.THRESHOLD_LINE_ALPHA,
-                linewidth=self.THRESHOLD_LINE_WIDTH
                 alpha=self.THRESHOLD_LINE_ALPHA,
                 linewidth=self.THRESHOLD_LINE_WIDTH
             )
