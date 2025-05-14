@@ -381,8 +381,6 @@ class PlottingApp:
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                width=10,
-                height=8,
                 save=False,
                 molecule_type=molecule_type,
                 specific_seed=specific_seed
@@ -408,9 +406,6 @@ class PlottingApp:
                             metric_type=metric_type,
                             add_threshold=add_threshold,
                             threshold_value=threshold_value,
-                            width=12,
-                            height=14,
-                            max_structures=25,
                             save=False,
                             molecule_type=molecule_type
                         )
@@ -464,13 +459,29 @@ class PlottingApp:
         default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
         print(f"Available model types: {', '.join(available_models)}")
         
-        # Select model type
-        model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
-        if model_type_input in available_models:
-            model_type = model_type_input
+        # Select model type - NOW ASKS IF USER WANTS TO COMPARE OR PLOT SINGLE
+        plot_individual_model = True
+        model_to_plot = default_model
+
+        if "AlphaFold3" in available_models and "Boltz1" in available_models:
+            user_choice = input(f"Compare AlphaFold3 and Boltz1 (y) or plot a single model (n)? [y]: ").strip().lower()
+            if user_choice != 'n':
+                plot_individual_model = False
+            else:
+                model_type_input = input(f"Model type to plot ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
+                if model_type_input in available_models:
+                    model_to_plot = model_type_input
+                else:
+                    print(f"Invalid model type. Using default: {default_model}")
+                    model_to_plot = default_model
         else:
-            print(f"Invalid model type. Using default: {default_model}")
-            model_type = default_model
+            # If not both models are available for comparison, just plot the default/selected one
+            model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
+            if model_type_input in available_models:
+                model_to_plot = model_type_input
+            else:
+                print(f"Invalid model type. Using default: {default_model}")
+                model_to_plot = default_model
         
         # Select metric type
         metric_types = ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']
@@ -502,28 +513,56 @@ class PlottingApp:
             add_threshold = add_threshold_input != 'n'
         
         try:
-            print(f"Generating {model_type} training cutoff comparison for {metric_type} ({molecule_type})...")
-            
-            # Use the training cutoff plotter
-            fig, ax = self.training_cutoff_plotter.plot_training_cutoff_comparison(
-                df=self.df_combined,
-                metric_type=metric_type,
-                model_type=model_type,
-                add_threshold=add_threshold,
-                threshold_value=threshold_value,
-                width=10,
-                height=8,
-                save=False,
-                molecule_type=molecule_type
-            )
-            
-            if fig is not None:
-                # Save the plot with appropriate name
-                filename = f"{model_type.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
-                self.save_plots([fig], filename)
+            if plot_individual_model:
+                # Plot a single selected model
+                print(f"Generating {model_to_plot} training cutoff comparison for {metric_type} ({molecule_type})...")
+                fig, ax, _ = self.training_cutoff_plotter.plot_training_cutoff_comparison(
+                    df=self.df_combined,
+                    metric_type=metric_type,
+                    model_type=model_to_plot,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False,
+                    molecule_type=molecule_type
+                )
+                if fig is not None:
+                    filename = f"{model_to_plot.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
+                    self.save_plots([fig], filename)
+                else:
+                    print(f"Warning: Failed to generate training cutoff comparison plot for {model_to_plot}")
+
             else:
-                print(f"Warning: Failed to generate training cutoff comparison plot")
+                # Compare AlphaFold3 and Boltz1 with shared Y-axis
+                models_to_compare = ["AlphaFold3", "Boltz1"]
+                shared_ylim = None
                 
+                for model_name in models_to_compare:
+                    if model_name not in available_models:
+                        print(f"Warning: Model {model_name} not found in data. Skipping.")
+                        continue
+
+                    print(f"Generating {model_name} training cutoff comparison for {metric_type} ({molecule_type})...")
+                    
+                    fig, ax, current_ylim = self.training_cutoff_plotter.plot_training_cutoff_comparison(
+                        df=self.df_combined,
+                        metric_type=metric_type,
+                        model_type=model_name,
+                        add_threshold=add_threshold,
+                        threshold_value=threshold_value,
+                        save=False,
+                        molecule_type=molecule_type,
+                        fixed_ylim=shared_ylim 
+                    )
+                    
+                    if fig is not None:
+                        if shared_ylim is None: # Capture ylim from the first plot
+                            shared_ylim = current_ylim
+                        
+                        filename = f"{model_name.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}_compared"
+                        self.save_plots([fig], filename)
+                    else:
+                        print(f"Warning: Failed to generate training cutoff comparison plot for {model_name}")
+            
         except Exception as e:
             print(f"Error: {e}")
             import traceback
@@ -585,7 +624,6 @@ class PlottingApp:
                 metric_type=metric_type,
                 add_threshold=add_threshold,
                 threshold_value=threshold_value,
-                width=20,
                 save=True,
                 molecule_type=molecule_type
             )

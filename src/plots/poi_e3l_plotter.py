@@ -10,78 +10,96 @@ from utils import save_figure
 class POI_E3LPlotter(BasePlotter):
     """Class for plotting POI and E3 ligase metrics."""
     
+    # --- Protein Group and Color Map Constants ---
+    PROTAC_POI_GROUPS = {
+        "Kinases": ["BTK", "PTK2", "WEE1"],
+        "Nuclear_Regulators": ["SMARCA2", "SMARCA4", "STAT5A", "STAT6", "BRD2", "BRD4", "BRD9", "WDR5"],
+        "Signaling_Modulators": ["FKBP1A", "FKBP5", "KRAS", "PTPN2"],
+        "Apoptosis_Regulators": ["BCL2", "BCL2L1"],
+        "Diverse_Enzymes": ["CA2", "EPHX2", "R1AB"]
+    }
+    PROTAC_E3_GROUPS = {
+        "CRBN": ["CRBN"], "VHL": ["VHL"], "BIRC2": ["BIRC2"], "DCAF1": ["DCAF1"]
+    }
+    MG_POI_GROUPS = {
+        "Kinases": ["CDK12", "CSNK1A1", "PAK6"],
+        "Nuclear_Regulators": ["BRD4", "HDAC1", "WIZ"],
+        "Transcription_Factors": ["IKZF1", "IKZF2", "SALL4", "ZNFN1A2", "ZNF692"],
+        "RNA_Translation_Regulators": ["RBM39", "GSPT1"],
+        "Signaling_Metabolism": ["CTNNB1", "CDO1"]
+    }
+    MG_E3_GROUPS = {
+        "CRBN": ["CRBN", "MGR_0879"], "VHL": ["VHL"], "TRIM_Ligase": ["TRIM21"],
+        "DCAF_Receptors": ["DCAF15", "DCAF16"], "Others": ["BTRC", "DDB1", "KBTBD4"],
+    }
+    PROTAC_POI_COLOR_MAP = {
+        "Kinases": PlotConfig.SMILES_PRIMARY, "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
+        "Signaling_Modulators": PlotConfig.SMILES_SECONDARY, "Apoptosis_Regulators": PlotConfig.CCD_PRIMARY,
+        "Diverse_Enzymes": PlotConfig.CCD_SECONDARY,
+    }
+    PROTAC_E3_COLOR_MAP = {
+        "CRBN": PlotConfig.CCD_PRIMARY, "VHL": PlotConfig.SMILES_TERTIARY,
+        "BIRC2": PlotConfig.SMILES_PRIMARY, "DCAF1": PlotConfig.CCD_SECONDARY,
+    }
+    MG_POI_COLOR_MAP = {
+        "Kinases": PlotConfig.SMILES_PRIMARY, "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
+        "Transcription_Factors": PlotConfig.SMILES_SECONDARY, "RNA_Translation_Regulators": PlotConfig.CCD_PRIMARY,
+        "Signaling_Metabolism": PlotConfig.CCD_SECONDARY,
+    }
+    MG_E3_COLOR_MAP = {
+        "CRBN": PlotConfig.CCD_PRIMARY, "VHL": PlotConfig.SMILES_TERTIARY,
+        "TRIM_Ligase": PlotConfig.SMILES_PRIMARY, "DCAF_Receptors": PlotConfig.CCD_SECONDARY,
+        "Others": PlotConfig.GRAY,
+    }
+
+    # --- Default Styling and Layout Constants ---
+    # General Plotting Style
+    CLS_DEFAULT_BAR_WIDTH = 0.7
+    CLS_BAR_ALPHA = 1
+    CLS_BAR_EDGE_COLOR = 'black'
+    CLS_BAR_LINEWIDTH = 0.5
+    CLS_ERROR_BAR_CAPSIZE = 5
+    CLS_THRESHOLD_LINE_ALPHA = 1
+
+    # Font Sizes
+    CLS_PLOT_TITLE_FONTSIZE = 14
+    CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID = 2  # Increment for PlotConfig.AXIS_LABEL_SIZE in grid plots
+    CLS_YTICK_FONTSIZE = 12
+    CLS_GRID_YTICK_FONTSIZE = 12  # For combined grid plots
+    CLS_LEGEND_FONTSIZE_RMSD = 9.5
+    CLS_LEGEND_FONTSIZE_GRID = 12
+
+    # Legend Styling
+    CLS_LEGEND_FRAME_ON = False
+    CLS_LEGEND_FRAME_ALPHA = 0.7
+    CLS_LEGEND_COLUMN_SPACING = 1.0
+    CLS_LEGEND_HANDLE_TEXT_PAD = 0.5
+    CLS_LEGEND_NCOL_E3L_MAX = 3
+    CLS_LEGEND_NCOL_POI_MAX = 2
+    CLS_LEGEND_NCOL_GRID_MAX = 2
+
+    # Default Sizing for plot_poi_e3l_rmsd and _create_rmsd_plot
+    CLS_PLOT_DEFAULT_WIDTH_RMSD = 6.0
+    CLS_HEIGHT_CALC_MIN_RMSD = 8.0
+    CLS_HEIGHT_CALC_FACTOR_RMSD = 0.35
+    CLS_HEIGHT_CALC_PADDING_RMSD = 2.0
+    CLS_E3L_HEIGHT_MIN_RMSD = 4.0
+
+    # Default Sizing for plot_combined_grid
+    CLS_GRID_DEFAULT_WIDTH = 12.0
+    CLS_GRID_HEIGHT_CALC_FACTOR = 0.4
+    CLS_GRID_HEIGHT_CALC_PADDING = 3.0
+    CLS_GRID_DEFAULT_OVERALL_HEIGHT = 12.0
+    CLS_GRID_X_AXIS_PADDING_FACTOR = 0.05
+    CLS_GRID_HSPACE = 0.05
+    CLS_GRID_YLABEL_PAD = 20
+    CLS_GRID_YLABEL_X_COORD = -0.20
+    CLS_GRID_YLABEL_Y_COORD = 0.5
+    
     def __init__(self, debug=False):
-        """Initialize the plotter with color maps and protein groupings."""
+        """Initialize the plotter."""
         super().__init__()
         self.debug = debug
-        
-        # PROTAC-specific POI groups
-        self.PROTAC_POI_GROUPS = {
-            "Kinases": ["BTK", "PTK2", "WEE1"],
-            "Nuclear_Regulators": ["SMARCA2", "SMARCA4", "STAT5A", "STAT6", "BRD2", "BRD4", "BRD9", "WDR5"],
-            "Signaling_Modulators": ["FKBP1A", "FKBP5", "KRAS", "PTPN2"],
-            "Apoptosis_Regulators": ["BCL2", "BCL2L1"],
-            "Diverse_Enzymes": ["CA2", "EPHX2", "R1AB"]
-        }
-        
-        # PROTAC-specific E3 ligase groups
-        self.PROTAC_E3_GROUPS = {
-            "CRBN": ["CRBN"],
-            "VHL": ["VHL"],
-            "BIRC2": ["BIRC2"],
-            "DCAF1": ["DCAF1"]
-        }
-        
-        # Molecular glue POI groups
-        self.MG_POI_GROUPS = {
-            "Kinases": ["CDK12", "CSNK1A1", "PAK6"],
-            "Nuclear_Regulators": ["BRD4", "HDAC1", "WIZ"],
-            "Transcription_Factors": ["IKZF1", "IKZF2", "SALL4", "ZNFN1A2", "ZNF692"],
-            "RNA_Translation_Regulators": ["RBM39", "GSPT1"],
-            "Signaling_Metabolism": ["CTNNB1", "CDO1"]
-        }
-        
-        # Molecular glue E3 ligase groups
-        self.MG_E3_GROUPS = {
-            "CRBN": ["CRBN", "MGR_0879"],
-            "VHL": ["VHL"],
-            "TRIM_Ligase": ["TRIM21"],
-            "DCAF_Receptors": ["DCAF15", "DCAF16"],
-            "Others": ["BTRC", "DDB1", "KBTBD4"],
-        }
-        
-        # PROTAC-specific color maps
-        self.PROTAC_POI_COLOR_MAP = {
-            "Kinases": PlotConfig.SMILES_PRIMARY,
-            "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
-            "Signaling_Modulators": PlotConfig.SMILES_SECONDARY,
-            "Apoptosis_Regulators": PlotConfig.CCD_PRIMARY,
-            "Diverse_Enzymes": PlotConfig.CCD_SECONDARY,
-        }
-        
-        self.PROTAC_E3_COLOR_MAP = {
-            "CRBN": PlotConfig.CCD_PRIMARY,
-            "VHL": PlotConfig.SMILES_TERTIARY,
-            "BIRC2": PlotConfig.SMILES_PRIMARY,
-            "DCAF1": PlotConfig.CCD_SECONDARY,
-        }
-        
-        # Molecular glue color maps
-        self.MG_POI_COLOR_MAP = {
-            "Kinases": PlotConfig.SMILES_PRIMARY,
-            "Nuclear_Regulators": PlotConfig.SMILES_TERTIARY,
-            "Transcription_Factors": PlotConfig.SMILES_SECONDARY,
-            "RNA_Translation_Regulators": PlotConfig.CCD_PRIMARY,
-            "Signaling_Metabolism": PlotConfig.CCD_SECONDARY,
-        }
-        
-        self.MG_E3_COLOR_MAP = {
-            "CRBN": PlotConfig.CCD_PRIMARY,
-            "VHL": PlotConfig.SMILES_TERTIARY,
-            "TRIM_Ligase": PlotConfig.SMILES_PRIMARY,
-            "DCAF_Receptors": PlotConfig.CCD_SECONDARY,
-            "Others": PlotConfig.GRAY, 
-        }
 
     def _debug_print(self, message):
         """Print debug information if debug mode is enabled."""
@@ -95,9 +113,9 @@ class POI_E3LPlotter(BasePlotter):
         metric_type='RMSD',
         add_threshold=True,
         threshold_value=4.0,
-        width=12,
+        width=CLS_PLOT_DEFAULT_WIDTH_RMSD,
         height=None,
-        bar_width=0.7,
+        bar_width=CLS_DEFAULT_BAR_WIDTH,
         save=True,
         legend_position=None,
         molecule_type="PROTAC",
@@ -215,7 +233,7 @@ class POI_E3LPlotter(BasePlotter):
             
             # Calculate appropriate height for POI plots if not provided
             if height is None:
-                poi_height = max(8, poi_data_count * 0.35 + 2)
+                poi_height = max(self.CLS_HEIGHT_CALC_MIN_RMSD, poi_data_count * self.CLS_HEIGHT_CALC_FACTOR_RMSD + self.CLS_HEIGHT_CALC_PADDING_RMSD)
             else:
                 poi_height = height
                 
@@ -250,20 +268,20 @@ class POI_E3LPlotter(BasePlotter):
             # If we have POI data, calculate E3L height proportional to POI height, otherwise calculate directly
             if poi_data_count > 0 and poi_height is not None:
                 # Remove fixed 2-unit padding to get just the content height, then scale by data count ratio
-                content_height = poi_height - 2
+                content_height = poi_height - self.CLS_HEIGHT_CALC_PADDING_RMSD # Use padding constant
                 bar_space_ratio = poi_data_count / content_height
                 
                 # Scale the content height by number of E3L data points, then add back padding
                 e3l_content_height = e3l_data_count / bar_space_ratio
-                e3l_height = e3l_content_height + 2
+                e3l_height = e3l_content_height + self.CLS_HEIGHT_CALC_PADDING_RMSD # Use padding constant
                 
                 # Ensure a minimum reasonable height for small datasets
-                e3l_height = max(e3l_height, 4)
+                e3l_height = max(e3l_height, self.CLS_E3L_HEIGHT_MIN_RMSD) # Use min height constant
                 
                 self._debug_print(f"E3L height: {e3l_height} (POI height: {poi_height}, POI count: {poi_data_count}, E3L count: {e3l_data_count})")
             else:
                 # Calculate directly if no POI data to reference
-                e3l_height = max(4, e3l_data_count * 0.35 + 2)
+                e3l_height = max(self.CLS_E3L_HEIGHT_MIN_RMSD, e3l_data_count * self.CLS_HEIGHT_CALC_FACTOR_RMSD + self.CLS_HEIGHT_CALC_PADDING_RMSD)
                 
             fig_e3l = self._create_rmsd_plot(
                 sorted_e3l_results, 
@@ -485,7 +503,7 @@ class POI_E3LPlotter(BasePlotter):
             threshold_value: Value for the threshold line
             width: Figure width
             height: Figure height
-            bar_width: Width of the bars
+            bar_width: Width of the bars. Now passed as an argument.
             save: Whether to save the figure
             suffix: Optional suffix to add to the filename
             custom_legend_order: Optional custom order for legend groups
@@ -501,7 +519,7 @@ class POI_E3LPlotter(BasePlotter):
             
         # Calculate appropriate height if not provided
         if height is None:
-            height = max(8, len(data) * 0.3 + 2)
+            height = max(self.CLS_HEIGHT_CALC_MIN_RMSD, len(data) * self.CLS_HEIGHT_CALC_FACTOR_RMSD + self.CLS_HEIGHT_CALC_PADDING_RMSD)
             
         # Create figure and axis
         fig, ax = plt.subplots(figsize=(width, height))
@@ -524,29 +542,29 @@ class POI_E3LPlotter(BasePlotter):
             if group in color_map:
                 colors.append(color_map[group])
             else:
-                # Log the missing group for debugging
                 self._debug_print(f"Warning: Group '{group}' not found in color map. Using default color.")
                 colors.append(default_color)
         
         # Plot bars
         bars = ax.barh(positions, means, bar_width, xerr=stds, 
-                      color=colors, alpha=0.8, 
-                      error_kw={'ecolor': 'black', 'capsize': 5})
+                      color=colors, alpha=self.CLS_BAR_ALPHA, 
+                      edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
+                      error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE})
         
         # Add threshold line if requested
         if add_threshold and threshold_value is not None:
             ax.axvline(x=threshold_value, color=PlotConfig.GRAY, linestyle='--', 
-                      alpha=0.7, label='Threshold')
+                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, label='Threshold')
             
         # Customize the plot
         ax.set_yticks(positions)
-        ax.set_yticklabels(names)
+        ax.set_yticklabels(names, fontsize=self.CLS_GRID_YTICK_FONTSIZE)
         
         # Set appropriate x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE)
+            ax.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         else:  # DockQ
-            ax.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE)
+            ax.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -563,12 +581,13 @@ class POI_E3LPlotter(BasePlotter):
         legend = ax.legend(
             handles=legend_elements,
             loc=legend_loc,
-            ncol=min(3, len(legend_elements)) if protein_type == 'E3L' else min(2, len(legend_elements)),
-            fontsize=12,
-            framealpha=0.7,
+            ncol=min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements)) if protein_type == 'E3L' else min(self.CLS_LEGEND_NCOL_POI_MAX, len(legend_elements)),
+            fontsize=self.CLS_LEGEND_FONTSIZE_RMSD,
+            framealpha=self.CLS_LEGEND_FRAME_ALPHA,
+            frameon=self.CLS_LEGEND_FRAME_ON,
             facecolor='white',
-            columnspacing=1.0,
-            handletextpad=0.5
+            columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
+            handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
         )
         
         # Adjust layout
@@ -618,7 +637,9 @@ class POI_E3LPlotter(BasePlotter):
                 display_name = group.replace('_', ' ')
                 # Use the color from the color map, or gray if not found
                 color = color_map.get(group, PlotConfig.GRAY)
-                legend_elements.append(Patch(facecolor=color, label=display_name))
+                legend_elements.append(Patch(facecolor=color, label=display_name,
+                                             edgecolor=self.CLS_BAR_EDGE_COLOR, 
+                                             linewidth=self.CLS_BAR_LINEWIDTH))
         
         # Add threshold to legend if it exists
         if add_threshold:
@@ -656,9 +677,9 @@ class POI_E3LPlotter(BasePlotter):
         metric_type='RMSD',
         add_threshold=True,
         threshold_value=4.0,
-        width=22,
+        width=CLS_GRID_DEFAULT_WIDTH,
         height=None,
-        bar_width=0.7,
+        bar_width=CLS_DEFAULT_BAR_WIDTH,
         save=True,
         legend_position='lower right',
         molecule_type="PROTAC",
@@ -711,14 +732,14 @@ class POI_E3LPlotter(BasePlotter):
             
             # Calculate base figure height with tighter margins
             total_data_points = max_poi_count + max_e3l_count
-            base_height = total_data_points * 0.4 + 3  # Adding padding
+            base_height = total_data_points * self.CLS_GRID_HEIGHT_CALC_FACTOR + self.CLS_GRID_HEIGHT_CALC_PADDING
             
             if height is None:
                 height = base_height
         else:
             height_ratio = [2, 1]  # Default ratio if we don't have data
             if height is None:
-                height = 12
+                height = self.CLS_GRID_DEFAULT_OVERALL_HEIGHT
         
         # Find the global min and max values across all datasets for consistent x-axis
         global_min = float('inf')
@@ -741,7 +762,7 @@ class POI_E3LPlotter(BasePlotter):
                 global_max = max(global_max, metric_value + error_value if error_value else metric_value)
         
         # Add a small padding to the global range
-        range_padding = (global_max - global_min) * 0.05
+        range_padding = (global_max - global_min) * self.CLS_GRID_X_AXIS_PADDING_FACTOR
         global_min = max(0, global_min - range_padding)
         global_max = global_max + range_padding
         
@@ -749,7 +770,7 @@ class POI_E3LPlotter(BasePlotter):
         fig = plt.figure(figsize=(width, height), constrained_layout=True)
         
         # Create GridSpec with proper height ratios and minimal spacing
-        gs = fig.add_gridspec(2, 2, height_ratios=height_ratio, hspace=0.05)
+        gs = fig.add_gridspec(2, 2, height_ratios=height_ratio, hspace=self.CLS_GRID_HSPACE)
         
         # Create a list to store all axes for later adjustments
         all_axes = []
@@ -820,9 +841,9 @@ class POI_E3LPlotter(BasePlotter):
                 
             # Set x-axis label based on metric type
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE+2)
+                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE+self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, fontweight='bold')
             else:  # DockQ
-                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE+2)
+                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE+self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, fontweight='bold')
         
         # Set consistent x-axis limits for all subplots
         for ax in all_axes:
@@ -840,15 +861,17 @@ class POI_E3LPlotter(BasePlotter):
                     max_tick_width = max(max_tick_width, width_inches)
         
         # Now set the y-axis labels with consistent positioning
-        label_pad = max_tick_width + 0.5  # Add a bit of padding
+        label_pad_val = 0.5 # Default padding if max_tick_width is not available or zero
+        if max_tick_width > 0 : # Ensure max_tick_width is positive before adding
+             label_pad_val = max_tick_width + 0.5 # This 0.5 could be a constant too, e.g. CLS_GRID_YLABEL_TICK_PADDING
         
         # Set the labels with the consistent pad and increased font size
-        left_axes[0].set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE + 2, labelpad=20)
-        left_axes[1].set_ylabel('E3 Ligand', fontsize=PlotConfig.AXIS_LABEL_SIZE + 2, labelpad=20)
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE + self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+        left_axes[1].set_ylabel('E3 Ligase', fontsize=PlotConfig.AXIS_LABEL_SIZE + self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
         
         # Further alignment adjustments - moved closer to the axis
-        left_axes[0].yaxis.set_label_coords(-0.11, 0.5)
-        left_axes[1].yaxis.set_label_coords(-0.11, 0.5)
+        left_axes[0].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        left_axes[1].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
         
         # Save figure if requested
         if save:
@@ -982,21 +1005,22 @@ class POI_E3LPlotter(BasePlotter):
         
         # Plot bars
         bars = ax.barh(positions, means, bar_width, xerr=stds, 
-                     color=colors, alpha=0.8, 
-                     error_kw={'ecolor': 'black', 'capsize': 5})
+                     color=colors, alpha=self.CLS_BAR_ALPHA, 
+                     edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
+                     error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE})
         
         # Add threshold line if requested
         if add_threshold and threshold_value is not None:
             ax.axvline(x=threshold_value, color=PlotConfig.GRAY, linestyle='--', 
-                      alpha=0.7, label='Threshold')
+                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, label='Threshold')
             
         # Set title if provided
         if title:
-            ax.set_title(title, fontsize=14)
+            ax.set_title(title, fontsize=self.CLS_PLOT_TITLE_FONTSIZE)
             
         # Customize the plot
         ax.set_yticks(positions)
-        ax.set_yticklabels(names, fontsize=13)
+        ax.set_yticklabels(names, fontsize=self.CLS_GRID_YTICK_FONTSIZE)
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -1007,10 +1031,11 @@ class POI_E3LPlotter(BasePlotter):
             ax.legend(
                 handles=legend_elements,
                 loc=legend_position,
-                ncol=min(2, len(legend_elements)),
-                fontsize=13,
-                framealpha=0.7,
+                ncol=min(self.CLS_LEGEND_NCOL_GRID_MAX, len(legend_elements)),
+                fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
+                framealpha=self.CLS_LEGEND_FRAME_ALPHA,
+                frameon=self.CLS_LEGEND_FRAME_ON,
                 facecolor='white',
-                columnspacing=1.0,
-                handletextpad=0.5
+                columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
+                handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
             )

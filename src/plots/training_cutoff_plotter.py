@@ -15,11 +15,79 @@ class TrainingCutoffPlotter(BasePlotter):
     the AlphaFold3/Boltz-1 training cutoff date (2021-09-30).
     """
     
+    # --- Plot Configuration Constants ---
+    # Plot dimensions
+    PLOT_WIDTH = 4
+    PLOT_HEIGHT = 4
+
+    # Font sizes (can be fine-tuned)
+    TITLE_FONT_SIZE = 16 # Example, adjust as needed
+    AXIS_LABEL_FONT_SIZE = 12
+    VALUE_LABEL_FONT_SIZE = 12
+    LEGEND_FONT_SIZE = 9.5
+    TICK_LABEL_FONT_SIZE = 11
+
+    # Bar appearance
+    BAR_WIDTH = 0.05
+    BAR_EDGE_COLOR = 'black'
+    BAR_EDGE_LINE_WIDTH = 0.5
+    BAR_SPACING_FACTOR = 2 
+
+    # Hatches for post-training bars (empty for pre-training)
+    PRE_TRAINING_HATCH = ''
+    POST_TRAINING_HATCH = '//' 
+    POST_TRANING_HATCH_LINE_WIDTH = 0.5
+    # Denser hatches for legend representation
+    LEGEND_POST_TRAINING_HATCH = '///'
+
+    # Bar Colors (can use PlotConfig or define specific ones here)
+    # For simplicity, using PlotConfig if available, otherwise define fallbacks
+    PRE_CCD_COLOR_AF3 = getattr(PlotConfig, 'CCD_PRIMARY', '#FF7F50')      # Coral-like for AF3
+    PRE_SMILES_COLOR_AF3 = getattr(PlotConfig, 'SMILES_PRIMARY', '#1F77B4') # Blue-like for AF3
+    POST_CCD_COLOR_AF3 = PRE_CCD_COLOR_AF3 # Same color, differentiated by hatch
+    POST_SMILES_COLOR_AF3 = PRE_SMILES_COLOR_AF3 # Same color, differentiated by hatch
+
+    # Boltz1 specific colors
+    PRE_CCD_COLOR_BOLTZ1 = '#A157DB'    # Purple-like for Boltz1 CCD
+    PRE_SMILES_COLOR_BOLTZ1 = '#57DB80' # Green-like for Boltz1 SMILES
+    POST_CCD_COLOR_BOLTZ1 = PRE_CCD_COLOR_BOLTZ1 # Same color, differentiated by hatch
+    POST_SMILES_COLOR_BOLTZ1 = PRE_SMILES_COLOR_BOLTZ1 # Same color, differentiated by hatch
+
+    # Error bar appearance
+    ERROR_BAR_COLOR = 'black'
+    ERROR_BAR_CAPSIZE = 4
+    ERROR_BAR_THICKNESS = 1
+    ERROR_BAR_ALPHA = 0.7
+
+    # Grid properties
+    GRID_LINESTYLE = '--'
+    GRID_ALPHA = 0.2
+
+    # Threshold line properties
+    THRESHOLD_LINE_COLOR = 'gray' # For the line itself
+    THRESHOLD_LEGEND_COLOR = 'gray' # For the legend entry
+    THRESHOLD_LINE_STYLE = '--'
+    THRESHOLD_LINE_ALPHA = 1
+    THRESHOLD_LINE_WIDTH = 1.0
+
+    # Default threshold values for metrics
+    DEFAULT_RMSD_THRESHOLD = 4.0
+    DEFAULT_DOCKQ_THRESHOLD = 0.5
+    DEFAULT_LRMSD_THRESHOLD = 4.0
+    # PTM usually doesn't have a threshold line in these plots
+
+    # Legend properties
+    LEGEND_LOCATION = 'best' # Default to best, PTM will override to upper right
+    LEGEND_BORDER_PADDING = 0.8
+    # --- End Plot Configuration Constants ---
+
+    TRAINING_CUTOFF_DATE = pd.to_datetime('2021-09-30')
+    
     def __init__(self, debug=False):
         """Initialize the training cutoff plotter."""
         super().__init__()
-        # Define the training cutoff date
-        self.training_cutoff = pd.to_datetime('2021-09-30')
+        # Define the training cutoff date using the class constant
+        self.training_cutoff = self.TRAINING_CUTOFF_DATE
         self.debug = debug
     
     def _debug_print(self, message):
@@ -34,11 +102,12 @@ class TrainingCutoffPlotter(BasePlotter):
         model_type='AlphaFold3',
         add_threshold=True,
         threshold_value=None,
-        width=10,
-        height=8,
+        width=None,
+        height=None,
         save=True,
         molecule_type="PROTAC",
-        debug=False
+        debug=False,
+        fixed_ylim=None
     ):
         """
         Create a bar plot showing the mean metric values across structures
@@ -50,26 +119,35 @@ class TrainingCutoffPlotter(BasePlotter):
             model_type (str): Model type to analyze ('AlphaFold3' or 'Boltz1')
             add_threshold (bool): Whether to add a threshold line
             threshold_value (float): Value for the threshold line, if None will use default based on metric_type
-            width (int): Figure width
-            height (int): Figure height
+            width (int): Figure width (overrides default PLOT_WIDTH if provided)
+            height (int): Figure height (overrides default PLOT_HEIGHT if provided)
             save (bool): Whether to save the plot
             molecule_type (str): Type of molecule to filter by ('PROTAC' or 'Molecular Glue')
             debug (bool): Enable additional debugging output
+            fixed_ylim (tuple, optional): A tuple (min, max) to set a fixed y-axis limit.
         
         Returns:
-            fig, ax: The created figure and axis
+            tuple: (fig, ax, used_ylim) The figure, axis, and the y-limits used.
         """
-        # Enable debugging for this call if requested
         self.debug = debug or self.debug
+        
+        # Use class constants for width and height if not provided in args
+        plot_width = width if width is not None else self.PLOT_WIDTH
+        plot_height = height if height is not None else self.PLOT_HEIGHT
+
+        # Store original hatch linewidth and set desired one
+        original_hatch_linewidth = plt.rcParams.get('hatch.linewidth')
+        plt.rcParams['hatch.linewidth'] = self.POST_TRANING_HATCH_LINE_WIDTH
         
         try:
             self._debug_print(f"Starting plot_training_cutoff_comparison with metric_type={metric_type}, model_type={model_type}")
+            self._debug_print(f"Plot dimensions: width={plot_width}, height={plot_height}")
             self._debug_print(f"Input dataframe shape: {df.shape}")
             
             # Verify that the dataframe is not empty
             if df.empty:
                 print(f"Error: Input dataframe is empty")
-                return None, None
+                return None, None, None
                 
             # Verify required columns
             required_columns = ['MODEL_TYPE', 'RELEASE_DATE']
@@ -77,27 +155,27 @@ class TrainingCutoffPlotter(BasePlotter):
             if missing_columns:
                 print(f"Error: Required columns missing from dataframe: {missing_columns}")
                 self._debug_print(f"Available columns: {df.columns.tolist()}")
-                return None, None
+                return None, None, None
                 
             # Verify values in MODEL_TYPE
             available_models = df['MODEL_TYPE'].unique()
             if model_type not in available_models:
                 print(f"Error: Model type '{model_type}' not found in data. Available models: {available_models}")
-                return None, None
+                return None, None, None
             
             # Set default threshold values based on metric type if not provided
             if threshold_value is None:
                 if metric_type.upper() == 'RMSD':
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
-                    threshold_value = 0.5
+                    threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
                 elif metric_type.upper() == 'LRMSD':
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_LRMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
                     # No threshold needed for PTM
                     add_threshold = False
                 else:
-                    threshold_value = 4.0
+                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
                 self._debug_print(f"Using default threshold value: {threshold_value} for metric {metric_type}")
             
             # Filter for the specific model type
@@ -106,7 +184,7 @@ class TrainingCutoffPlotter(BasePlotter):
             
             if df_filtered.empty:
                 print(f"Error: No data available for model type '{model_type}'")
-                return None, None
+                return None, None, None
                 
             # Filter by molecule type
             # Check if we have MOLECULE_TYPE column (newer datasets) or TYPE column (older datasets)
@@ -120,7 +198,7 @@ class TrainingCutoffPlotter(BasePlotter):
                     print(f"Error: No data available for molecule type '{molecule_type}'")
                     available_types = df[df['MODEL_TYPE'] == model_type][molecule_type_col].unique()
                     print(f"Available molecule types: {available_types}")
-                    return None, None
+                    return None, None, None
             else:
                 print(f"Warning: No '{molecule_type_col}' column found in data, skipping molecule type filtering")
                 self._debug_print(f"Available columns: {df_filtered.columns.tolist()}")
@@ -131,7 +209,7 @@ class TrainingCutoffPlotter(BasePlotter):
             except Exception as e:
                 print(f"Error: Could not convert RELEASE_DATE column to datetime format: {e}")
                 self._debug_print(f"RELEASE_DATE values sample: {df_filtered['RELEASE_DATE'].head()}")
-                return None, None
+                return None, None, None
                 
             # Add a column to indicate if the structure is pre-training or post-training
             df_filtered['IS_POST_TRAINING'] = df_filtered['RELEASE_DATE'] > self.training_cutoff
@@ -151,7 +229,7 @@ class TrainingCutoffPlotter(BasePlotter):
             metric_columns = self._get_metric_columns(metric_type)
             if not metric_columns:
                 print(f"Error: Metric type '{metric_type}' not supported.")
-                return None, None
+                return None, None, None
                 
             smiles_col, ccd_col, y_label = metric_columns
             self._debug_print(f"Using metric columns: SMILES={smiles_col}, CCD={ccd_col}")
@@ -160,7 +238,7 @@ class TrainingCutoffPlotter(BasePlotter):
             if smiles_col not in df_filtered.columns or ccd_col not in df_filtered.columns:
                 print(f"Error: Required metric columns ({smiles_col}, {ccd_col}) not found in dataframe.")
                 self._debug_print(f"Available columns: {df_filtered.columns.tolist()}")
-                return None, None
+                return None, None, None
             
             # Debug: Check for missing data in metric columns
             smiles_missing = df_filtered[smiles_col].isna().sum()
@@ -171,12 +249,12 @@ class TrainingCutoffPlotter(BasePlotter):
             valid_data_count = df_filtered[smiles_col].notna().sum() + df_filtered[ccd_col].notna().sum()
             if valid_data_count == 0:
                 print(f"Error: No valid data available for metric columns {smiles_col} and {ccd_col}")
-                return None, None
+                return None, None, None
             elif valid_data_count < 4:
                 print(f"Warning: Very limited data available for plotting ({valid_data_count} non-null values)")
             
             # Create figure
-            fig, ax = plt.subplots(figsize=(width, height))
+            fig, ax = plt.subplots(figsize=(plot_width, plot_height))
             
             # Calculate metrics for pre and post training data
             metrics = self._calculate_period_metrics(df_filtered, metric_columns)
@@ -196,22 +274,40 @@ class TrainingCutoffPlotter(BasePlotter):
             counts = metrics['counts']
             
             # Set up bar positions and width
-            bar_positions = [0, 0.9, 2.4, 3.3]
-            bar_width = 0.6
+            bar_width = self.BAR_WIDTH
+            spacing_factor = self.BAR_SPACING_FACTOR
+            bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
             
-            # Define colors for each bar
-            colors = [
-                PlotConfig.CCD_PRIMARY,       # Pre-2021 CCD (orange)
-                PlotConfig.SMILES_PRIMARY,    # Pre-2021 SMILES (blue)
-                PlotConfig.CCD_PRIMARY,       # Post-2021 CCD (orange with pattern)
-                PlotConfig.SMILES_PRIMARY     # Post-2021 SMILES (blue with pattern)
-            ]
+            # Define colors for each bar based on model_type
+            if model_type == 'AlphaFold3':
+                colors = [
+                    self.PRE_CCD_COLOR_AF3,
+                    self.PRE_SMILES_COLOR_AF3,
+                    self.POST_CCD_COLOR_AF3,
+                    self.POST_SMILES_COLOR_AF3
+                ]
+            elif model_type == 'Boltz1' or model_type == 'Boltz-1': # Handling potential variations in name
+                colors = [
+                    self.PRE_CCD_COLOR_BOLTZ1,
+                    self.PRE_SMILES_COLOR_BOLTZ1,
+                    self.POST_CCD_COLOR_BOLTZ1,
+                    self.POST_SMILES_COLOR_BOLTZ1
+                ]
+            else:
+                # Fallback to AF3 colors if model_type is unexpected, with a warning
+                self._debug_print(f"Warning: Model type '{model_type}' not recognized for specific colors. Defaulting to AlphaFold3 colors.")
+                colors = [
+                    self.PRE_CCD_COLOR_AF3,
+                    self.PRE_SMILES_COLOR_AF3,
+                    self.POST_CCD_COLOR_AF3,
+                    self.POST_SMILES_COLOR_AF3
+                ]
             
             # Define hatches for post-training bars
-            hatches = ['', '', '//', '//']
+            hatches = [self.PRE_TRAINING_HATCH, self.PRE_TRAINING_HATCH, self.POST_TRAINING_HATCH, self.POST_TRAINING_HATCH]
             
             # Define denser hatches for the legend
-            legend_hatches = ['', '', '///', '///']
+            legend_hatches = [self.PRE_TRAINING_HATCH, self.PRE_TRAINING_HATCH, self.LEGEND_POST_TRAINING_HATCH, self.LEGEND_POST_TRAINING_HATCH]
             
             # Define bar labels
             bar_labels = [
@@ -246,10 +342,10 @@ class TrainingCutoffPlotter(BasePlotter):
                 values,
                 bar_width,
                 color=colors,
-                edgecolor='black',
-                linewidth=0.5,
+                edgecolor=self.BAR_EDGE_COLOR,
+                linewidth=self.BAR_EDGE_LINE_WIDTH,
                 yerr=error_values,
-                error_kw={'ecolor': 'black', 'capsize': 4, 'capthick': 1, 'alpha': 0.7},
+                error_kw={'ecolor': self.ERROR_BAR_COLOR, 'capsize': self.ERROR_BAR_CAPSIZE, 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA},
                 hatch=hatches
             )
             
@@ -257,34 +353,12 @@ class TrainingCutoffPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = ax.axhline(
                     y=threshold_value,
-                    color='black',
-                    linestyle='--',
-                    alpha=0.7,
-                    linewidth=1.0
+                    color=self.THRESHOLD_LINE_COLOR,
+                    linestyle=self.THRESHOLD_LINE_STYLE,
+                    alpha=self.THRESHOLD_LINE_ALPHA,
+                    linewidth=self.THRESHOLD_LINE_WIDTH
                 )
                 self._debug_print(f"Added threshold line at y={threshold_value}")
-            
-            # Add value labels directly on the bars
-            for i, (bar, value) in enumerate(zip(bars, values)):
-                height = bar.get_height()
-                # Use a dynamic offset based on metric type
-                if metric_type == 'DOCKQ':
-                    offset = 0.005
-                elif metric_type.upper() == 'PTM':
-                    offset = 0.01  # Smaller offset for PTM plots
-                else:
-                    offset = 0.03
-                
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height + error_values[i] + offset,  # Position just above error bar
-                    f"{value:.2f}",
-                    ha='center',
-                    va='bottom',
-                    fontsize=12,
-                    fontweight='bold',
-                    color='black'
-                )
             
             # Create custom legend patches
             legend_handles = []
@@ -293,9 +367,9 @@ class TrainingCutoffPlotter(BasePlotter):
                 patch = plt.Rectangle(
                     (0, 0), 1, 1, 
                     facecolor=color, 
-                    edgecolor='black', 
+                    edgecolor=self.BAR_EDGE_COLOR, 
                     hatch=hatch,
-                    linewidth=0.5, 
+                    linewidth=self.BAR_EDGE_LINE_WIDTH, 
                     label=label
                 )
                 legend_handles.append(patch)
@@ -304,33 +378,39 @@ class TrainingCutoffPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = Line2D(
                     [0, 1], [0, 0], 
-                    color='gray', 
-                    linestyle='--',
-                    linewidth=1.0, 
+                    color=self.THRESHOLD_LEGEND_COLOR, 
+                    linestyle=self.THRESHOLD_LINE_STYLE,
+                    linewidth=self.THRESHOLD_LINE_WIDTH, 
                     label='Threshold'
                 )
                 legend_handles.append(threshold_line)
             
             # Add legend
+            current_legend_loc = self.LEGEND_LOCATION
+            if metric_type.upper() == 'PTM':
+                current_legend_loc = 'upper right'
+            
             if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
                 # Use background when data values are near or below threshold
                 ax.legend(
                     handles=legend_handles, 
-                    loc='upper center',
-                    frameon=True,
-                    facecolor='white',
-                    framealpha=0.8,
-                    edgecolor='lightgray',
-                    borderpad=0.8,
-                    fontsize=12
+                    loc=current_legend_loc, 
+                    frameon=False, # Ensure no border
+                    facecolor='white', # Kept for consistency, but won't show with frameon=False
+                    framealpha=0.8, # Kept for consistency, but won't show with frameon=False
+                    edgecolor='lightgray', # Kept for consistency, but won't show with frameon=False
+                    borderpad=self.LEGEND_BORDER_PADDING,
+                    fontsize=self.LEGEND_FONT_SIZE,
+                    labelspacing=0.2
                 )
             else:
                 ax.legend(
                     handles=legend_handles, 
-                    loc='upper center',
-                    frameon=False,
-                    borderpad=0.8,
-                    fontsize=12
+                    loc=current_legend_loc, 
+                    frameon=False, # Ensure no border
+                    borderpad=self.LEGEND_BORDER_PADDING,
+                    fontsize=self.LEGEND_FONT_SIZE,
+                    labelspacing=0.2
                 )
             
             # Remove x-ticks and labels since we have the legend
@@ -338,34 +418,42 @@ class TrainingCutoffPlotter(BasePlotter):
             ax.set_xticklabels([])
             
             # Add grid lines for x-axis only
-            ax.grid(axis='y', linestyle='--', alpha=0.2)
+            ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontsize=12, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
             
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
-            self._debug_print(f"Calculated ymax: {ymax}")
+            self._debug_print(f"Calculated ymax for data: {ymax}")
             
-            # Set y-axis limit appropriately based on metric type
-            if metric_type.upper() == 'RMSD' and threshold_value >= 4.0:
-                ax.set_ylim(0, max(4.5, ymax * 1.1))
-            elif metric_type.upper() == 'DOCKQ':
-                # DockQ scores range from 0 to 1
-                ax.set_ylim(0, min(1.05, max(0.5, ymax * 1.1)))
-            elif metric_type.upper() == 'LRMSD':
-                # Use a larger y-axis limit for LRMSD to prevent label overlapping
-                ax.set_ylim(0, 45)
-            elif metric_type.upper() == 'PTM':
-                # PTM scores range from 0 to 1
-                ax.set_ylim(0, 1.0)
+            current_ylim = None
+            if fixed_ylim:
+                ax.set_ylim(fixed_ylim)
+                current_ylim = fixed_ylim
+                self._debug_print(f"Using fixed Y-axis limits: {fixed_ylim}")
             else:
-                ax.set_ylim(0, ymax * 1.1)
+                # Set y-axis limit appropriately based on metric type
+                if metric_type.upper() == 'RMSD' and threshold_value >= self.DEFAULT_RMSD_THRESHOLD:
+                    current_ylim = (0, max(self.DEFAULT_RMSD_THRESHOLD + 0.5, ymax * 1.1))
+                elif metric_type.upper() == 'DOCKQ':
+                    # DockQ scores range from 0 to 1
+                    current_ylim = (0, min(1.05, max(self.DEFAULT_DOCKQ_THRESHOLD + 0.1, ymax * 1.1)))
+                elif metric_type.upper() == 'LRMSD':
+                    # Use a larger y-axis limit for LRMSD to prevent label overlapping
+                    current_ylim = (0, 45) # Max typical value, or adjust based on ymax
+                elif metric_type.upper() == 'PTM':
+                    # PTM scores range from 0 to 1
+                    current_ylim = (0, 1.0)
+                else:
+                    current_ylim = (0, ymax * 1.1)
+                ax.set_ylim(current_ylim)
             
             self._debug_print(f"Y-axis limits set to: {ax.get_ylim()}")
+            used_ylim = ax.get_ylim() # Get the actual limits set on the axis
             
             # Set tick label font sizes
-            ax.tick_params(axis='both', which='major', labelsize=11)
+            ax.tick_params(axis='both', which='major', labelsize=self.TICK_LABEL_FONT_SIZE)
             
             # Use tight layout for better spacing
             plt.tight_layout()
@@ -373,7 +461,7 @@ class TrainingCutoffPlotter(BasePlotter):
             # Add a subtle border to the plot
             for spine in ax.spines.values():
                 spine.set_linewidth(0.5)
-                spine.set_color('gray')
+                spine.set_color('black')
             
             # Add a title with debug info if in debug mode
             if self.debug:
@@ -390,13 +478,24 @@ class TrainingCutoffPlotter(BasePlotter):
                 self._debug_print(f"Saved figure as {filename}")
             
             self._debug_print("Successfully completed plot_training_cutoff_comparison")
-            return fig, ax
+            return fig, ax, used_ylim # Return the used y-limits
             
         except Exception as e:
             print(f"Error in plot_training_cutoff_comparison: {e}")
             import traceback
             traceback.print_exc()
-            return None, None
+            return None, None, None # Return None for ylim on error
+        finally:
+            # Restore original hatch linewidth
+            if original_hatch_linewidth is not None:
+                plt.rcParams['hatch.linewidth'] = original_hatch_linewidth
+            else:
+                # If it wasn't set before, perhaps remove it or set to a Matplotlib default
+                # For simplicity, if it wasn't there, we might not need to do anything, 
+                # or we could plt.rcParams.pop('hatch.linewidth', None) if we want to be very clean.
+                # Alternatively, find matplotlib's default and set to that if it was None.
+                # For now, just setting it back if it existed.
+                pass # Or print a warning if original_hatch_linewidth was None and it matters.
     
     def _get_metric_columns(self, metric_type):
         """Get the column names for a specific metric type."""
@@ -508,7 +607,7 @@ class TrainingCutoffPlotter(BasePlotter):
                 self._debug_print("No Post SMILES values found")
         
         # Calculate improvement percentages
-        metrics = {
+        metrics_summary = { # Renamed from metrics to avoid conflict
             'means': means,
             'errors': errors,
             'counts': counts,
@@ -517,13 +616,13 @@ class TrainingCutoffPlotter(BasePlotter):
         
         # Calculate percentage differences between pre and post training
         if "Pre_CCD" in means and "Post_CCD" in means and means["Pre_CCD"] > 0:
-            metrics['improvements']['CCD'] = (means["Post_CCD"] - means["Pre_CCD"]) / means["Pre_CCD"] * 100
+            metrics_summary['improvements']['CCD'] = (means["Post_CCD"] - means["Pre_CCD"]) / means["Pre_CCD"] * 100
             if self.debug:
-                self._debug_print(f"CCD improvement: {metrics['improvements']['CCD']:.2f}%")
+                self._debug_print(f"CCD improvement: {metrics_summary['improvements']['CCD']:.2f}%")
             
         if "Pre_SMILES" in means and "Post_SMILES" in means and means["Pre_SMILES"] > 0:
-            metrics['improvements']['SMILES'] = (means["Post_SMILES"] - means["Pre_SMILES"]) / means["Pre_SMILES"] * 100
+            metrics_summary['improvements']['SMILES'] = (means["Post_SMILES"] - means["Pre_SMILES"]) / means["Pre_SMILES"] * 100
             if self.debug:
-                self._debug_print(f"SMILES improvement: {metrics['improvements']['SMILES']:.2f}%")
+                self._debug_print(f"SMILES improvement: {metrics_summary['improvements']['SMILES']:.2f}%")
         
-        return metrics 
+        return metrics_summary # Return the renamed summary dictionary 

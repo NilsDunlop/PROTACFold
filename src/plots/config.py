@@ -19,7 +19,7 @@ class PlotConfig:
     
     # SMILES colors
     SMILES_PRIMARY = '#1E8FFF'  # blue
-    SMILES_SECONDARY = '#FC8D62' # orange
+    SMILES_SECONDARY = '#FED766' # yellow
     SMILES_TERTIARY = '#57DB80'  # green
     
     # Other colors
@@ -31,8 +31,8 @@ class PlotConfig:
     # Model comparison colors
     AF3_CCD_COLOR = '#FA6347'      # red (same as CCD_PRIMARY)
     AF3_SMILES_COLOR = '#1E8FFF'    # blue (same as SMILES_PRIMARY)
-    BOLTZ1_CCD_COLOR = '#931652'    # dark magenta
-    BOLTZ1_SMILES_COLOR = '#188f52' # green
+    BOLTZ1_CCD_COLOR = '#A157DB'    #
+    BOLTZ1_SMILES_COLOR = '#57DB80' # 
     
     # Font sizes
     TITLE_SIZE = 16
