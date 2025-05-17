@@ -529,7 +529,7 @@ class ComparisonPlotter(BasePlotter):
         elif metric_type.upper() == 'DOCKQ':
             return ('SMILES_DOCKQ_SCORE', 'CCD_DOCKQ_SCORE', 'DockQ Score')
         elif metric_type.upper() == 'LRMSD':
-            return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'Ligand RMSD (Å)')
+            return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'LRMSD (Å)')
         elif metric_type.upper() == 'PTM':
             return ('SMILES_PTM', 'CCD_PTM', 'pTM Score')
         else:

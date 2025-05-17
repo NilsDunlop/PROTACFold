@@ -190,7 +190,7 @@ class PlottingApp:
                 molecule_type=molecule_type,
                 classification_cutoff=cutoffs,
                 add_threshold=add_threshold,
-                threshold_values=[0.23, 4, 4],
+                threshold_values=[4, 0.23, 4],
                 show_y_labels_on_all=True,
                 max_structures_per_plot=20,  # Fixed at 20 structures per plot
                 save=False  # We'll handle saving ourselves
@@ -595,10 +595,11 @@ class PlottingApp:
             molecule_type = "PROTAC"
         
         # Ask for plot type (now with 3 options)
-        plot_type_input = input("Plot type (1=Individual model, 2=Combined grid) [1]: ").strip() or "1"
+        plot_type_input = input("Plot type (1=Individual model, 2=Combined grid, 3=All) [1]: ").strip() or "1"
         plot_grid = plot_type_input == "2"
+        plot_all = plot_type_input == "3"
         
-        if plot_grid:
+        if plot_grid or plot_all:
             # Get metric type
             metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
             metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
@@ -614,26 +615,75 @@ class PlottingApp:
                 if threshold_input:
                     threshold_value = float(threshold_input)
             
-            # For combined grid layout
-            print(f"Generating combined 2x2 grid with POI and E3L {metric_type} plots for AlphaFold3 and Boltz-1 ({molecule_type})...")
-            
-            # Create combined grid plot with POI on top and E3L on bottom
-            fig = self.poi_e3l_plotter.plot_combined_grid(
-                df=self.df_combined,
-                model_types=['AlphaFold3', 'Boltz-1'],
-                metric_type=metric_type,
-                add_threshold=add_threshold,
-                threshold_value=threshold_value,
-                save=True,
-                molecule_type=molecule_type
-            )
-            
-            # Save the grid plot
-            if fig is not None:
-                filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
-                self.save_plots([fig], filename)
-            else:
-                print(f"Warning: No combined grid plot was generated. Check your data.")
+            if plot_all:
+                # Generate both combined and individual plots
+                print(f"Generating combined and individual plots for POI and E3L {metric_type} ({molecule_type})...")
+                
+                # Use the new plot_all_model_grids method that creates both combined and individual plots
+                combined_fig, single_figs = self.poi_e3l_plotter.plot_all_model_grids(
+                    df=self.df_combined,
+                    model_types=['AlphaFold3', 'Boltz-1'],
+                    metric_type=metric_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False,
+                    legend_position='lower right',
+                    molecule_type=molecule_type
+                )
+                
+                # Save the combined grid plot
+                if combined_fig is not None:
+                    filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
+                    self.save_plots([combined_fig], filename)
+                
+                # Save individual model plots
+                if single_figs:
+                    for i, fig in enumerate(single_figs):
+                        if fig is not None:
+                            model_name = 'alphafold3' if i == 0 else 'boltz_1'
+                            filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
+                            self.save_plots([fig], filename)
+                
+            elif plot_grid:
+                # For combined grid layout only
+                print(f"Generating combined 2x2 grid with POI and E3L {metric_type} plots for AlphaFold3 and Boltz-1 ({molecule_type})...")
+                
+                # Create combined grid plot with POI on top and E3L on bottom
+                fig = self.poi_e3l_plotter.plot_combined_grid(
+                    df=self.df_combined,
+                    model_types=['AlphaFold3', 'Boltz-1'],
+                    metric_type=metric_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False,
+                    molecule_type=molecule_type
+                )
+                
+                # Save the grid plot
+                if fig is not None:
+                    filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
+                    self.save_plots([fig], filename)
+                else:
+                    print(f"Warning: No combined grid plot was generated. Check your data.")
+                
+                # Generate individual model plots
+                generate_individual = input("Also generate individual model plots? (y/n) [n]: ").strip().lower() == 'y'
+                if generate_individual:
+                    for model_type in ['AlphaFold3', 'Boltz-1']:
+                        fig = self.poi_e3l_plotter.plot_single_model_grid(
+                            df=self.df_combined,
+                            model_type=model_type,
+                            metric_type=metric_type,
+                            add_threshold=add_threshold,
+                            threshold_value=threshold_value,
+                            save=False,
+                            molecule_type=molecule_type
+                        )
+                        
+                        if fig is not None:
+                            model_name = model_type.lower().replace('-', '_')
+                            filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
+                            self.save_plots([fig], filename)
                 
         else:
             # Get available model types
@@ -668,35 +718,62 @@ class PlottingApp:
                 if threshold_input:
                     threshold_value = float(threshold_input)
             
+            # Ask for plot style (Original style with separate POI and E3L plots or new grid style)
+            plot_style_input = input("Plot style (1=Original separate plots, 2=Grid style) [1]: ").strip() or "1"
+            use_grid_style = plot_style_input == "2"
+            
             try:
-                print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
-                
-                figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
-                    df=self.df_combined,
-                    model_type=model_type,
-                    metric_type=metric_type,
-                    add_threshold=add_threshold,
-                    threshold_value=threshold_value,
-                    save=False,
-                    molecule_type=molecule_type
-                )
-                
-                # Save the POI plots
-                if figs_poi:
-                    for i, fig_poi in enumerate(figs_poi):
-                        if fig_poi is not None:
-                            filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
-                            self.save_plots([fig_poi], filename)
-                    print(f"Saved {len(figs_poi)} POI plots")
+                if use_grid_style:
+                    # Use the new single model grid style
+                    print(f"Generating grid-style POI and E3L {metric_type} plot for {model_type} ({molecule_type})...")
+                    
+                    fig = self.poi_e3l_plotter.plot_single_model_grid(
+                        df=self.df_combined,
+                        model_type=model_type,
+                        metric_type=metric_type,
+                        add_threshold=add_threshold,
+                        threshold_value=threshold_value,
+                        save=False,
+                        molecule_type=molecule_type
+                    )
+                    
+                    if fig is not None:
+                        model_name = model_type.lower().replace('-', '_')
+                        filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
+                        self.save_plots([fig], filename)
+                    else:
+                        print(f"Warning: No grid-style plot was generated. Check your data.")
+                    
                 else:
-                    print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
-                
-                # Save the E3L plot
-                if fig_e3l is not None:
-                    filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
-                    self.save_plots([fig_e3l], filename)
-                else:
-                    print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
+                    # Original separate POI and E3L plots
+                    print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
+                    
+                    figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
+                        df=self.df_combined,
+                        model_type=model_type,
+                        metric_type=metric_type,
+                        add_threshold=add_threshold,
+                        threshold_value=threshold_value,
+                        save=False,
+                        molecule_type=molecule_type
+                    )
+                    
+                    # Save the POI plots
+                    if figs_poi:
+                        for i, fig_poi in enumerate(figs_poi):
+                            if fig_poi is not None:
+                                filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
+                                self.save_plots([fig_poi], filename)
+                        print(f"Saved {len(figs_poi)} POI plots")
+                    else:
+                        print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
+                    
+                    # Save the E3L plot
+                    if fig_e3l is not None:
+                        filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
+                        self.save_plots([fig_e3l], filename)
+                    else:
+                        print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
                     
             except Exception as e:
                 print(f"Error: {e}")
@@ -731,14 +808,14 @@ class PlottingApp:
         custom_bins = input("\nWould you like to customize the bin sizes? (y/n) [n]: ").strip().lower() == 'y'
         
         # Set bin sizes
-        mw_bin_size = 100
+        mw_bin_size = 50
         hac_bin_size = 10
         rbc_bin_size = 5
         
         if custom_bins:
             # Get customized bin sizes
             print("\nEnter bin sizes (press Enter to use defaults):")
-            mw_input = input("Molecular Weight bins (default 100 Da): ").strip()
+            mw_input = input("Molecular Weight bins (default 50 Da): ").strip()
             if mw_input and mw_input.isdigit() and int(mw_input) > 0:
                 mw_bin_size = int(mw_input)
                 
@@ -764,8 +841,8 @@ class PlottingApp:
         # Auto-calculate bin sizes for main properties
         if not custom_bins:
             if 'Molecular_Weight' in ranges:
-                mw_range = ranges['Molecular_Weight'][1] - ranges['Molecular_Weight'][0]
-                mw_bin_size = max(50, round(mw_range / target_bins / 50) * 50) 
+                # Always use bin size of 50 for molecular weight as preferred
+                mw_bin_size = 50
                 
             if 'Heavy_Atom_Count' in ranges:
                 hac_range = ranges['Heavy_Atom_Count'][1] - ranges['Heavy_Atom_Count'][0]
@@ -823,8 +900,6 @@ class PlottingApp:
             fig, axes = self.property_plotter.plot_combined_properties(
                 df=self.df_combined,
                 molecule_type=molecule_type,
-                width=15,
-                height=5,
                 bin_settings=bin_settings,
                 save=False
             )

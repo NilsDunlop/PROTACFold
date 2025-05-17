@@ -65,18 +65,19 @@ class POI_E3LPlotter(BasePlotter):
     CLS_PLOT_TITLE_FONTSIZE = 14
     CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID = 2  # Increment for PlotConfig.AXIS_LABEL_SIZE in grid plots
     CLS_YTICK_FONTSIZE = 12
-    CLS_GRID_YTICK_FONTSIZE = 12  # For combined grid plots
+    CLS_TICK_FONTSIZE_GRID = 13  # For combined grid plots
     CLS_LEGEND_FONTSIZE_RMSD = 9.5
-    CLS_LEGEND_FONTSIZE_GRID = 12
+    CLS_LEGEND_FONTSIZE_GRID = 13 # For combined grid plots
+    CLS_LEGEND_FONTSIZE_LABEL = 14 # For legend labels
 
     # Legend Styling
     CLS_LEGEND_FRAME_ON = False
     CLS_LEGEND_FRAME_ALPHA = 0.7
     CLS_LEGEND_COLUMN_SPACING = 1.0
     CLS_LEGEND_HANDLE_TEXT_PAD = 0.5
-    CLS_LEGEND_NCOL_E3L_MAX = 3
-    CLS_LEGEND_NCOL_POI_MAX = 2
-    CLS_LEGEND_NCOL_GRID_MAX = 2
+    CLS_LEGEND_NCOL_E3L_MAX = 2
+    CLS_LEGEND_NCOL_POI_MAX = 1
+    CLS_LEGEND_NCOL_GRID_MAX = 1
 
     # Default Sizing for plot_poi_e3l_rmsd and _create_rmsd_plot
     CLS_PLOT_DEFAULT_WIDTH_RMSD = 6.0
@@ -93,8 +94,11 @@ class POI_E3LPlotter(BasePlotter):
     CLS_GRID_X_AXIS_PADDING_FACTOR = 0.05
     CLS_GRID_HSPACE = 0.05
     CLS_GRID_YLABEL_PAD = 20
-    CLS_GRID_YLABEL_X_COORD = -0.20
+    CLS_GRID_YLABEL_X_COORD = -0.25
     CLS_GRID_YLABEL_Y_COORD = 0.5
+    
+    # --- New constant for single model grid plots ---
+    CLS_SINGLE_MODEL_GRID_WIDTH = CLS_GRID_DEFAULT_WIDTH / 2  # Half of the combined grid width
     
     def __init__(self, debug=False):
         """Initialize the plotter."""
@@ -558,13 +562,13 @@ class POI_E3LPlotter(BasePlotter):
             
         # Customize the plot
         ax.set_yticks(positions)
-        ax.set_yticklabels(names, fontsize=self.CLS_GRID_YTICK_FONTSIZE)
+        ax.set_yticklabels(names, fontsize=self.CLS_TICK_FONTSIZE_GRID)
         
         # Set appropriate x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+            ax.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         else:  # DockQ
-            ax.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+            ax.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -581,7 +585,7 @@ class POI_E3LPlotter(BasePlotter):
         legend = ax.legend(
             handles=legend_elements,
             loc=legend_loc,
-            ncol=min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements)) if protein_type == 'E3L' else min(self.CLS_LEGEND_NCOL_POI_MAX, len(legend_elements)),
+            ncol=1 if protein_type == 'POI' else min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements)),
             fontsize=self.CLS_LEGEND_FONTSIZE_RMSD,
             framealpha=self.CLS_LEGEND_FRAME_ALPHA,
             frameon=self.CLS_LEGEND_FRAME_ON,
@@ -680,7 +684,7 @@ class POI_E3LPlotter(BasePlotter):
         width=CLS_GRID_DEFAULT_WIDTH,
         height=None,
         bar_width=CLS_DEFAULT_BAR_WIDTH,
-        save=True,
+        save=False,
         legend_position='lower right',
         molecule_type="PROTAC",
         debug=False
@@ -841,9 +845,9 @@ class POI_E3LPlotter(BasePlotter):
                 
             # Set x-axis label based on metric type
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE+self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, fontweight='bold')
+                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
             else:  # DockQ
-                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE+self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, fontweight='bold')
+                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Set consistent x-axis limits for all subplots
         for ax in all_axes:
@@ -866,8 +870,8 @@ class POI_E3LPlotter(BasePlotter):
              label_pad_val = max_tick_width + 0.5 # This 0.5 could be a constant too, e.g. CLS_GRID_YLABEL_TICK_PADDING
         
         # Set the labels with the consistent pad and increased font size
-        left_axes[0].set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE + self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
-        left_axes[1].set_ylabel('E3 Ligase', fontsize=PlotConfig.AXIS_LABEL_SIZE + self.CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Further alignment adjustments - moved closer to the axis
         left_axes[0].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
@@ -1020,7 +1024,7 @@ class POI_E3LPlotter(BasePlotter):
             
         # Customize the plot
         ax.set_yticks(positions)
-        ax.set_yticklabels(names, fontsize=self.CLS_GRID_YTICK_FONTSIZE)
+        ax.set_yticklabels(names, fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -1028,10 +1032,16 @@ class POI_E3LPlotter(BasePlotter):
         # Create and show legend if requested
         if show_legend:
             legend_elements = self._create_legend_elements(groups, color_map, custom_legend_order, add_threshold)
+            
+            # Determine if this is a POI or E3L plot based on the titles or names
+            is_poi_plot = any(n in " ".join(names) for n in ["BTK", "SMARCA", "BRD4"])
+            
+            ncol = 1 if is_poi_plot else min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements))
+            
             ax.legend(
                 handles=legend_elements,
                 loc=legend_position,
-                ncol=min(self.CLS_LEGEND_NCOL_GRID_MAX, len(legend_elements)),
+                ncol=ncol,
                 fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
                 framealpha=self.CLS_LEGEND_FRAME_ALPHA,
                 frameon=self.CLS_LEGEND_FRAME_ON,
@@ -1039,3 +1049,263 @@ class POI_E3LPlotter(BasePlotter):
                 columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
                 handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
             )
+
+    def plot_single_model_grid(
+        self,
+        df,
+        model_type,
+        metric_type='RMSD',
+        add_threshold=True,
+        threshold_value=4.0,
+        width=CLS_SINGLE_MODEL_GRID_WIDTH,
+        height=None,
+        bar_width=CLS_DEFAULT_BAR_WIDTH,
+        save=False,
+        legend_position='lower right',
+        molecule_type="PROTAC",
+        debug=False,
+        x_lim=None
+    ):
+        """
+        Plot RMSD or DockQ for a single model's POIs and E3Ls in a 1x2 grid.
+        This creates a single model plot that is half the width of the combined plot.
+        
+        Args:
+            df: DataFrame with RMSD data
+            model_type: Model type to plot, e.g. 'AlphaFold3' or 'Boltz-1'
+            metric_type: 'RMSD' or 'DockQ'
+            add_threshold: Whether to add a threshold line
+            threshold_value: Value for the threshold line
+            width: Figure width (default is half of the combined grid width)
+            height: Figure height (calculated automatically if None)
+            bar_width: Width of the bars
+            save: Whether to save the figure
+            legend_position: Position for the legend
+            molecule_type: Type of molecule to filter by ('PROTAC' or 'MOLECULAR GLUE')
+            debug: Enable debugging output
+            x_lim: Optional tuple (min, max) to set fixed x-axis limits
+            
+        Returns:
+            matplotlib.figure.Figure: The created figure
+        """
+        # Enable debugging for this call if requested
+        self.debug = debug or self.debug
+        
+        # Prepare data for this model - using same helper as the combined grid
+        poi_data, e3l_data = self._prepare_combined_plot_data(
+            df=df,
+            model_types=[model_type],
+            metric_type=metric_type,
+            molecule_type=molecule_type
+        )
+        
+        if not poi_data or not e3l_data:
+            print(f"Error: No valid POI or E3L data found for model {model_type} after filtering")
+            return None
+        
+        # Find number of proteins for this model
+        poi_count = len(poi_data[model_type])
+        e3l_count = len(e3l_data[model_type])
+        
+        # Calculate proportional heights to maintain same bar thickness between POI and E3L plots
+        if poi_count > 0 and e3l_count > 0:
+            # Calculate the height ratio based strictly on the data point counts
+            height_ratio = [poi_count, e3l_count]
+            
+            # Calculate base figure height with tighter margins
+            total_data_points = poi_count + e3l_count
+            base_height = total_data_points * self.CLS_GRID_HEIGHT_CALC_FACTOR + self.CLS_GRID_HEIGHT_CALC_PADDING
+            
+            if height is None:
+                height = base_height
+        else:
+            height_ratio = [2, 1]  # Default ratio if we don't have data
+            if height is None:
+                height = self.CLS_GRID_DEFAULT_OVERALL_HEIGHT
+        
+        # If no x_lim provided, calculate from the data
+        if x_lim is None:
+            # Find data min and max
+            global_min = float('inf')
+            global_max = float('-inf')
+            
+            # Get min/max from POI data
+            for item in poi_data[model_type]:
+                metric_value = item['mean_metric']
+                error_value = item['std_metric']
+                global_min = min(global_min, metric_value - error_value if error_value else metric_value)
+                global_max = max(global_max, metric_value + error_value if error_value else metric_value)
+                
+            # Get min/max from E3L data
+            for item in e3l_data[model_type]:
+                metric_value = item['mean_metric']
+                error_value = item['std_metric']
+                global_min = min(global_min, metric_value - error_value if error_value else metric_value)
+                global_max = max(global_max, metric_value + error_value if error_value else metric_value)
+            
+            # Add a small padding to the global range
+            range_padding = (global_max - global_min) * self.CLS_GRID_X_AXIS_PADDING_FACTOR
+            global_min = max(0, global_min - range_padding)
+            global_max = global_max + range_padding
+            
+            x_lim = (global_min, global_max)
+        
+        # Create figure with 1x2 grid (POI on top, E3L on bottom)
+        fig = plt.figure(figsize=(width, height), constrained_layout=True)
+        
+        # Create GridSpec with proper height ratios and minimal spacing
+        gs = fig.add_gridspec(2, 1, height_ratios=height_ratio, hspace=self.CLS_GRID_HSPACE)
+        
+        # --- TOP ROW: POI PLOT ---
+        ax_poi = fig.add_subplot(gs[0, 0])
+        
+        # Get POI data for this model
+        poi_results = poi_data[model_type]
+        sorted_poi_results = sorted(poi_results, key=lambda x: x['mean_metric'], reverse=False)
+        
+        # Plot POI data
+        self._plot_grid_data(
+            ax=ax_poi,
+            data=sorted_poi_results,
+            color_map=self._get_color_map('POI', molecule_type),
+            add_threshold=add_threshold,
+            threshold_value=threshold_value,
+            bar_width=bar_width,
+            title=None,
+            legend_position=legend_position,
+            show_legend=True,
+            custom_legend_order=self._get_legend_order('POI', molecule_type)
+        )
+        
+        # Set x limits
+        ax_poi.set_xlim(x_lim)
+        
+        # Set y-label
+        ax_poi.set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
+                          labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+        ax_poi.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        
+        # No x-axis label for top row
+        ax_poi.set_xlabel('')
+        
+        # --- BOTTOM ROW: E3L PLOT ---
+        ax_e3l = fig.add_subplot(gs[1, 0])
+        
+        # Get E3L data for this model
+        e3l_results = e3l_data[model_type]
+        sorted_e3l_results = sorted(e3l_results, key=lambda x: x['mean_metric'], reverse=False)
+        
+        # Plot E3L data
+        self._plot_grid_data(
+            ax=ax_e3l,
+            data=sorted_e3l_results,
+            color_map=self._get_color_map('E3L', molecule_type),
+            add_threshold=add_threshold,
+            threshold_value=threshold_value,
+            bar_width=bar_width,
+            title=None,
+            legend_position=legend_position,
+            show_legend=True,
+            custom_legend_order=self._get_legend_order('E3L', molecule_type)
+        )
+        
+        # Set x limits
+        ax_e3l.set_xlim(x_lim)
+        
+        # Set y-label
+        ax_e3l.set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
+                          labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+        ax_e3l.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        
+        # Set x-axis label based on metric type
+        if metric_type == 'RMSD':
+            ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+        else:  # DockQ
+            ax_e3l.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+        
+        # Save figure if requested
+        if save:
+            metric_abbr = metric_type.lower()
+            model_abbr = model_type.lower().replace('-', '_')
+            filename = f"poi_e3l_single_{metric_abbr}_{model_abbr}"
+            self.save_plot(fig, filename)
+            
+        return fig
+        
+    def plot_all_model_grids(
+        self,
+        df,
+        model_types=['AlphaFold3', 'Boltz-1'],
+        metric_type='RMSD',
+        add_threshold=True,
+        threshold_value=4.0,
+        save=True,
+        legend_position='lower right',
+        molecule_type="PROTAC",
+        debug=False
+    ):
+        """
+        Create both a combined grid plot and individual plots for each model.
+        This method calls both plot_combined_grid and plot_single_model_grid.
+        
+        Args:
+            df: DataFrame with RMSD data
+            model_types: List of model types to include
+            metric_type: 'RMSD' or 'DockQ'
+            add_threshold: Whether to add a threshold line
+            threshold_value: Value for the threshold line
+            save: Whether to save the figures
+            legend_position: Position for the legend
+            molecule_type: Type of molecule to filter by
+            debug: Enable debugging output
+            
+        Returns:
+            tuple: (combined_fig, single_figs) - The created figures
+        """
+        # Enable debugging for this call if requested
+        self.debug = debug or self.debug
+        
+        # First create the combined plot to get the global x limits
+        combined_fig = self.plot_combined_grid(
+            df=df,
+            model_types=model_types,
+            metric_type=metric_type,
+            add_threshold=add_threshold,
+            threshold_value=threshold_value,
+            save=save,
+            legend_position=legend_position,
+            molecule_type=molecule_type,
+            debug=debug
+        )
+        
+        if combined_fig is None:
+            print("Error: Failed to create combined grid plot")
+            return None, []
+        
+        # Get the global x limits from the first subplot of the combined figure
+        axes = combined_fig.get_axes()
+        if axes:
+            global_xlim = axes[0].get_xlim()
+        else:
+            global_xlim = None
+        
+        # Create individual model plots using the same x limits
+        single_figs = []
+        for model_type in model_types:
+            single_fig = self.plot_single_model_grid(
+                df=df,
+                model_type=model_type,
+                metric_type=metric_type,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                save=save,
+                legend_position=legend_position,
+                molecule_type=molecule_type,
+                debug=debug,
+                x_lim=global_xlim
+            )
+            
+            if single_fig:
+                single_figs.append(single_fig)
+        
+        return combined_fig, single_figs
