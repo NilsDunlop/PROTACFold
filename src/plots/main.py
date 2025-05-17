@@ -30,6 +30,7 @@ class PlottingApp:
         self.df_af3 = None
         self.df_af3_agg = None
         self.df_boltz1 = None
+        self.df_boltz1_agg = None # New attribute for Boltz1 aggregated data
         
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
@@ -113,7 +114,11 @@ class PlottingApp:
         # Load Boltz1 results
         try:
             self.df_boltz1 = DataLoader.load_data('../../data/boltz1_results/boltz1_results.csv')
-            print("✓ Boltz1 data loaded successfully")
+            if self.df_boltz1 is not None:
+                self.df_boltz1_agg = DataLoader.aggregate_by_pdb_id(self.df_boltz1) # Aggregate Boltz1 data
+                print("✓ Boltz1 data loaded and aggregated successfully")
+            else:
+                print("Warning: Boltz1 data could not be loaded.")
             
             # Also try to load combined results if available
             try:
@@ -168,39 +173,68 @@ class PlottingApp:
             print(f"Could not open output folder: {e}")
     
     def plot_horizontal_bars(self):
-        """Generate horizontal bar plots with mean and standard deviation."""
+        """Generate horizontal bar plots with mean and standard deviation for AF3 and Boltz1."""
         if self.df_af3_agg is None:
             print("Error: AF3 aggregated data not loaded. Please load data first.")
+            # Optionally, check if Boltz1 data is available and proceed if only that is needed
+            # For now, we require AF3 for cutoffs.
             return
         
         # Get user input for plot parameters
         print("\nHorizontal Bar Plot Settings:")
         molecule_type = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
         
-        # Select cutoffs based on molecule type
+        # Select cutoffs based on molecule type (derived from AF3 data)
+        # These cutoffs will be used for both AF3 and Boltz1 plots for consistency
         cutoffs = self.cutoff_protac if molecule_type == "PROTAC" else self.cutoff_molecular_glue
+        if cutoffs is None:
+            print(f"Warning: Cutoffs for {molecule_type} are not defined. Plots might not be categorized correctly.")
+            # Potentially provide default cutoffs or handle this case more gracefully
+            # For now, proceed with None, which HorizontalBarPlotter might handle with defaults
         
         # Ask for threshold display
         add_threshold = input("Add threshold lines? (y/n) [y]: ").strip().lower() != 'n'
         
-        print("Generating horizontal bar plots...")
+        # Plot for AlphaFold3 data
+        print("\nGenerating AlphaFold3 horizontal bar plots...")
         try:
-            figs, axes = self.bar_plotter.plot_bars(
+            figs_af3, _ = self.bar_plotter.plot_bars(
                 self.df_af3_agg,
                 molecule_type=molecule_type,
                 classification_cutoff=cutoffs,
                 add_threshold=add_threshold,
-                threshold_values=[4, 0.23, 4],
+                threshold_values=[4, 0.23, 4], # Default thresholds for RMSD, DockQ, LRMSD
                 show_y_labels_on_all=True,
-                max_structures_per_plot=20,  # Fixed at 20 structures per plot
-                save=False  # We'll handle saving ourselves
+                max_structures_per_plot=20,
+                save=False, # Handled by self.save_plots
+                smiles_color=PlotConfig.SMILES_PRIMARY, # AF3 specific color
+                ccd_color=PlotConfig.CCD_PRIMARY # AF3 specific color
             )
-            
-            # Save the plots with appropriate naming
-            self.save_plots(figs, f"horizontal_bars_{molecule_type}")
-            
+            self.save_plots(figs_af3, f"horizontal_bars_af3_{molecule_type.replace(' ', '_').lower()}")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error generating AlphaFold3 horizontal bar plots: {e}")
+
+        # Plot for Boltz1 data if available
+        if self.df_boltz1_agg is not None:
+            print("\nGenerating Boltz1 horizontal bar plots...")
+            try:
+                figs_boltz1, _ = self.bar_plotter.plot_bars(
+                    self.df_boltz1_agg,
+                    molecule_type=molecule_type,
+                    classification_cutoff=cutoffs, # Use same cutoffs as AF3
+                    add_threshold=add_threshold,
+                    threshold_values=[4, 0.23, 4], # Default thresholds
+                    show_y_labels_on_all=True,
+                    max_structures_per_plot=20,
+                    save=False, # Handled by self.save_plots
+                    smiles_color=PlotConfig.BOLTZ1_SMILES_COLOR, # Boltz1 specific color
+                    ccd_color=PlotConfig.BOLTZ1_CCD_COLOR # Boltz1 specific color
+                )
+                self.save_plots(figs_boltz1, f"horizontal_bars_boltz1_{molecule_type.replace(' ', '_').lower()}")
+            except Exception as e:
+                print(f"Error generating Boltz1 horizontal bar plots: {e}")
+        else:
+            print("\nSkipping Boltz1 horizontal bar plots: Boltz1 aggregated data not loaded.")
     
     def plot_rmsd_horizontal_bars(self):
         """Generate RMSD, iRMSD, LRMSD horizontal bar plots."""

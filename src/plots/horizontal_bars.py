@@ -25,7 +25,9 @@ class HorizontalBarPlotter(BasePlotter):
                 show_y_labels_on_all=False, width=10, height=None, 
                 save=False, max_structures_per_plot=20,
                 binary_plot_width: float | None = 4, # New parameter for binary plot width
-                binary_title_fontsize: float | None = None # New parameter for binary plot title font size
+                binary_title_fontsize: float | None = None, # New parameter for binary plot title font size
+                smiles_color: str | None = None, # New parameter for SMILES bar color
+                ccd_color: str | None = None # New parameter for CCD bar color
                 ):
         """
         Create horizontal bar plots for different metrics, grouped by category.
@@ -45,6 +47,8 @@ class HorizontalBarPlotter(BasePlotter):
             max_structures_per_plot: Maximum number of structures to show in a single plot
             binary_plot_width: Optional width for the binary plot. Defaults to general `width` if None.
             binary_title_fontsize: Optional font size for the binary plot title. Defaults to PlotConfig.TITLE_SIZE if None.
+            smiles_color: Optional color for SMILES bars. Defaults to PlotConfig.SMILES_PRIMARY.
+            ccd_color: Optional color for CCD bars. Defaults to PlotConfig.CCD_PRIMARY.
             
         Returns:
             Lists of created figures and axes
@@ -131,7 +135,9 @@ class HorizontalBarPlotter(BasePlotter):
                 height, 
                 save, 
                 current_binary_title_fontsize, 
-                all_figures, all_axes
+                all_figures, all_axes,
+                smiles_color=smiles_color,
+                ccd_color=ccd_color
             )
         
         for category_plot_label in plotting_category_labels_for_ternary: 
@@ -150,7 +156,9 @@ class HorizontalBarPlotter(BasePlotter):
                 add_threshold, threshold_values, 
                 width, height, show_y_labels_on_all, save,
                 max_structures_per_plot, all_figures, all_axes,
-                last_category_label_for_ternary # Pass the last category label
+                last_category_label_for_ternary,
+                smiles_color=smiles_color,
+                ccd_color=ccd_color
             )
         
         return all_figures, all_axes
@@ -158,7 +166,10 @@ class HorizontalBarPlotter(BasePlotter):
     def _create_compact_binary_plots(self, binary_df, category_title, 
                                     rmsd_metric, add_threshold, threshold_value, 
                                     width, height, save, title_fontsize,
-                                    all_figures, all_axes):
+                                    all_figures, all_axes,
+                                    smiles_color: str | None = None,
+                                    ccd_color: str | None = None
+                                    ):
         """
         Create a single compact plot for all binary structures, sorted by RMSD.
         Higher RMSD values are at the top.
@@ -174,9 +185,14 @@ class HorizontalBarPlotter(BasePlotter):
             save: Whether to save the figure
             title_fontsize: Font size for the plot title.
             all_figures, all_axes: Lists to append the created figures and axes to
+            smiles_color: Optional color for SMILES bars.
+            ccd_color: Optional color for CCD bars.
         """
         if len(binary_df) == 0:
             return
+
+        current_smiles_color = smiles_color if smiles_color else PlotConfig.SMILES_PRIMARY
+        current_ccd_color = ccd_color if ccd_color else PlotConfig.CCD_PRIMARY
 
         smiles_col, ccd_col, axis_label = rmsd_metric
         sort_col = f"{ccd_col}_mean" # Sort by CCD RMSD mean
@@ -226,7 +242,7 @@ class HorizontalBarPlotter(BasePlotter):
         # Capture the bar container for SMILES bars
         smiles_container = ax.barh(
             y_positions + smiles_offset, smiles_values, height=BAR_HEIGHT,
-            color=PlotConfig.SMILES_PRIMARY, edgecolor='black', 
+            color=current_smiles_color, edgecolor='black', 
             linewidth=0.5, xerr=smiles_xerr,
             error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
         )
@@ -235,7 +251,7 @@ class HorizontalBarPlotter(BasePlotter):
         # Capture the bar container for CCD bars
         ccd_container = ax.barh(
             y_positions + ccd_offset, ccd_values, height=BAR_HEIGHT,
-            color=PlotConfig.CCD_PRIMARY, edgecolor='black', 
+            color=current_ccd_color, edgecolor='black', 
             linewidth=0.5, xerr=ccd_xerr,
             error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
         )
@@ -297,7 +313,10 @@ class HorizontalBarPlotter(BasePlotter):
                                add_threshold, threshold_values, 
                                width, height, show_y_labels_on_all, save,
                                max_structures_per_plot, all_figures, all_axes,
-                               last_category_label_for_ternary): # New parameter
+                               last_category_label_for_ternary,
+                               smiles_color: str | None = None,
+                               ccd_color: str | None = None
+                               ):
         """
         Create paginated plots for a category with many structures.
         
@@ -314,6 +333,8 @@ class HorizontalBarPlotter(BasePlotter):
             max_structures_per_plot: Maximum number of structures per plot
             all_figures, all_axes: Lists to append the created figures and axes to
             last_category_label_for_ternary: The label string of the last ternary category.
+            smiles_color: Optional color for SMILES bars.
+            ccd_color: Optional color for CCD bars.
         """
         # If the number of structures is small, create a single plot
         if len(df) <= max_structures_per_plot:
@@ -322,7 +343,9 @@ class HorizontalBarPlotter(BasePlotter):
                 add_threshold, threshold_values, 
                 width, height, show_y_labels_on_all, save,
                 all_figures, all_axes,
-                last_category_label_for_ternary=last_category_label_for_ternary # Pass down
+                last_category_label_for_ternary=last_category_label_for_ternary,
+                smiles_color=smiles_color,
+                ccd_color=ccd_color
             )
             return
         
@@ -344,7 +367,9 @@ class HorizontalBarPlotter(BasePlotter):
                 width, height, show_y_labels_on_all, save,
                 all_figures, all_axes,
                 filename_with_page=page_title_with_info,
-                last_category_label_for_ternary=last_category_label_for_ternary # Pass down
+                last_category_label_for_ternary=last_category_label_for_ternary,
+                smiles_color=smiles_color,
+                ccd_color=ccd_color
             )
     
     def _create_category_plot(self, category_df, category_title, metrics, 
@@ -352,7 +377,10 @@ class HorizontalBarPlotter(BasePlotter):
                              width, height, show_y_labels_on_all, save,
                              all_figures, all_axes,
                              filename_with_page=None,
-                             last_category_label_for_ternary=None): # New parameter
+                             last_category_label_for_ternary=None,
+                             smiles_color: str | None = None,
+                             ccd_color: str | None = None
+                             ):
         """
         Create a plot for a specific category of structures.
         
@@ -369,6 +397,8 @@ class HorizontalBarPlotter(BasePlotter):
             all_figures, all_axes: Lists to append the created figure and axes to
             filename_with_page: If provided, use this for generating filenames with page info
             last_category_label_for_ternary: The label string of the last ternary category.
+            smiles_color: Optional color for SMILES bars.
+            ccd_color: Optional color for CCD bars.
         """
         if len(category_df) == 0:
             return
@@ -406,12 +436,14 @@ class HorizontalBarPlotter(BasePlotter):
         ccd_offset = BAR_HEIGHT/2 + BAR_SPACING/2
         
         # Create legend handles
+        current_smiles_color = smiles_color if smiles_color else PlotConfig.SMILES_PRIMARY
+        current_ccd_color = ccd_color if ccd_color else PlotConfig.CCD_PRIMARY
         smiles_handle = plt.Rectangle((0, 0), 1, 1, 
-                                     facecolor=PlotConfig.SMILES_PRIMARY, 
+                                     facecolor=current_smiles_color, 
                                      edgecolor='black', linewidth=0.5, 
                                      label='Ligand SMILES')
         ccd_handle = plt.Rectangle((0, 0), 1, 1, 
-                                  facecolor=PlotConfig.CCD_PRIMARY, 
+                                  facecolor=current_ccd_color, 
                                   edgecolor='black', linewidth=0.5, 
                                   label='Ligand CCD')
         legend_handles = [ccd_handle, smiles_handle]
@@ -446,14 +478,14 @@ class HorizontalBarPlotter(BasePlotter):
                 if any(smiles_mask):
                     ax.barh(
                         smiles_y[smiles_mask], smiles_values[smiles_mask], height=BAR_HEIGHT,
-                        color=PlotConfig.SMILES_PRIMARY, edgecolor='black', 
+                        color=current_smiles_color, edgecolor='black', 
                         linewidth=0.5, xerr=smiles_xerr[smiles_mask],
                         error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
                     )
             else:
                 ax.barh(
                     smiles_y, smiles_values, height=BAR_HEIGHT,
-                    color=PlotConfig.SMILES_PRIMARY, edgecolor='black', 
+                    color=current_smiles_color, edgecolor='black', 
                     linewidth=0.5, xerr=smiles_xerr,
                     error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
                 )
@@ -468,14 +500,14 @@ class HorizontalBarPlotter(BasePlotter):
                 if any(ccd_mask):
                     ax.barh(
                         ccd_y[ccd_mask], ccd_values[ccd_mask], height=BAR_HEIGHT,
-                        color=PlotConfig.CCD_PRIMARY, edgecolor='black', 
+                        color=current_ccd_color, edgecolor='black', 
                         linewidth=0.5, xerr=ccd_xerr[ccd_mask],
                         error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
                     )
             else:
                 ax.barh(
                     ccd_y, ccd_values, height=BAR_HEIGHT,
-                    color=PlotConfig.CCD_PRIMARY, edgecolor='black', 
+                    color=current_ccd_color, edgecolor='black', 
                     linewidth=0.5, xerr=ccd_xerr,
                     error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}
                 )
@@ -519,7 +551,10 @@ class HorizontalBarPlotter(BasePlotter):
             ax.tick_params(axis='both', which='major', labelsize=TICK_LABEL_FONTSIZE)
             
             # Set axis limits
-            ax.set_xlim(0.0)
+            if "DockQ" in axis_label:
+                ax.set_xlim(0.0, 1.10)
+            else:
+                ax.set_xlim(0.0) # Keep lower bound at 0 for other plots
             ax.set_ylim(-0.5, len(category_df) - 0.5)
         
         # Add legend to the first subplot (RMSD plot) only if it's NOT the last category plot
