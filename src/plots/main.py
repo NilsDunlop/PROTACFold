@@ -47,8 +47,8 @@ class PlottingApp:
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
         self.cutoff_molecular_glue = None
-        self.cutoff_ptm_protac = None
-        self.cutoff_ptm_molecular_glue = None
+        self.cutoff_ptm_protac = None # This is for the categorization logic, not directly the threshold line
+        self.cutoff_ptm_molecular_glue = None # This is for the categorization logic, not directly the threshold line
         
         # Set up output directory
         self.output_dir = os.path.abspath('../../data/plots')
@@ -285,49 +285,95 @@ class PlottingApp:
             traceback.print_exc()
     
     def plot_ptm_bars(self):
-        """Generate pTM and ipTM horizontal bar plots."""
-        if self.df_af3_agg is None:
-            print("Error: AF3 aggregated data not loaded. Please load data first.")
+        """Generate pTM and ipTM horizontal bar plots for AF3 and optionally Boltz1 data."""
+        if self.df_af3_agg is None and self.df_boltz1_agg is None:
+            print("Error: No aggregated data (AF3 or Boltz1) loaded. Please load data first.")
             return
         
-        # Get user input for plot parameters
-        print("\npTM Plot Settings:")
+        print("\npTM/ipTM Plot Settings:")
         molecule_type = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
         
-        # Select cutoffs based on molecule type
-        cutoffs = self.cutoff_ptm_protac if molecule_type == "PROTAC" else self.cutoff_ptm_molecular_glue
-        
-        # Ask for threshold display
-        add_threshold = input("Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
-        threshold_value = 0.5
+        add_threshold = input("Add threshold lines? (y/n) [y]: ").strip().lower() != 'n'
+        ptm_threshold_val = 0.5
+        iptm_threshold_val = 0.6 
+
         if add_threshold:
-            threshold_input = input("Threshold value [0.5]: ").strip()
-            if threshold_input:
-                threshold_value = float(threshold_input)
-        
-        # Max structure per plot
-        max_structures = 15
-        
-        print("Generating pTM and ipTM plots...")
+            ptm_threshold_input = input(f"PTM threshold value [{ptm_threshold_val}]: ").strip()
+            if ptm_threshold_input:
+                try:
+                    ptm_threshold_val = float(ptm_threshold_input)
+                except ValueError:
+                    print(f"Invalid PTM threshold value. Using default: {ptm_threshold_val}")
+            
+            iptm_threshold_input = input(f"ipTM threshold value [{iptm_threshold_val}]: ").strip()
+            if iptm_threshold_input:
+                try:
+                    iptm_threshold_val = float(iptm_threshold_input)
+                except ValueError:
+                    print(f"Invalid ipTM threshold value. Using default: {iptm_threshold_val}")
+
+        max_structures_input = input("Max structures per plot page [17]: ").strip()
         try:
-            figs, axes = self.ptm_plotter.plot_ptm_bars(
-                self.df_af3_agg,
-                molecule_type=molecule_type,
-                classification_cutoff=cutoffs,
-                add_threshold=add_threshold,
-                threshold_value=threshold_value,
-                show_y_labels_on_all=True,
-                max_structures_per_plot=max_structures,
-                save=False
-            )
+            max_structures = int(max_structures_input) if max_structures_input else 17
+        except ValueError:
+            print("Invalid number for max structures. Using default: 17")
+            max_structures = 17
+        
+        # Plot for AlphaFold3 data
+        if self.df_af3_agg is not None:
+            print("\nGenerating AlphaFold3 pTM and ipTM plots...")
+            try:
+                figs_af3, _ = self.ptm_plotter.plot_ptm_bars(
+                    self.df_af3_agg,
+                    molecule_type=molecule_type,
+                    data_source="af3",
+                    add_threshold=add_threshold,
+                    ptm_threshold_value=ptm_threshold_val,
+                    iptm_threshold_value=iptm_threshold_val,
+                    show_y_labels_on_all=True,
+                    max_structures_per_plot=max_structures,
+                    save=False 
+                )
+                
+                if figs_af3:
+                    self.save_plots(figs_af3, f"af3_ptm_iptm_comparison_{molecule_type.replace(' ', '_').lower()}")
+                else:
+                    print(f"No AlphaFold3 PTM/ipTM plots were generated for {molecule_type}.")
+                
+            except Exception as e:
+                print(f"Error during AlphaFold3 PTM/ipTM plot generation: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("\nSkipping AlphaFold3 pTM/ipTM plots: AF3 aggregated data not loaded.")
+
+        # Plot for Boltz1 data
+        if self.df_boltz1_agg is not None:
+            print("\nGenerating Boltz1 pTM and ipTM plots...")
+            try:
+                figs_boltz1, _ = self.ptm_plotter.plot_ptm_bars(
+                    self.df_boltz1_agg,
+                    molecule_type=molecule_type,
+                    data_source="boltz1",
+                    add_threshold=add_threshold,
+                    ptm_threshold_value=ptm_threshold_val,
+                    iptm_threshold_value=iptm_threshold_val,
+                    show_y_labels_on_all=True,
+                    max_structures_per_plot=max_structures,
+                    save=False
+                )
+                
+                if figs_boltz1:
+                    self.save_plots(figs_boltz1, f"boltz1_ptm_iptm_comparison_{molecule_type.replace(' ', '_').lower()}")
+                else:
+                    print(f"No Boltz1 PTM/ipTM plots were generated for {molecule_type}.")
             
-            # Save the plots with appropriate naming
-            self.save_plots(figs, f"ptm_iptm_comparison_{molecule_type}")
-            
-        except Exception as e:
-            print(f"Error: {e}")
-            import traceback
-            traceback.print_exc()
+            except Exception as e:
+                print(f"Error during Boltz1 PTM/ipTM plot generation: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("\nSkipping Boltz1 pTM/ipTM plots: Boltz1 aggregated data not loaded.")
     
     def plot_comparison(self, comparison_type="boltz1"):
         """
