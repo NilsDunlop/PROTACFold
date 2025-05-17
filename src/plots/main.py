@@ -13,6 +13,7 @@ from comparison_plotter import ComparisonPlotter
 from training_cutoff_plotter import TrainingCutoffPlotter
 from poi_e3l_plotter import POI_E3LPlotter
 from property_plotter import PropertyPlotter
+from rmsd_complex_isolated import RMSDComplexIsolatedPlotter
 from utils import categorize_by_cutoffs
 
 class PlottingApp:
@@ -31,6 +32,7 @@ class PlottingApp:
         self.df_af3_agg = None
         self.df_boltz1 = None
         self.df_boltz1_agg = None # New attribute for Boltz1 aggregated data
+        self.df_combined = None # Ensure df_combined is initialized
         
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
@@ -40,6 +42,7 @@ class PlottingApp:
         self.training_cutoff_plotter = TrainingCutoffPlotter()
         self.poi_e3l_plotter = POI_E3LPlotter()
         self.property_plotter = PropertyPlotter()
+        self.rmsd_complex_isolated_plotter = RMSDComplexIsolatedPlotter()
         
         # Set up cutoffs (will be calculated after data load)
         self.cutoff_protac = None
@@ -950,6 +953,84 @@ class PlottingApp:
             import traceback
             traceback.print_exc()
 
+    def plot_rmsd_complex_isolated(self):
+        """Generate RMSD plots for complex, POI, and E3 components."""
+        if not hasattr(self, 'df_combined') or self.df_combined is None:
+            print("\nError: Combined results data not found.")
+            print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
+            print("This file should contain MODEL_TYPE, MOLECULE_TYPE/TYPE, and relevant RMSD columns:")
+            print("CCD_RMSD, CCD_POI_RMSD, CCD_E3_RMSD, SMILES_RMSD, SMILES_POI_RMSD, SMILES_E3_RMSD")
+            return
+
+        print("\nRMSD Complex/Isolated Components Plot Settings:")
+        
+        # Determine which molecule type column is available
+        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in self.df_combined.columns else 'TYPE'
+        default_molecule_type = "PROTAC"
+        if molecule_type_col in self.df_combined.columns:
+            available_molecule_types = sorted(self.df_combined[molecule_type_col].unique())
+            if not available_molecule_types:
+                 available_molecule_types = ["PROTAC", "Molecular Glue"] # fallback
+            default_molecule_type = "PROTAC" if "PROTAC" in available_molecule_types else available_molecule_types[0]
+            print(f"Available molecule types: {', '.join(available_molecule_types)}")
+        else:
+            available_molecule_types = ["PROTAC", "Molecular Glue"]
+            print(f"Warning: Molecule type column ('{molecule_type_col}') not found. Using default types.")
+
+        molecule_type_input = input(f"Molecule type ({'/'.join(available_molecule_types)}) [{default_molecule_type}]: ").strip() or default_molecule_type
+        if molecule_type_input not in available_molecule_types:
+            print(f"Invalid molecule type. Using default: {default_molecule_type}")
+            molecule_type = default_molecule_type
+        else:
+            molecule_type = molecule_type_input
+            
+        add_threshold_input = input(f"Add threshold line at {RMSDComplexIsolatedPlotter.DEFAULT_RMSD_THRESHOLD} Å? (y/n) [y]: ").strip().lower()
+        add_threshold = add_threshold_input != 'n'
+        threshold_value = RMSDComplexIsolatedPlotter.DEFAULT_RMSD_THRESHOLD
+
+        model_types_to_plot = ['AlphaFold3', 'Boltz1'] # Or filter based on available in df_combined
+
+        for model_type in model_types_to_plot:
+            if model_type not in self.df_combined['MODEL_TYPE'].unique():
+                print(f"Skipping {model_type}: not found in df_combined['MODEL_TYPE'].")
+                continue
+
+            print(f"\nGenerating plots for {model_type}, {molecule_type}...")
+            for input_type in ['CCD', 'SMILES']:
+                print(f"  Generating aggregated plot for {input_type}...")
+                agg_fig, _ = self.rmsd_complex_isolated_plotter.plot_aggregated_rmsd_components(
+                    df=self.df_combined,
+                    model_type=model_type,
+                    molecule_type=molecule_type,
+                    input_type=input_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False
+                )
+                if agg_fig:
+                    filename_agg = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd_components"
+                    self.save_plots([agg_fig], filename_agg)
+                else:
+                    print(f"    Failed to generate aggregated plot for {model_type} {input_type}.")
+
+                print(f"  Generating per-PDB plots for {input_type}...")
+                perpdb_figs, _ = self.rmsd_complex_isolated_plotter.plot_per_pdb_rmsd_components(
+                    df=self.df_combined,
+                    model_type=model_type,
+                    molecule_type=molecule_type,
+                    input_type=input_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False
+                )
+                if perpdb_figs:
+                    filename_perpdb_base = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd_components"
+                    # save_plots handles adding page numbers if multiple figures
+                    self.save_plots(perpdb_figs, filename_perpdb_base)
+                else:
+                    print(f"    Failed to generate per-PDB plots for {model_type} {input_type}.")
+        print("\nRMSD Complex/Isolated component plots generation complete.")
+
     def display_menu(self):
         """Display the main menu."""
         print("\n" + "="*50)
@@ -964,6 +1045,7 @@ class PlottingApp:
         print("6. POI and E3L Analysis")
         print("7. Property vs LRMSD Analysis")
         print("8. Generate All Plot Types")
+        print("9. RMSD Complex/Isolated Components")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -998,6 +1080,7 @@ class PlottingApp:
                 self.plot_training_cutoff()
                 self.plot_poi_e3l_rmsd()
                 self.plot_property_vs_lrmsd()
+                self.plot_rmsd_complex_isolated()
                 continue
             
             # Process comma-separated choices
@@ -1020,6 +1103,8 @@ class PlottingApp:
                     self.plot_poi_e3l_rmsd()
                 elif plot_choice == '7':
                     self.plot_property_vs_lrmsd()
+                elif plot_choice == '9':
+                    self.plot_rmsd_complex_isolated()
                 elif not plot_choice:
                     continue
                 else:
