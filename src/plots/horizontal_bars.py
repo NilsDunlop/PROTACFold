@@ -214,7 +214,7 @@ class HorizontalBarPlotter(BasePlotter):
             plot_height_val = max(4, 1.5 + n_structures * structure_height_per_entry) # Min height 4, 1.5 for margins/title
             # Ensure height is not excessively large if few structures
             if n_structures < 5: # Adjust this threshold as needed
-                 plot_height_val = max(plot_height_val, 8) # Ensure a reasonable minimum for few entries
+                 plot_height_val = max(plot_height_val, 4) # Ensure a reasonable minimum for few entries
 
 
         fig, ax = plt.subplots(1, 1, figsize=(width, plot_height_val))
@@ -419,7 +419,7 @@ class HorizontalBarPlotter(BasePlotter):
             # Calculate height based on number of structures and bar height
             # Each structure needs space for two bars (SMILES and CCD) with spacing
             structure_height = 2 * BAR_HEIGHT + BAR_SPACING
-            plot_height = max(8, 1.5 + n_pdbs * structure_height)
+            plot_height = max(4, 1.5 + n_pdbs * structure_height)
         
         fig, axes = plt.subplots(1, n_metrics, figsize=(width, plot_height), 
                                  sharey=not show_y_labels_on_all)

@@ -566,9 +566,9 @@ class POI_E3LPlotter(BasePlotter):
         
         # Set appropriate x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         else:  # DockQ
-            ax.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Add grid
         ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
@@ -845,9 +845,9 @@ class POI_E3LPlotter(BasePlotter):
                 
             # Set x-axis label based on metric type
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
             else:  # DockQ
-                ax_e3l.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Set consistent x-axis limits for all subplots
         for ax in all_axes:
@@ -1219,9 +1219,9 @@ class POI_E3LPlotter(BasePlotter):
         
         # Set x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax_e3l.set_xlabel('Mean RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         else:  # DockQ
-            ax_e3l.set_xlabel('Mean DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
         
         # Save figure if requested
         if save:
