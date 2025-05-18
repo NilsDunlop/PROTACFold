@@ -279,8 +279,8 @@ class RMSDPlotter(BasePlotter):
             legend_handles_ccd.append(threshold_line_ccd)
         
         # Set axis labels and titles
-        ax_smiles.set_xlabel('Distance (Å)')
-        ax_ccd.set_xlabel('Distance (Å)')
+        ax_smiles.set_xlabel('RMSD (Å)')
+        ax_ccd.set_xlabel('RMSD (Å)')
         ax_smiles.set_title('SMILES')  # Simplified title
         ax_ccd.set_title('CCD')  # Simplified title
         
