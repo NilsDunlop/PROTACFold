@@ -77,8 +77,6 @@ class HorizontalBarPlotter(BasePlotter):
         if final_classification_cutoff is None:
             final_classification_cutoff = [2.0, 4.0, 6.0, 8.0]
             print("Warning: No classification cutoffs provided to horizontal_bars.py. Using default cutoffs. This should not happen if main.py is working correctly.")
-        else:
-            print(f"✓ horizontal_bars.py received cutoffs: {[f'{c:.3f}' for c in final_classification_cutoff]}")
         
         df_filtered = df_agg[df_agg['TYPE'] == molecule_type].copy()
         
@@ -97,13 +95,13 @@ class HorizontalBarPlotter(BasePlotter):
             df_filtered, 'CCD_RMSD_mean', final_classification_cutoff, 'Category'
         )
         
-        # Use the determined final_classification_cutoff for labels
+        # Get the actual category labels created by categorize_by_cutoffs (they use .2f formatting)
         category_labels = [
-            f"< {final_classification_cutoff[0]:.1f}",
-            f"{final_classification_cutoff[0]:.1f} - {final_classification_cutoff[1]:.1f}",
-            f"{final_classification_cutoff[1]:.1f} - {final_classification_cutoff[2]:.1f}",
-            f"{final_classification_cutoff[2]:.1f} - {final_classification_cutoff[3]:.1f}",
-            f"> {final_classification_cutoff[3]:.1f}"
+            f"< {final_classification_cutoff[0]:.2f}",
+            f"{final_classification_cutoff[0]:.2f} - {final_classification_cutoff[1]:.2f}",
+            f"{final_classification_cutoff[1]:.2f} - {final_classification_cutoff[2]:.2f}",
+            f"{final_classification_cutoff[2]:.2f} - {final_classification_cutoff[3]:.2f}",
+            f"> {final_classification_cutoff[3]:.2f}"
         ]
 
         # Merge the first category into the second for ternary plots
