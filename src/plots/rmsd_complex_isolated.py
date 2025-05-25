@@ -343,8 +343,9 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 n_pdbs_on_page = len(page_data_agg)
                 
                 # Dynamic height calculation considering inter-group spacing
-                num_components = len(component_cols)
-                height_of_one_pdb_bar_group = num_components * self.BAR_HEIGHT_HORIZONTAL + (num_components - 1) * self.BAR_SPACING_HORIZONTAL
+                # Changed: Now we have 2 bar groups per PDB (Complex + POI/E3 stacked)
+                num_bar_groups_per_pdb = 2  # Complex bar + POI/E3 stacked bar
+                height_of_one_pdb_bar_group = num_bar_groups_per_pdb * self.BAR_HEIGHT_HORIZONTAL + (num_bar_groups_per_pdb - 1) * self.BAR_SPACING_HORIZONTAL
                 total_bar_group_height_all_pdbs = n_pdbs_on_page * height_of_one_pdb_bar_group
                 total_inter_group_spacing = (n_pdbs_on_page - 1) * self.PDB_INTER_GROUP_SPACING if n_pdbs_on_page > 0 else 0
                 plot_height = max(5, 1.5 + total_bar_group_height_all_pdbs + total_inter_group_spacing) # 1.5 for margins
@@ -367,31 +368,69 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
 
                 max_rmsd_on_page = 0
 
-                for i, (col, color, label) in enumerate(zip(component_cols, component_colors, component_labels)):
-                    # y_offsets are relative to y_pos_base, using BAR_SPACING_HORIZONTAL for within-group spacing
-                    y_offsets = y_pos_base + i * (self.BAR_HEIGHT_HORIZONTAL + self.BAR_SPACING_HORIZONTAL)
-                    
-                    mean_col_name = f"{col}_mean"
-                    std_col_name = f"{col}_std"
-                    count_col_name = f"{col}_count"
-                    
-                    values = page_data_agg[mean_col_name].fillna(0).values if mean_col_name in page_data_agg else np.zeros(n_pdbs_on_page)
-                    stds = page_data_agg[std_col_name].fillna(0).values if std_col_name in page_data_agg else np.zeros(n_pdbs_on_page)
-                    counts = page_data_agg[count_col_name].fillna(1).values if count_col_name in page_data_agg else np.ones(n_pdbs_on_page)
-                    
-                    # Calculate standard error: std / sqrt(count). Ensure counts are not zero.
-                    # np.errstate handles division by zero if any count is 0 (though fillna(1) avoids this for count).
-                    with np.errstate(divide='ignore', invalid='ignore'):
-                        x_errors = stds / np.sqrt(counts)
-                    x_errors = np.nan_to_num(x_errors) # Replace NaN (e.g. from count=1 -> std=NaN) with 0
+                # Extract component information
+                complex_col, poi_col, e3_col = component_cols[0], component_cols[1], component_cols[2]
+                complex_color, poi_color, e3_color = component_colors[0], component_colors[1], component_colors[2]
+                complex_label, poi_label, e3_label = component_labels[0], component_labels[1], component_labels[2]
 
-                    ax.barh(y_offsets, values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=x_errors,
-                            facecolor=color, edgecolor='black', linewidth=0.5, label=label if page_num ==1 and i==0 else None, 
-                            error_kw={'ecolor': 'black', 'capsize': 2, 'alpha':0.7})
-                    
-                    current_max = np.nanmax(values + x_errors) if len(values) > 0 else 0 # Consider error for max value
-                    if current_max > max_rmsd_on_page:
-                        max_rmsd_on_page = current_max
+                # Calculate y positions for the two bar groups per PDB
+                y_pos_complex = y_pos_base  # First bar group: Complex RMSD
+                y_pos_stacked = y_pos_base + (self.BAR_HEIGHT_HORIZONTAL + self.BAR_SPACING_HORIZONTAL)  # Second bar group: POI+E3 stacked
+
+                # Get values for all three components
+                complex_mean_col = f"{complex_col}_mean"
+                poi_mean_col = f"{poi_col}_mean"
+                e3_mean_col = f"{e3_col}_mean"
+                complex_std_col = f"{complex_col}_std"
+                poi_std_col = f"{poi_col}_std"
+                e3_std_col = f"{e3_col}_std"
+                complex_count_col = f"{complex_col}_count"
+                poi_count_col = f"{poi_col}_count"
+                e3_count_col = f"{e3_col}_count"
+
+                # Extract values and calculate errors
+                complex_values = page_data_agg[complex_mean_col].fillna(0).values if complex_mean_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                poi_values = page_data_agg[poi_mean_col].fillna(0).values if poi_mean_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                e3_values = page_data_agg[e3_mean_col].fillna(0).values if e3_mean_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                
+                complex_stds = page_data_agg[complex_std_col].fillna(0).values if complex_std_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                poi_stds = page_data_agg[poi_std_col].fillna(0).values if poi_std_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                e3_stds = page_data_agg[e3_std_col].fillna(0).values if e3_std_col in page_data_agg else np.zeros(n_pdbs_on_page)
+                
+                complex_counts = page_data_agg[complex_count_col].fillna(1).values if complex_count_col in page_data_agg else np.ones(n_pdbs_on_page)
+                poi_counts = page_data_agg[poi_count_col].fillna(1).values if poi_count_col in page_data_agg else np.ones(n_pdbs_on_page)
+                e3_counts = page_data_agg[e3_count_col].fillna(1).values if e3_count_col in page_data_agg else np.ones(n_pdbs_on_page)
+
+                # Calculate standard errors
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    complex_x_errors = complex_stds / np.sqrt(complex_counts)
+                    poi_x_errors = poi_stds / np.sqrt(poi_counts)
+                    e3_x_errors = e3_stds / np.sqrt(e3_counts)
+                complex_x_errors = np.nan_to_num(complex_x_errors)
+                poi_x_errors = np.nan_to_num(poi_x_errors)
+                e3_x_errors = np.nan_to_num(e3_x_errors)
+
+                # Plot Complex RMSD (single horizontal bar)
+                ax.barh(y_pos_complex, complex_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=complex_x_errors,
+                        facecolor=complex_color, edgecolor='black', linewidth=0.5, label=complex_label if page_num == 1 else None,
+                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+
+                # Plot POI RMSD (base of stacked bar)
+                ax.barh(y_pos_stacked, poi_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=poi_x_errors,
+                        facecolor=poi_color, edgecolor='black', linewidth=0.5, label=poi_label if page_num == 1 else None,
+                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+
+                # Plot E3 RMSD (stacked on top of POI)
+                ax.barh(y_pos_stacked, e3_values, left=poi_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=e3_x_errors,
+                        facecolor=e3_color, edgecolor='black', linewidth=0.5, label=e3_label if page_num == 1 else None,
+                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+
+                # Update max RMSD considering all components
+                complex_max = np.nanmax(complex_values + complex_x_errors) if len(complex_values) > 0 else 0
+                poi_max = np.nanmax(poi_values + poi_x_errors) if len(poi_values) > 0 else 0
+                e3_max = np.nanmax(e3_values + e3_x_errors) if len(e3_values) > 0 else 0
+                stacked_max = np.nanmax((poi_values + e3_values) + np.sqrt(poi_x_errors**2 + e3_x_errors**2)) if len(poi_values) > 0 else 0
+                max_rmsd_on_page = max(complex_max, stacked_max)
                 
                 ax.set_xlabel(f'RMSD (Å)', fontsize=self.PER_PDB_AXIS_LABEL_FONT_SIZE, fontweight='bold')
                 ax.set_ylabel('PDB Identifier', fontsize=self.PER_PDB_AXIS_LABEL_FONT_SIZE, fontweight='bold')
@@ -403,9 +442,13 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
 
                 # Legend
                 handles, labels_legend = [], []
-                for i, (col, color, label_text) in enumerate(zip(component_cols, component_colors, component_labels)):
-                     handles.append(plt.Rectangle((0,0),1,1, facecolor=color, edgecolor='black', linewidth=0.5))
-                     labels_legend.append(label_text)
+                # Add legend entries for all three components
+                handles.append(plt.Rectangle((0,0),1,1, facecolor=complex_color, edgecolor='black', linewidth=0.5))
+                labels_legend.append(complex_label)
+                handles.append(plt.Rectangle((0,0),1,1, facecolor=poi_color, edgecolor='black', linewidth=0.5))
+                labels_legend.append(poi_label)
+                handles.append(plt.Rectangle((0,0),1,1, facecolor=e3_color, edgecolor='black', linewidth=0.5))
+                labels_legend.append(e3_label)
 
                 current_threshold_value = threshold_value if threshold_value is not None else self.DEFAULT_RMSD_THRESHOLD
                 if add_threshold:
