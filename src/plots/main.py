@@ -65,19 +65,17 @@ class PlottingApp:
             self.df_af3_agg = DataLoader.aggregate_by_pdb_id(self.df_af3)
             print("✓ AF3 data loaded successfully")
             
-            # Calculate cutoffs for PROTACs
+            # Calculate cutoffs for PROTACs using centralized method
+            self.cutoff_protac = DataLoader.calculate_classification_cutoffs_from_af3_aggregated_data(
+                self.df_af3_agg, molecule_type="PROTAC"
+            )
+            if self.cutoff_protac:
+                print(f"✓ PROTAC RMSD cutoffs calculated: {[f'{c:.2f}' for c in self.cutoff_protac]}")
+            else:
+                print("Warning: Could not calculate PROTAC RMSD cutoffs from AlphaFold3 data")
+            
+            # Calculate pTM cutoffs for PROTACs (using existing manual logic for now since centralized method is for RMSD)
             protac_mask = self.df_af3_agg['TYPE'] == 'PROTAC'
-            ccd_rmsd_mean_protac = self.df_af3_agg.loc[protac_mask, 'CCD_RMSD_mean'].dropna()
-            
-            if len(ccd_rmsd_mean_protac) > 0:
-                self.cutoff_protac = [
-                    np.percentile(ccd_rmsd_mean_protac, 20),
-                    np.percentile(ccd_rmsd_mean_protac, 40),
-                    np.percentile(ccd_rmsd_mean_protac, 60),
-                    np.percentile(ccd_rmsd_mean_protac, 80)
-                ]
-            
-            # Calculate pTM cutoffs for PROTACs
             ccd_ptm_mean_protac = self.df_af3_agg.loc[protac_mask, 'CCD_PTM_mean'].dropna()
             
             if len(ccd_ptm_mean_protac) > 0:
@@ -88,19 +86,17 @@ class PlottingApp:
                     np.percentile(ccd_ptm_mean_protac, 80)
                 ]
             
-            # Calculate cutoffs for Molecular Glues
+            # Calculate cutoffs for Molecular Glues using centralized method
+            self.cutoff_molecular_glue = DataLoader.calculate_classification_cutoffs_from_af3_aggregated_data(
+                self.df_af3_agg, molecule_type="Molecular Glue"
+            )
+            if self.cutoff_molecular_glue:
+                print(f"✓ Molecular Glue RMSD cutoffs calculated: {[f'{c:.2f}' for c in self.cutoff_molecular_glue]}")
+            else:
+                print("Warning: Could not calculate Molecular Glue RMSD cutoffs from AlphaFold3 data")
+            
+            # Calculate pTM cutoffs for Molecular Glues (using existing manual logic for now since centralized method is for RMSD)
             molecular_glue_mask = self.df_af3_agg['TYPE'] == 'Molecular Glue'
-            ccd_rmsd_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_RMSD_mean'].dropna()
-            
-            if len(ccd_rmsd_mean_molecular_glue) > 0:
-                self.cutoff_molecular_glue = [
-                    np.percentile(ccd_rmsd_mean_molecular_glue, 20),
-                    np.percentile(ccd_rmsd_mean_molecular_glue, 40),
-                    np.percentile(ccd_rmsd_mean_molecular_glue, 60),
-                    np.percentile(ccd_rmsd_mean_molecular_glue, 80)
-                ]
-            
-            # Calculate pTM cutoffs for Molecular Glues
             ccd_ptm_mean_molecular_glue = self.df_af3_agg.loc[molecular_glue_mask, 'CCD_PTM_mean'].dropna()
             
             if len(ccd_ptm_mean_molecular_glue) > 0:
@@ -187,13 +183,15 @@ class PlottingApp:
         print("\nHorizontal Bar Plot Settings:")
         molecule_type = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
         
-        # Select cutoffs based on molecule type (derived from AF3 data)
+        # Select cutoffs based on molecule type (derived from AF3 data in load_data)
         # These cutoffs will be used for both AF3 and Boltz1 plots for consistency
-        cutoffs = self.cutoff_protac if molecule_type == "PROTAC" else self.cutoff_molecular_glue
-        if cutoffs is None:
-            print(f"Warning: Cutoffs for {molecule_type} are not defined. Plots might not be categorized correctly.")
-            # Potentially provide default cutoffs or handle this case more gracefully
-            # For now, proceed with None, which HorizontalBarPlotter might handle with defaults
+        af3_derived_cutoffs = self.cutoff_protac if molecule_type == "PROTAC" else self.cutoff_molecular_glue
+        
+        final_plot_cutoffs = af3_derived_cutoffs
+        if final_plot_cutoffs is None:
+            default_cutoffs = [2.0, 4.0, 6.0, 8.0] # Define a sensible default
+            print(f"Warning: Cutoffs for {molecule_type} could not be derived from AF3 data during load. Using default cutoffs: {default_cutoffs}.")
+            final_plot_cutoffs = default_cutoffs
         
         # Ask for threshold display
         add_threshold = input("Add threshold lines? (y/n) [y]: ").strip().lower() != 'n'
@@ -204,7 +202,7 @@ class PlottingApp:
             figs_af3, _ = self.bar_plotter.plot_bars(
                 self.df_af3_agg,
                 molecule_type=molecule_type,
-                classification_cutoff=cutoffs,
+                classification_cutoff=final_plot_cutoffs, # Use the final determined cutoffs
                 add_threshold=add_threshold,
                 threshold_values=[4, 0.23, 4], # Default thresholds for RMSD, DockQ, LRMSD
                 show_y_labels_on_all=True,
@@ -224,7 +222,7 @@ class PlottingApp:
                 figs_boltz1, _ = self.bar_plotter.plot_bars(
                     self.df_boltz1_agg,
                     molecule_type=molecule_type,
-                    classification_cutoff=cutoffs, # Use same cutoffs as AF3
+                    classification_cutoff=final_plot_cutoffs, # Use the same final_plot_cutoffs as AF3
                     add_threshold=add_threshold,
                     threshold_values=[4, 0.23, 4], # Default thresholds
                     show_y_labels_on_all=True,
@@ -1000,7 +998,7 @@ class PlottingApp:
             traceback.print_exc()
 
     def plot_rmsd_complex_isolated(self):
-        """Generate RMSD plots for complex, POI, and E3 components."""
+        """Generate RMSD plots for complex, POI, and E3."""
         if not hasattr(self, 'df_combined') or self.df_combined is None:
             print("\nError: Combined results data not found.")
             print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
@@ -1008,7 +1006,7 @@ class PlottingApp:
             print("CCD_RMSD, CCD_POI_RMSD, CCD_E3_RMSD, SMILES_RMSD, SMILES_POI_RMSD, SMILES_E3_RMSD")
             return
 
-        print("\nRMSD Complex/Isolated Components Plot Settings:")
+        print("\nRMSD Complex/Isolated Plot Settings:")
         
         # Determine which molecule type column is available
         molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in self.df_combined.columns else 'TYPE'
@@ -1034,6 +1032,21 @@ class PlottingApp:
         add_threshold = add_threshold_input != 'n'
         threshold_value = RMSDComplexIsolatedPlotter.DEFAULT_RMSD_THRESHOLD
 
+        # Use pre-calculated cutoffs from load_data() for consistency across all plotting modules
+        if molecule_type == "PROTAC":
+            rmsd_classification_cutoff = self.cutoff_protac
+        elif molecule_type == "Molecular Glue":
+            rmsd_classification_cutoff = self.cutoff_molecular_glue
+        else:
+            rmsd_classification_cutoff = None
+        
+        # Fallback to default cutoffs if pre-calculated cutoffs not available
+        if rmsd_classification_cutoff is None:
+            rmsd_classification_cutoff = [2.0, 4.0, 6.0, 8.0]
+            print(f"Using default RMSD cutoffs: {rmsd_classification_cutoff}")
+        else:
+            print(f"Using pre-calculated AlphaFold3 CCD RMSD-derived cutoffs: {[f'{c:.2f}' for c in rmsd_classification_cutoff]}")
+
         model_types_to_plot = ['AlphaFold3', 'Boltz1'] # Or filter based on available in df_combined
 
         for model_type in model_types_to_plot:
@@ -1051,10 +1064,11 @@ class PlottingApp:
                     input_type=input_type,
                     add_threshold=add_threshold,
                     threshold_value=threshold_value,
+                    classification_cutoff=rmsd_classification_cutoff,
                     save=False
                 )
                 if agg_fig:
-                    filename_agg = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd_components"
+                    filename_agg = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd"
                     self.save_plots([agg_fig], filename_agg)
                 else:
                     print(f"    Failed to generate aggregated plot for {model_type} {input_type}.")
@@ -1067,15 +1081,16 @@ class PlottingApp:
                     input_type=input_type,
                     add_threshold=add_threshold,
                     threshold_value=threshold_value,
+                    classification_cutoff=rmsd_classification_cutoff,
                     save=False
                 )
                 if perpdb_figs:
-                    filename_perpdb_base = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd_components"
+                    filename_perpdb_base = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd"
                     # save_plots handles adding page numbers if multiple figures
                     self.save_plots(perpdb_figs, filename_perpdb_base)
                 else:
                     print(f"    Failed to generate per-PDB plots for {model_type} {input_type}.")
-        print("\nRMSD Complex/Isolated component plots generation complete.")
+        print("\nRMSD Complex/Isolated plots generation complete.")
 
     def display_menu(self):
         """Display the main menu."""
@@ -1091,7 +1106,7 @@ class PlottingApp:
         print("6. POI and E3L Analysis")
         print("7. Property vs LRMSD Analysis")
         print("8. Generate All Plot Types")
-        print("9. RMSD Complex/Isolated Components")
+        print("9. RMSD Complex/Isolated")
         print("\no. Open Output Folder")
         print("q. Quit")
         

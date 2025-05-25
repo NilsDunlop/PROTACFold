@@ -65,9 +65,19 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
 
     def plot_aggregated_rmsd_components(self, df, model_type, molecule_type, 
                                         input_type='CCD', add_threshold=True, 
-                                        threshold_value=None, save=True):
+                                        threshold_value=None, classification_cutoff=None, save=True):
         """
         Generates a bar plot showing mean RMSD for Complex, POI, and E3.
+        
+        Args:
+            df: DataFrame containing the data
+            model_type: Model type (e.g., 'AlphaFold3', 'Boltz1')
+            molecule_type: Molecule type (e.g., 'PROTAC', 'MOLECULAR GLUE')
+            input_type: Input type ('CCD' or 'SMILES')
+            add_threshold: Whether to add threshold lines
+            threshold_value: Value for threshold line
+            classification_cutoff: List of cutoff values for categories (not used in aggregated plot, kept for consistency)
+            save: Whether to save figures
         """
         if df is None or df.empty:
             print(f"Error: DataFrame is empty. Cannot plot aggregated RMSD for {model_type} {input_type}.")
@@ -143,16 +153,26 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         plt.tight_layout() # Removed rect to allow tight_layout to manage spacing without suptitle
 
         if save:
-            filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd_components.png"
+            filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd.png"
             save_figure(fig, filename)
             
         return fig, ax
 
     def plot_per_pdb_rmsd_components(self, df, model_type, molecule_type, 
                                      input_type='CCD', add_threshold=True, 
-                                     threshold_value=None, save=True):
+                                     threshold_value=None, classification_cutoff=None, save=True):
         """
         Generates horizontal bar plots for Complex, POI, and E3 RMSD per PDB ID.
+        
+        Args:
+            df: DataFrame containing the data
+            model_type: Model type (e.g., 'AlphaFold3', 'Boltz1')
+            molecule_type: Molecule type (e.g., 'PROTAC', 'MOLECULAR GLUE')
+            input_type: Input type ('CCD' or 'SMILES')
+            add_threshold: Whether to add threshold lines
+            threshold_value: Value for threshold line
+            classification_cutoff: List of cutoff values for categories. If None, derived from AlphaFold3 CCD RMSD data.
+            save: Whether to save figures
         """
         if df is None or df.empty:
             print(f"Error: DataFrame is empty. Cannot plot per-PDB RMSD for {model_type} {input_type}.")
@@ -180,54 +200,46 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         component_cols, component_colors, component_labels = self._get_rmsd_component_columns_and_colors(model_type, input_type)
 
         # --- Categorization Logic --- 
-        categorization_metric_col = component_cols[0] # e.g., CCD_RMSD or SMILES_RMSD
-        categories_to_plot = []
+        # Use provided classification cutoffs (should be pre-calculated from main.py)
+        final_classification_cutoff = classification_cutoff
         category_column_name_in_df = 'RMSD_Category_Label' # Define what the new category column will be named
-
+        
+        # Fallback to default cutoffs if no cutoffs provided
+        if final_classification_cutoff is None:
+            final_classification_cutoff = [2.0, 4.0, 6.0, 8.0]
+            print("Warning: No classification cutoffs provided to rmsd_complex_isolated.py. Using default cutoffs.")
+        else:
+            print(f"✓ rmsd_complex_isolated.py received cutoffs: {[f'{c:.3f}' for c in final_classification_cutoff]}")
+        
+        # Generate category labels from the final cutoffs
+        category_labels_list = [f"< {final_classification_cutoff[0]:.2f} Å"] + \
+                              [f"{final_classification_cutoff[i]:.2f} - {final_classification_cutoff[i+1]:.2f} Å" for i in range(len(final_classification_cutoff)-1)] + \
+                              [f"> {final_classification_cutoff[-1]:.2f} Å"]
+        
+        # For categorization, use CCD_RMSD (non-aggregated data) and calculate PDB-level means
+        # For sorting within categories, use the appropriate complex RMSD for the input type
+        categorization_metric_col = 'CCD_RMSD'  # Always use CCD_RMSD for consistent binning
+        sorting_metric_col = component_cols[0]  # First column is always the complex RMSD (CCD_RMSD or SMILES_RMSD)
+        
         if categorization_metric_col not in df_model.columns:
             print(f"Warning: Categorization column '{categorization_metric_col}' not found for {model_type} {input_type}. Plotting all as 'Uncategorized'.")
             df_model[category_column_name_in_df] = 'Uncategorized'
             categories_to_plot = ['Uncategorized']
         else:
-            # Ensure one value per PDB for categorization_metric_col if multiple seeds exist
-            pdb_cat_values_df = df_model.groupby('PDB_ID', observed=True)[categorization_metric_col].mean().reset_index()
-            pdb_cat_values_for_percentiles = pdb_cat_values_df[categorization_metric_col].dropna()
-
-            if len(pdb_cat_values_for_percentiles) > 4: # Need enough data points for percentiles
-                classification_cutoff = [
-                    np.percentile(pdb_cat_values_for_percentiles, 20),
-                    np.percentile(pdb_cat_values_for_percentiles, 40),
-                    np.percentile(pdb_cat_values_for_percentiles, 60),
-                    np.percentile(pdb_cat_values_for_percentiles, 80)
-                ]
-                category_labels_list = [f"< {classification_cutoff[0]:.1f} Å"] + \
-                                   [f"{classification_cutoff[i]:.1f} - {classification_cutoff[i+1]:.1f} Å" for i in range(len(classification_cutoff)-1)] + \
-                                   [f"> {classification_cutoff[-1]:.1f} Å"]
-            else: # Fallback if not enough data for robust percentiles
-                print(f"Warning: Not enough unique PDBs with {categorization_metric_col} data for percentile-based categorization. Using broader categories.")
-                # Simplified cutoffs if too few PDBs with the metric
-                median_val = pdb_cat_values_for_percentiles.median() if not pdb_cat_values_for_percentiles.empty else 4.0
-                classification_cutoff = [median_val / 2, median_val, median_val * 1.5, median_val * 2]
-                category_labels_list = [f"< {classification_cutoff[0]:.1f} Å", 
-                                   f"{classification_cutoff[0]:.1f} - {classification_cutoff[1]:.1f} Å",
-                                   f"{classification_cutoff[1]:.1f} - {classification_cutoff[2]:.1f} Å",
-                                   f"{classification_cutoff[2]:.1f} - {classification_cutoff[3]:.1f} Å",
-                                   f"> {classification_cutoff[3]:.1f} Å"]
+            # Calculate PDB-level means for CCD_RMSD to use for categorization (consistent with cutoff derivation)
+            pdb_level_means_for_categorization = df_model.groupby('PDB_ID', observed=True)[categorization_metric_col].mean().reset_index()
+            pdb_level_means_for_categorization = pdb_level_means_for_categorization.rename(columns={categorization_metric_col: '__categorization_metric_mean'})
             
-            # Merge these PDB-level mean categorization values back to the main df_model
-            temp_cat_col_name = f"__{categorization_metric_col}_for_cat_mean"
-            df_model = pd.merge(df_model, pdb_cat_values_df.rename(columns={categorization_metric_col: temp_cat_col_name}), on='PDB_ID', how='left')
-
-            # Use categorize_by_cutoffs (assuming it's updated or we use pd.cut manually)
-            # For now, using pd.cut directly as in thought process for precise label control
+            # Merge back to df_model for categorization
+            df_model = pd.merge(df_model, pdb_level_means_for_categorization, on='PDB_ID', how='left')
+            
+            # Apply the cutoffs using pd.cut on the PDB-level means
             df_model[category_column_name_in_df] = pd.cut(
-                df_model[temp_cat_col_name],
-                bins=[-np.inf] + classification_cutoff + [np.inf],
+                df_model['__categorization_metric_mean'],
+                bins=[-np.inf] + final_classification_cutoff + [np.inf],
                 labels=category_labels_list,
                 right=False # Intervals are [a, b)
             ).astype(str).fillna('Undefined') # Ensure string and handle any NaNs from cut
-
-            df_model = df_model.drop(columns=[temp_cat_col_name]) # Clean up temporary column
             # Ensure categories_to_plot respects the order of category_labels_list
             categories_to_plot = [label for label in category_labels_list if label in df_model[category_column_name_in_df].unique()]
             if 'Undefined' in df_model[category_column_name_in_df].unique() and 'Undefined' not in categories_to_plot:
@@ -243,30 +255,32 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         for category_label_text in categories_to_plot:
             df_category_filtered = df_model[df_model[category_column_name_in_df] == category_label_text].copy() # Use .copy()
             
-            # --- Sorting within category by RMSD (categorization_metric_col PDB-level mean) ---
-            # Ensure the PDB-level mean used for categorization is available for sorting
-            # Re-calculate or ensure temp_cat_col_name_for_sort exists on df_category_filtered if needed.
-            # For simplicity, let's assume the PDB-level mean was already added as temp_cat_col_name earlier
-            # and we can sort based on that, or re-merge it just for sorting this subset.
-
-            # To sort by the PDB-level mean of the categorization metric:
-            # 1. Calculate PDB-level mean for the current category_filtered_df
-            pdb_level_means_for_sort = df_category_filtered.groupby('PDB_ID', observed=True)[categorization_metric_col].mean().reset_index()
-            pdb_level_means_for_sort = pdb_level_means_for_sort.rename(columns={categorization_metric_col: '__sort_metric_pdb_mean'})
+            # --- Sorting within category by RMSD (sorting_metric_col PDB-level mean) ---
+            # Sort by the appropriate complex RMSD for the input type (CCD_RMSD for CCD plots, SMILES_RMSD for SMILES plots)
             
-            # 2. Merge these means back to df_category_filtered for sorting
-            df_category_filtered_sorted = pd.merge(df_category_filtered, pdb_level_means_for_sort, on='PDB_ID', how='left')
+            # To sort by the PDB-level mean of the sorting metric:
+            # 1. Calculate PDB-level mean for the current category_filtered_df using the appropriate metric
+            if sorting_metric_col not in df_category_filtered.columns:
+                print(f"Warning: Sorting column '{sorting_metric_col}' not found. Using default order.")
+                df_category_filtered_sorted = df_category_filtered.copy()
+                category_pdb_ids = df_category_filtered_sorted['PDB_ID'].unique()
+            else:
+                pdb_level_means_for_sort = df_category_filtered.groupby('PDB_ID', observed=True)[sorting_metric_col].mean().reset_index()
+                pdb_level_means_for_sort = pdb_level_means_for_sort.rename(columns={sorting_metric_col: '__sort_metric_pdb_mean'})
             
-            # 3. Sort: Ascending order of the metric, so when y-axis is inverted, highest RMSD is at top.
-            #    Also, use PDB_ID as a secondary sort key for stable sorting if RMSD values are identical.
-            #    NaNs (if any from merge or original data) should be handled (e.g. to bottom or top).
-            df_category_filtered_sorted = df_category_filtered_sorted.sort_values(
-                by=['__sort_metric_pdb_mean', 'PDB_ID'], 
-                ascending=[False, True], # Corrected: False for __sort_metric_pdb_mean (descending)
-                na_position='last' # Put PDBs with no sort metric at the bottom
-            )
-            
-            category_pdb_ids = df_category_filtered_sorted['PDB_ID'].unique()
+                # 2. Merge these means back to df_category_filtered for sorting
+                df_category_filtered_sorted = pd.merge(df_category_filtered, pdb_level_means_for_sort, on='PDB_ID', how='left')
+                
+                # 3. Sort: Descending order of the metric, so highest RMSD is at top when y-axis is inverted.
+                #    Also, use PDB_ID as a secondary sort key for stable sorting if RMSD values are identical.
+                #    NaNs (if any from merge or original data) should be handled (e.g. to bottom or top).
+                df_category_filtered_sorted = df_category_filtered_sorted.sort_values(
+                    by=['__sort_metric_pdb_mean', 'PDB_ID'], 
+                    ascending=[False, True], # False for __sort_metric_pdb_mean (descending = highest RMSD first)
+                    na_position='last' # Put PDBs with no sort metric at the bottom
+                )
+                
+                category_pdb_ids = df_category_filtered_sorted['PDB_ID'].unique()
             # --- End Sorting --- 
 
             if len(category_pdb_ids) == 0:
@@ -401,6 +415,10 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                     ax.set_xlim(0, max(max_rmsd_on_page * 1.1, current_threshold_value * 1.1, 1.0))
                 else:
                     ax.set_xlim(0, max(max_rmsd_on_page * 1.1, 1.0))
+                
+                # Force x-axis to show only integer values
+                import matplotlib.ticker as ticker
+                ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True, min_n_ticks=2))
 
                 ax.legend(handles, labels_legend, loc='best', fontsize=self.PER_PDB_LEGEND_FONT_SIZE, frameon=False)
                 
@@ -417,12 +435,12 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 fig.suptitle(plot_title, fontsize=self.TITLE_FONT_SIZE) # Removed fontweight='bold'
                 
                 ax.grid(axis='x', linestyle='--', alpha=0.2)
-                plt.tight_layout() # Adjusted top of rect from 0.94 to 0.97
+                plt.tight_layout(rect=[0, 0, 1, 0.99]) # Add padding at top for title (96% of figure height for content)
 
                 if save:
                     page_suffix = f"_page{page_num}" if len(paginated_pdb_ids_for_category) > 1 else ""
                     category_filename_part = f"_cat_{category_label_text.replace(' ', '_').replace('<', 'lt').replace('>', 'gt').replace('-', 'to').replace('.', 'p').replace('Å','A')}" if category_label_text != 'Uncategorized' else ""
-                    filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd_components{category_filename_part}{page_suffix}.png"
+                    filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd_{category_filename_part}{page_suffix}.png"
                     save_figure(fig, filename)
 
                 all_figs.append(fig)

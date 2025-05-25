@@ -52,19 +52,11 @@ class RMSDPlotter(BasePlotter):
             df_ternary['RELEASE_DATE'] = pd.to_datetime(df_ternary['RELEASE_DATE'])
             df_ternary = df_ternary.sort_values('RELEASE_DATE', ascending=True)
         
-        # Default cutoffs based on molecule type if not provided
+        # Use provided classification cutoffs (should be pre-calculated from main.py using AlphaFold3 aggregated data)
         if classification_cutoff is None:
-            # Use the predefined cutoffs or calculate them
-            ccd_rmsd_mean = df_ternary['CCD_RMSD_mean'].dropna()
-            if len(ccd_rmsd_mean) > 0:
-                classification_cutoff = [
-                    np.percentile(ccd_rmsd_mean, 20),
-                    np.percentile(ccd_rmsd_mean, 40),
-                    np.percentile(ccd_rmsd_mean, 60),
-                    np.percentile(ccd_rmsd_mean, 80)
-                ]
-            else:
-                classification_cutoff = [2, 4, 6, 8]
+            # Fallback to default cutoffs if no cutoffs provided
+            classification_cutoff = [2.0, 4.0, 6.0, 8.0]
+            print("Warning: No classification cutoffs provided to rmsd_plotter.py. Using default cutoffs. This should not happen if main.py is working correctly.")
         
         # Categorize data
         df_ternary = categorize_by_cutoffs(

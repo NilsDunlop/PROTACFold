@@ -35,7 +35,7 @@ class HorizontalBarPlotter(BasePlotter):
         Args:
             df_agg: Aggregated DataFrame with mean and std values
             molecule_type: Type of molecule to filter by (e.g., "PROTAC")
-            classification_cutoff: List of cutoff values for categories
+            classification_cutoff: List of cutoff values for categories. If None, derived prioritising AF3 data, then all data, then a default.
             metrics: List of tuples (smiles_col, ccd_col, label) to plot. 
                      Default order for ternary: RMSD, DockQ, LRMSD.
             add_threshold: Whether to add threshold lines
@@ -70,6 +70,16 @@ class HorizontalBarPlotter(BasePlotter):
         # For binary plot, RMSD threshold is the first element of the reordered threshold_values
         binary_threshold_value = threshold_values[0] if add_threshold and threshold_values and len(threshold_values) > 0 else (4 if add_threshold else None)
         
+        # Use provided classification cutoffs (should be pre-calculated from main.py using AlphaFold3 aggregated data)
+        final_classification_cutoff = classification_cutoff
+        
+        # Fallback to default cutoffs if no cutoffs provided
+        if final_classification_cutoff is None:
+            final_classification_cutoff = [2.0, 4.0, 6.0, 8.0]
+            print("Warning: No classification cutoffs provided to horizontal_bars.py. Using default cutoffs. This should not happen if main.py is working correctly.")
+        else:
+            print(f"✓ horizontal_bars.py received cutoffs: {[f'{c:.3f}' for c in final_classification_cutoff]}")
+        
         df_filtered = df_agg[df_agg['TYPE'] == molecule_type].copy()
         
         for col in df_filtered.columns:
@@ -82,33 +92,23 @@ class HorizontalBarPlotter(BasePlotter):
         
         df_filtered = DataLoader.identify_binary_structures(df_filtered)
         
-        if classification_cutoff is None:
-            ccd_rmsd_mean = df_filtered['CCD_RMSD_mean'].dropna()
-            if len(ccd_rmsd_mean) > 0:
-                classification_cutoff = [
-                    np.percentile(ccd_rmsd_mean, 20),
-                    np.percentile(ccd_rmsd_mean, 40),
-                    np.percentile(ccd_rmsd_mean, 60),
-                    np.percentile(ccd_rmsd_mean, 80)
-                ]
-            else:
-                classification_cutoff = [2, 4, 6, 8]
-        
+        # Use the determined final_classification_cutoff for categorization
         df_filtered = categorize_by_cutoffs(
-            df_filtered, 'CCD_RMSD_mean', classification_cutoff, 'Category'
+            df_filtered, 'CCD_RMSD_mean', final_classification_cutoff, 'Category'
         )
         
+        # Use the determined final_classification_cutoff for labels
         category_labels = [
-            f"< {classification_cutoff[0]:.2f}",
-            f"{classification_cutoff[0]:.2f} - {classification_cutoff[1]:.2f}",
-            f"{classification_cutoff[1]:.2f} - {classification_cutoff[2]:.2f}",
-            f"{classification_cutoff[2]:.2f} - {classification_cutoff[3]:.2f}",
-            f"> {classification_cutoff[3]:.2f}"
+            f"< {final_classification_cutoff[0]:.1f}",
+            f"{final_classification_cutoff[0]:.1f} - {final_classification_cutoff[1]:.1f}",
+            f"{final_classification_cutoff[1]:.1f} - {final_classification_cutoff[2]:.1f}",
+            f"{final_classification_cutoff[2]:.1f} - {final_classification_cutoff[3]:.1f}",
+            f"> {final_classification_cutoff[3]:.1f}"
         ]
 
         # Merge the first category into the second for ternary plots
         # This assumes category_labels always has at least 2 elements, which it should
-        # given classification_cutoff always has 4 elements.
+        # given final_classification_cutoff always has 4 elements.
         label_to_merge_from = category_labels[0]
         label_to_merge_into = category_labels[1]
         df_filtered.loc[df_filtered['Category'] == label_to_merge_from, 'Category'] = label_to_merge_into
