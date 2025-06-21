@@ -12,26 +12,26 @@ from utils import save_figure, distribute_structures_evenly, distribute_pdb_ids
 class ComparisonPlotter(BasePlotter):
     """Class for creating comparison plots between different model types."""
     
-    # Plot dimensions
-    PLOT_WIDTH = 4
-    PLOT_HEIGHT = 4
+    # Plot dimensions - REDUCED for compact Nature-style plots
+    PLOT_WIDTH = 2    # Reduced from 4 to 3.5
+    PLOT_HEIGHT = 3   # Reduced from 4 to 3.5
     
-    # Font sizes
-    TITLE_FONT_SIZE = 14
-    AXIS_LABEL_FONT_SIZE = 12
-    TICK_LABEL_FONT_SIZE = 11
-    VALUE_LABEL_FONT_SIZE = 12
-    LEGEND_FONT_SIZE = 9.5
+    # Font sizes - INCREASED for better readability in smaller plots
+    TITLE_FONT_SIZE = 15      # Increased from 14 to 15
+    AXIS_LABEL_FONT_SIZE = 13 # Increased from 12 to 13
+    TICK_LABEL_FONT_SIZE = 12 # Increased from 11 to 12
+    VALUE_LABEL_FONT_SIZE = 12 # Kept the same
+    LEGEND_FONT_SIZE = 10.5   # Increased from 9.5 to 10.5
     
-    # Bar appearance
-    BAR_WIDTH = 0.05
-    BAR_EDGE_LINE_WIDTH = 0.5
-    BAR_SPACING_FACTOR = 2  # Controls spacing between bars
+    # Bar appearance - REFINED for cleaner look
+    BAR_WIDTH = 0.08          # Increased from 0.05 to 0.08 for better visibility
+    BAR_EDGE_LINE_WIDTH = 0.5 # Kept the same
+    BAR_SPACING_FACTOR = 1.8  # Reduced from 2 to 1.8 for tighter spacing
     
-    # Error bar appearance
-    ERROR_BAR_CAPSIZE = 4
-    ERROR_BAR_THICKNESS = 1
-    ERROR_BAR_ALPHA = 0.7
+    # Error bar appearance - REFINED for cleaner look
+    ERROR_BAR_CAPSIZE = 3     # Reduced from 4 to 3
+    ERROR_BAR_THICKNESS = 0.8 # Reduced from 1 to 0.8
+    ERROR_BAR_ALPHA = 0.7     # Kept the same
     
     # Grid properties
     GRID_ALPHA = 0.2
@@ -347,7 +347,7 @@ class ComparisonPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = ax.axhline(
                     y=threshold_value,
-                    color='gray',
+                    color='grey',  # Changed from 'gray' to 'grey' for consistency
                     linestyle='--',
                     alpha=self.THRESHOLD_LINE_ALPHA,
                     linewidth=self.THRESHOLD_LINE_WIDTH
@@ -370,21 +370,21 @@ class ComparisonPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = plt.Line2D(
                     [0, 1], [0, 0],
-                    color='gray',
+                    color='grey',  # Changed from 'gray' to 'grey' for consistency
                     linestyle='--',
                     linewidth=1.0, 
                     label='Threshold'
                 )
                 legend_handles.append(threshold_line)
             
-            # Add legend
-            if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
-                # Use background for low-value plots where threshold line might cross the legend
-                ax.legend(handles=legend_handles, loc='best', frameon=False, # Ensure no border
-                          facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
-            else:
-                # No background needed
-                ax.legend(handles=legend_handles, loc='best', frameon=False, fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
+            # Add legend - COMMENTED OUT FOR NOW
+            # if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
+            #     # Use background for low-value plots where threshold line might cross the legend
+            #     ax.legend(handles=legend_handles, loc='best', frameon=False, # Ensure no border
+            #               facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
+            # else:
+            #     # No background needed
+            #     ax.legend(handles=legend_handles, loc='best', frameon=False, fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
             
             # Remove x-ticks and labels since we have the legend
             ax.set_xticks([])
@@ -672,7 +672,7 @@ class ComparisonPlotter(BasePlotter):
         if add_threshold and metric_type.upper() != 'PTM':
             threshold_line = ax.axhline(
                 y=threshold_value,
-                color='black',
+                color='grey',  # Changed from 'black' to 'grey' for consistency
                 linestyle='--',
                 alpha=self.THRESHOLD_LINE_ALPHA,
                 linewidth=self.THRESHOLD_LINE_WIDTH
@@ -708,13 +708,13 @@ class ComparisonPlotter(BasePlotter):
         # Add grid lines
         ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
         
-        # Add legend
-        if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max_value < threshold_value * 1.5:
-            # Use background for low-value plots where threshold line might cross the legend
-            ax.legend(handles=legend_handles, loc='best', frameon=False, # Ensure no border
-                      facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
-        else:
-            ax.legend(handles=legend_handles, loc='best', frameon=False, fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
+        # Add legend - COMMENTED OUT FOR NOW
+        # if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max_value < threshold_value * 1.5:
+        #     # Use background for low-value plots where threshold line might cross the legend
+        #     ax.legend(handles=legend_handles, loc='best', frameon=False, # Ensure no border
+        #               facecolor='white', framealpha=0.8, edgecolor='lightgray', fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
+        # else:
+        #     ax.legend(handles=legend_handles, loc='best', frameon=False, fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
         
         plt.tight_layout()
         

@@ -45,14 +45,14 @@ class PlotConfig:
     BOLTZ1_SMILES_COLOR_POI = '#336699'
     BOLTZ1_SMILES_COLOR_E3 = '#86BBD8'
     
-    # Font sizes
-    TITLE_SIZE = 16
-    AXIS_LABEL_SIZE = 12
-    TICK_LABEL_SIZE = 12
-    LEGEND_TITLE_SIZE = 14
-    LEGEND_TEXT_SIZE = 14
-    ANNOTATION_SIZE = 10
-    SUBPLOT_LABEL_SIZE = 14
+    # Font sizes - INCREASED for better readability in compact Nature-style plots
+    TITLE_SIZE = 16        # Kept the same - still appropriate
+    AXIS_LABEL_SIZE = 13   # Increased from 12 to 13
+    TICK_LABEL_SIZE = 12   # Kept the same - matches horizontal_bars.py
+    LEGEND_TITLE_SIZE = 15 # Increased from 14 to 15  
+    LEGEND_TEXT_SIZE = 12  # Reduced from 14 to 12 for better proportions
+    ANNOTATION_SIZE = 10   # Kept the same
+    SUBPLOT_LABEL_SIZE = 15 # Increased from 14 to 15
     
     # Line properties
     GRID_ALPHA = 0.3

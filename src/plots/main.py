@@ -377,12 +377,8 @@ class PlottingApp:
         """
         Compare AF3 results with other methods.
         
-        This function generates comparison plots between AlphaFold3 and Boltz1 models.
-        It supports four types of metrics:
-        - RMSD: Root Mean Square Deviation
-        - DOCKQ: A scoring function for ranking protein-protein docking models
-        - LRMSD: Ligand RMSD, showing the deviation of ligand positions
-        - PTM: Predicted TM-score, confidence metric for structure quality
+        This function automatically generates comparison plots between AlphaFold3 and Boltz1 models
+        for ALL metrics (RMSD, DOCKQ, LRMSD, PTM) without user prompts.
         
         Args:
             comparison_type: Type of comparison to make ("boltz1" currently supported)
@@ -404,13 +400,6 @@ class PlottingApp:
         
         print(f"\n{comparison_type.upper()} comparison plots:")
         
-        # Default settings
-        add_threshold = True
-        threshold_value = 4.0  # Default for RMSD
-        metric_type = 'RMSD'
-        molecule_type = 'PROTAC'  # Default to PROTAC
-        specific_seed = None  # Default to no specific seed filtering
-        
         # Get user input for plot parameters
         print("\nComparison Plot Settings:")
         
@@ -418,83 +407,57 @@ class PlottingApp:
         molecule_type_input = input("Molecule type (PROTAC/Molecular Glue) [PROTAC]: ").strip() or "PROTAC"
         if molecule_type_input in ['PROTAC', 'Molecular Glue']:
             molecule_type = molecule_type_input
-        
-        # Select metric type
-        metric_type_input = input("Metric type (RMSD/DOCKQ/LRMSD/PTM) [RMSD]: ").strip().upper() or "RMSD"
-        if metric_type_input in ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']:
-            metric_type = metric_type_input
-        
-        # Set appropriate threshold value based on metric type
-        if metric_type == 'RMSD':
-            threshold_value = 4.0
-        elif metric_type == 'DOCKQ':
-            threshold_value = 0.23
-        elif metric_type == 'LRMSD':
-            threshold_value = 4.0
-        elif metric_type == 'PTM':
-            threshold_value = 0.8
-            add_threshold = False
         else:
-            threshold_value = 4.0
-        
-        # Ask for threshold display (only for non-PTM metrics)
-        add_threshold = True
-        if metric_type != 'PTM':
-            add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
-            add_threshold = add_threshold_input != 'n'
+            molecule_type = 'PROTAC'  # Default fallback
         
         # Ask for comparison type (general or seed-specific)
         comparison_choice = input("Comparison type (1=General, 2=Seed-specific) [1]: ").strip()
         is_seed_specific = comparison_choice == '2'
         
         # If seed-specific, ask for the seed
+        specific_seed = None
         if is_seed_specific:
             seed_input = input("Specific seed to filter by [42]: ").strip()
             specific_seed = int(seed_input) if seed_input and seed_input.isdigit() else 42
         
+        # Define all metrics to generate
+        all_metrics = [
+            {'name': 'RMSD', 'threshold': 4.0, 'add_threshold': True},
+            {'name': 'DOCKQ', 'threshold': 0.23, 'add_threshold': True},
+            {'name': 'LRMSD', 'threshold': 4.0, 'add_threshold': True},
+            {'name': 'PTM', 'threshold': 0.8, 'add_threshold': False}  # No threshold for PTM
+        ]
+        
         try:
-            # Generate comparison plot - now uses the same method with different parameters
-            print(f"Generating {'Seed-specific' if is_seed_specific else 'Mean'} {metric_type} comparison between AlphaFold3 and Boltz1 for {molecule_type}...")
-            
-            # Use the unified plot_mean_comparison method with optional specific_seed parameter
-            fig, ax = self.comparison_plotter.plot_mean_comparison(
-                df=self.df_combined,
-                metric_type=metric_type,
-                add_threshold=add_threshold,
-                threshold_value=threshold_value,
-                save=False,
-                molecule_type=molecule_type,
-                specific_seed=specific_seed
-            )
-            
-            if fig is not None:
-                # Use appropriate filename based on comparison type
-                if is_seed_specific:
-                    self.save_plots([fig], f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}")
+            # Generate comparison plots for ALL metrics
+            for metric_info in all_metrics:
+                metric_type = metric_info['name']
+                threshold_value = metric_info['threshold']
+                add_threshold = metric_info['add_threshold']
+                
+                print(f"\nGenerating {'Seed-specific' if is_seed_specific else 'Mean'} {metric_type} comparison between AlphaFold3 and Boltz1 for {molecule_type}...")
+                
+                # Use the unified plot_mean_comparison method with optional specific_seed parameter
+                fig, ax = self.comparison_plotter.plot_mean_comparison(
+                    df=self.df_combined,
+                    metric_type=metric_type,
+                    add_threshold=add_threshold,
+                    threshold_value=threshold_value,
+                    save=False,
+                    molecule_type=molecule_type,
+                    specific_seed=specific_seed
+                )
+                
+                if fig is not None:
+                    # Use appropriate filename based on comparison type
+                    if is_seed_specific:
+                        self.save_plots([fig], f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}")
+                    else:
+                        self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
                 else:
-                    self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
-                    
-                    # Only for general comparison, ask if user wants to see individual structure plots
-                    show_individual = input("Show individual structure plots? (y/n) [n]: ").strip().lower() == 'y'
-                    
-                    # Only generate per-structure plots if requested
-                    if show_individual:
-                        print(f"Generating per-structure comparison plots for {molecule_type} {metric_type}...")
-                        
-                        # Call the plot method
-                        figs, axes = self.comparison_plotter.plot_af3_vs_boltz1(
-                            df=self.df_combined,
-                            metric_type=metric_type,
-                            add_threshold=add_threshold,
-                            threshold_value=threshold_value,
-                            save=False,
-                            molecule_type=molecule_type
-                        )
-                        
-                        # Save the plots with appropriate naming
-                        self.save_plots(figs, f"af3_vs_boltz1_{molecule_type.lower()}_{metric_type.lower()}")
-            else:
-                print(f"Warning: Failed to generate {'seed-specific' if is_seed_specific else 'mean'} comparison plot")
+                    print(f"Warning: Failed to generate {'seed-specific' if is_seed_specific else 'mean'} {metric_type} comparison plot")
+            
+            print(f"\n✓ Generated comparison plots for all metrics: {', '.join([m['name'] for m in all_metrics])}")
             
         except Exception as e:
             print(f"Error: {e}")

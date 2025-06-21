@@ -12,8 +12,8 @@ class RMSDPlotter(BasePlotter):
     
     def plot_rmsd_bars(self, df_agg, molecule_type="PROTAC", classification_cutoff=None,
                      add_threshold=False, threshold_value=2.0,
-                     show_y_labels_on_all=False, width=12, height=14, 
-                     bar_height=0.18, bar_spacing=0.08, save=False, 
+                     show_y_labels_on_all=False, width=10, height=12, 
+                     bar_height=0.15, bar_spacing=0.06, save=False, 
                      max_structures_per_plot=20):
         """
         Create horizontal bar plots comparing RMSD, iRMSD, and LRMSD metrics for SMILES and CCD.
@@ -186,8 +186,8 @@ class RMSDPlotter(BasePlotter):
         # Create figure with two subplots (SMILES on left, CCD on right)
         fig, (ax_smiles, ax_ccd) = plt.subplots(1, 2, figsize=(width, height), sharey=True)
         
-        # Y-axis positions (one position per PDB)
-        y_positions = np.arange(len(df_sorted))
+        # Y-axis positions (one position per PDB) - scaled for tighter spacing
+        y_positions = np.arange(len(df_sorted)) * 0.85  # Scale down by 15% for tighter spacing
         
         # Define metrics and their properties
         metrics = [
@@ -242,7 +242,7 @@ class RMSDPlotter(BasePlotter):
                 edgecolor='black', 
                 linewidth=PlotConfig.EDGE_WIDTH,
                 xerr=xerr,
-                error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1},
+                error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8},  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
                 label=f"{label_type}"
             )
             
@@ -256,13 +256,13 @@ class RMSDPlotter(BasePlotter):
         if add_threshold:
             # Add threshold line to SMILES plot
             threshold_line_smiles = ax_smiles.axvline(
-                x=threshold_value, color='black', linestyle='--', 
+                x=threshold_value, color='grey', linestyle='--',  # Changed from 'black' to 'grey'
                 alpha=0.7, linewidth=1.0, label='Threshold'
             )
             
             # Add threshold line to CCD plot
             threshold_line_ccd = ax_ccd.axvline(
-                x=threshold_value, color='black', linestyle='--', 
+                x=threshold_value, color='grey', linestyle='--',  # Changed from 'black' to 'grey'
                 alpha=0.7, linewidth=1.0, label='Threshold'
             )
             
@@ -291,26 +291,26 @@ class RMSDPlotter(BasePlotter):
         ax_smiles.set_xlim(0)
         ax_ccd.set_xlim(0)
         
-        # Set y-axis limits
-        ax_smiles.set_ylim(-0.5, len(df_sorted) - 0.5)
-        ax_ccd.set_ylim(-0.5, len(df_sorted) - 0.5)
+        # Set y-axis limits - adjusted for scaled y_positions
+        ax_smiles.set_ylim(-0.4, (len(df_sorted) - 1) * 0.85 + 0.4)
+        ax_ccd.set_ylim(-0.4, (len(df_sorted) - 1) * 0.85 + 0.4)
         
-        # Add legends
-        if legend_handles_smiles:
-            ax_smiles.legend(
-                handles=legend_handles_smiles,
-                loc='upper right',
-                framealpha=0,
-                edgecolor='none'
-            )
+        # Add legends - COMMENTED OUT FOR NOW
+        # if legend_handles_smiles:
+        #     ax_smiles.legend(
+        #         handles=legend_handles_smiles,
+        #         loc='upper right',
+        #         framealpha=0,
+        #         edgecolor='none'
+        #     )
         
-        if legend_handles_ccd:
-            ax_ccd.legend(
-                handles=legend_handles_ccd,
-                loc='upper right',
-                framealpha=0,
-                edgecolor='none'
-            )
+        # if legend_handles_ccd:
+        #     ax_ccd.legend(
+        #         handles=legend_handles_ccd,
+        #         loc='upper right',
+        #         framealpha=0,
+        #         edgecolor='none'
+        #     )
         
         # Add overall title without any page information
         fig.suptitle(category_title, fontsize=PlotConfig.TITLE_SIZE)
