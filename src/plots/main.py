@@ -544,85 +544,112 @@ class PlottingApp:
                 print(f"Invalid model type. Using default: {default_model}")
                 model_to_plot = default_model
         
-        # Select metric type
+        # Generate plots for all metric types automatically
         metric_types = ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']
-        print(f"Available metrics: {', '.join(metric_types)}")
-        metric_type_input = input(f"Metric type ({'/'.join(metric_types)}) [RMSD]: ").strip().upper() or "RMSD"
-        if metric_type_input in metric_types:
-            metric_type = metric_type_input
-        else:
-            print("Invalid metric type. Using default: RMSD")
-            metric_type = "RMSD"
+        print(f"Generating training cutoff plots for all metrics: {', '.join(metric_types)}")
         
-        # Set appropriate threshold value based on metric type
-        if metric_type == 'RMSD':
-            threshold_value = 4.0
-        elif metric_type == 'DOCKQ':
-            threshold_value = 0.23
-        elif metric_type == 'LRMSD':
-            threshold_value = 4.0
-        elif metric_type == 'PTM':
-            threshold_value = 0.8
-            add_threshold = False
-        else:
-            threshold_value = 4.0
-        
-        # Ask for threshold display (only for non-PTM metrics)
-        add_threshold = True
-        if metric_type != 'PTM':
-            add_threshold_input = input(f"Add threshold line at {threshold_value}? (y/n) [y]: ").strip().lower()
-            add_threshold = add_threshold_input != 'n'
+        # Define metric configurations
+        metric_configs = {
+            'RMSD': {'threshold_value': 4.0, 'add_threshold': True},
+            'DOCKQ': {'threshold_value': 0.23, 'add_threshold': True},
+            'LRMSD': {'threshold_value': 4.0, 'add_threshold': True},
+            'PTM': {'threshold_value': 0.8, 'add_threshold': False}  # No threshold for PTM
+        }
         
         try:
-            if plot_individual_model:
-                # Plot a single selected model
-                print(f"Generating {model_to_plot} training cutoff comparison for {metric_type} ({molecule_type})...")
-                fig, ax, _ = self.training_cutoff_plotter.plot_training_cutoff_comparison(
-                    df=self.df_combined,
-                    metric_type=metric_type,
-                    model_type=model_to_plot,
-                    add_threshold=add_threshold,
-                    threshold_value=threshold_value,
-                    save=False,
-                    molecule_type=molecule_type
-                )
-                if fig is not None:
-                    filename = f"{model_to_plot.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
-                    self.save_plots([fig], filename)
-                else:
-                    print(f"Warning: Failed to generate training cutoff comparison plot for {model_to_plot}")
-
-            else:
-                # Compare AlphaFold3 and Boltz1 with shared Y-axis
-                models_to_compare = ["AlphaFold3", "Boltz1"]
-                shared_ylim = None
+            for metric_type in metric_types:
+                config = metric_configs[metric_type]
+                threshold_value = config['threshold_value']
+                add_threshold = config['add_threshold']
                 
-                for model_name in models_to_compare:
-                    if model_name not in available_models:
-                        print(f"Warning: Model {model_name} not found in data. Skipping.")
-                        continue
-
-                    print(f"Generating {model_name} training cutoff comparison for {metric_type} ({molecule_type})...")
-                    
-                    fig, ax, current_ylim = self.training_cutoff_plotter.plot_training_cutoff_comparison(
+                print(f"\nGenerating plots for {metric_type}...")
+                
+                if plot_individual_model:
+                    # Plot a single selected model
+                    print(f"Generating {model_to_plot} training cutoff comparison for {metric_type} ({molecule_type})...")
+                    fig, ax, _ = self.training_cutoff_plotter.plot_training_cutoff_comparison(
                         df=self.df_combined,
                         metric_type=metric_type,
-                        model_type=model_name,
+                        model_type=model_to_plot,
                         add_threshold=add_threshold,
                         threshold_value=threshold_value,
                         save=False,
-                        molecule_type=molecule_type,
-                        fixed_ylim=shared_ylim 
+                        molecule_type=molecule_type
                     )
-                    
                     if fig is not None:
-                        if shared_ylim is None: # Capture ylim from the first plot
-                            shared_ylim = current_ylim
-                        
-                        filename = f"{model_name.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}_compared"
+                        filename = f"{model_to_plot.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}"
                         self.save_plots([fig], filename)
                     else:
-                        print(f"Warning: Failed to generate training cutoff comparison plot for {model_name}")
+                        print(f"Warning: Failed to generate training cutoff comparison plot for {model_to_plot} - {metric_type}")
+
+                else:
+                    # Compare AlphaFold3 and Boltz1 with shared Y-axis
+                    models_to_compare = ["AlphaFold3", "Boltz1"]
+                    shared_ylim = None
+                    
+                    for model_name in models_to_compare:
+                        if model_name not in available_models:
+                            print(f"Warning: Model {model_name} not found in data. Skipping.")
+                            continue
+
+                        print(f"Generating {model_name} training cutoff comparison for {metric_type} ({molecule_type})...")
+                        
+                        fig, ax, current_ylim = self.training_cutoff_plotter.plot_training_cutoff_comparison(
+                            df=self.df_combined,
+                            metric_type=metric_type,
+                            model_type=model_name,
+                            add_threshold=add_threshold,
+                            threshold_value=threshold_value,
+                            save=False,
+                            molecule_type=molecule_type,
+                            fixed_ylim=shared_ylim 
+                        )
+                        
+                        if fig is not None:
+                            if shared_ylim is None: # Capture ylim from the first plot
+                                shared_ylim = current_ylim
+                            
+                            filename = f"{model_name.lower()}_training_cutoff_{molecule_type.lower()}_{metric_type.lower()}_compared"
+                            self.save_plots([fig], filename)
+                        else:
+                            print(f"Warning: Failed to generate training cutoff comparison plot for {model_name} - {metric_type}")
+            
+            print(f"\n✓ Generated training cutoff plots for all metrics: {', '.join(metric_types)}")
+            
+            # Generate horizontal legends for both model types
+            try:
+                print("\nGenerating horizontal legends for training cutoff plots...")
+                
+                # Generate AlphaFold3 legend
+                af3_legend_fig = self.training_cutoff_plotter.create_horizontal_legend(
+                    model_type='AlphaFold3',
+                    width=6, 
+                    height=1, 
+                    save=False,
+                    filename="training_cutoff_legend_alphafold3"
+                )
+                if af3_legend_fig is not None:
+                    self.save_plots([af3_legend_fig], "training_cutoff_legend_alphafold3")
+                    print("✓ AlphaFold3 horizontal legend generated successfully")
+                else:
+                    print("Warning: Failed to generate AlphaFold3 horizontal legend")
+                
+                # Generate Boltz1 legend
+                boltz1_legend_fig = self.training_cutoff_plotter.create_horizontal_legend(
+                    model_type='Boltz1',
+                    width=6, 
+                    height=1, 
+                    save=False,
+                    filename="training_cutoff_legend_boltz1"
+                )
+                if boltz1_legend_fig is not None:
+                    self.save_plots([boltz1_legend_fig], "training_cutoff_legend_boltz1")
+                    print("✓ Boltz1 horizontal legend generated successfully")
+                else:
+                    print("Warning: Failed to generate Boltz1 horizontal legend")
+                    
+            except Exception as legend_error:
+                print(f"Error generating horizontal legends for training cutoff plots: {legend_error}")
             
         except Exception as e:
             print(f"Error: {e}")
@@ -1079,10 +1106,10 @@ class PlottingApp:
         print("="*50)
         print("\nAvailable Plot Types:")
         print("1. AF3 vs Boltz1 Comparison")
-        print("2. Horizontal Bars (Mean & Std Dev)")
-        print("3. RMSD, iRMSD, LRMSD Plots")
-        print("4. pTM and ipTM Plots")
-        print("5. Training Cutoff Comparison")
+        print("2. Training Cutoff Comparison")
+        print("3. Horizontal Bars (Mean & Std Dev)")
+        print("4. RMSD, iRMSD, LRMSD Plots")
+        print("5. pTM and ipTM Plots")
         print("6. POI and E3L Analysis")
         print("7. Property vs LRMSD Analysis")
         print("8. Generate All Plot Types")
@@ -1115,10 +1142,10 @@ class PlottingApp:
             if choice == '8':
                 # Generate all plot types
                 self.plot_comparison("boltz1")
+                self.plot_training_cutoff()
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
-                self.plot_training_cutoff()
                 self.plot_poi_e3l_rmsd()
                 self.plot_property_vs_lrmsd()
                 self.plot_rmsd_complex_isolated()
@@ -1133,13 +1160,13 @@ class PlottingApp:
                 if plot_choice == '1':
                     self.plot_comparison("boltz1")
                 elif plot_choice == '2':
-                    self.plot_horizontal_bars()
-                elif plot_choice == '3':
-                    self.plot_rmsd_horizontal_bars()
-                elif plot_choice == '4':
-                    self.plot_ptm_bars()
-                elif plot_choice == '5':
                     self.plot_training_cutoff()
+                elif plot_choice == '3':
+                    self.plot_horizontal_bars()
+                elif plot_choice == '4':
+                    self.plot_rmsd_horizontal_bars()
+                elif plot_choice == '5':
+                    self.plot_ptm_bars()
                 elif plot_choice == '6':
                     self.plot_poi_e3l_rmsd()
                 elif plot_choice == '7':

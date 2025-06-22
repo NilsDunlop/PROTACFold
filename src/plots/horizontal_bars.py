@@ -278,8 +278,8 @@ class HorizontalBarPlotter(BasePlotter):
             #                         alpha=0.7, linewidth=1.0, label='Threshold')
             # legend_handles.append(threshold_line)
         
-        ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE, fontweight='bold')
-        ax.set_ylabel('PDB Identifier', fontsize=AXIS_LABEL_FONTSIZE, fontweight='bold')
+        ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_ylabel('PDB ID', fontsize=AXIS_LABEL_FONTSIZE)
         
         ax.set_yticks(y_positions)
         ax.set_yticklabels(pdb_labels)
@@ -538,9 +538,9 @@ class HorizontalBarPlotter(BasePlotter):
                         )
             
             # Set axis labels
-            ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE, fontweight='bold')
+            ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE)
             if i == 0:
-                ax.set_ylabel('PDB Identifier', fontsize=AXIS_LABEL_FONTSIZE, fontweight='bold')
+                ax.set_ylabel('PDB ID', fontsize=AXIS_LABEL_FONTSIZE)
             
             # Set y-ticks and labels
             ax.set_yticks(y_positions)

@@ -16,22 +16,22 @@ class TrainingCutoffPlotter(BasePlotter):
     """
     
     # --- Plot Configuration Constants ---
-    # Plot dimensions
-    PLOT_WIDTH = 4
-    PLOT_HEIGHT = 4
+    # Plot dimensions - REDUCED for compact Nature-style plots
+    PLOT_WIDTH = 2    # Reduced from 4 to 2
+    PLOT_HEIGHT = 3   # Reduced from 4 to 3
 
-    # Font sizes (can be fine-tuned)
-    TITLE_FONT_SIZE = 16 # Example, adjust as needed
-    AXIS_LABEL_FONT_SIZE = 12
-    VALUE_LABEL_FONT_SIZE = 12
-    LEGEND_FONT_SIZE = 9.5
-    TICK_LABEL_FONT_SIZE = 11
+    # Font sizes - INCREASED for better readability in smaller plots
+    TITLE_FONT_SIZE = 15      # Reduced from 16 to 15
+    AXIS_LABEL_FONT_SIZE = 13 # Increased from 12 to 13
+    VALUE_LABEL_FONT_SIZE = 12 # Kept the same
+    LEGEND_FONT_SIZE = 11   # Increased from 9.5 to 11
+    TICK_LABEL_FONT_SIZE = 12 # Increased from 11 to 12
 
-    # Bar appearance
-    BAR_WIDTH = 0.05
+    # Bar appearance - REFINED for cleaner look
+    BAR_WIDTH = 0.08          # Increased from 0.05 to 0.08 for better visibility
     BAR_EDGE_COLOR = 'black'
-    BAR_EDGE_LINE_WIDTH = 0.5
-    BAR_SPACING_FACTOR = 2 
+    BAR_EDGE_LINE_WIDTH = 0.5 # Kept the same
+    BAR_SPACING_FACTOR = 1.8  # Reduced from 2 to 1.8 for tighter spacing 
 
     # Hatches for post-training bars (empty for pre-training)
     PRE_TRAINING_HATCH = ''
@@ -53,11 +53,11 @@ class TrainingCutoffPlotter(BasePlotter):
     POST_CCD_COLOR_BOLTZ1 = PRE_CCD_COLOR_BOLTZ1 # Same color, differentiated by hatch
     POST_SMILES_COLOR_BOLTZ1 = PRE_SMILES_COLOR_BOLTZ1 # Same color, differentiated by hatch
 
-    # Error bar appearance
+    # Error bar appearance - REFINED for cleaner look
     ERROR_BAR_COLOR = 'black'
-    ERROR_BAR_CAPSIZE = 4
-    ERROR_BAR_THICKNESS = 1
-    ERROR_BAR_ALPHA = 0.7
+    ERROR_BAR_CAPSIZE = 3     # Reduced from 4 to 3
+    ERROR_BAR_THICKNESS = 0.8 # Reduced from 1 to 0.8
+    ERROR_BAR_ALPHA = 0.7     # Kept the same
 
     # Grid properties
     GRID_LINESTYLE = '--'
@@ -385,33 +385,33 @@ class TrainingCutoffPlotter(BasePlotter):
                 )
                 legend_handles.append(threshold_line)
             
-            # Add legend
-            current_legend_loc = self.LEGEND_LOCATION
-            if metric_type.upper() == 'PTM':
-                current_legend_loc = 'upper right'
-            
-            if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
-                # Use background when data values are near or below threshold
-                ax.legend(
-                    handles=legend_handles, 
-                    loc=current_legend_loc, 
-                    frameon=False, # Ensure no border
-                    facecolor='white', # Kept for consistency, but won't show with frameon=False
-                    framealpha=0.8, # Kept for consistency, but won't show with frameon=False
-                    edgecolor='lightgray', # Kept for consistency, but won't show with frameon=False
-                    borderpad=self.LEGEND_BORDER_PADDING,
-                    fontsize=self.LEGEND_FONT_SIZE,
-                    labelspacing=0.2
-                )
-            else:
-                ax.legend(
-                    handles=legend_handles, 
-                    loc=current_legend_loc, 
-                    frameon=False, # Ensure no border
-                    borderpad=self.LEGEND_BORDER_PADDING,
-                    fontsize=self.LEGEND_FONT_SIZE,
-                    labelspacing=0.2
-                )
+            # Add legend - COMMENTED OUT FOR NOW
+            # current_legend_loc = self.LEGEND_LOCATION
+            # if metric_type.upper() == 'PTM':
+            #     current_legend_loc = 'upper right'
+            # 
+            # if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max(values) < threshold_value * 1.5:
+            #     # Use background when data values are near or below threshold
+            #     ax.legend(
+            #         handles=legend_handles, 
+            #         loc=current_legend_loc, 
+            #         frameon=False, # Ensure no border
+            #         facecolor='white', # Kept for consistency, but won't show with frameon=False
+            #         framealpha=0.8, # Kept for consistency, but won't show with frameon=False
+            #         edgecolor='lightgray', # Kept for consistency, but won't show with frameon=False
+            #         borderpad=self.LEGEND_BORDER_PADDING,
+            #         fontsize=self.LEGEND_FONT_SIZE,
+            #         labelspacing=0.2
+            #     )
+            # else:
+            #     ax.legend(
+            #         handles=legend_handles, 
+            #         loc=current_legend_loc, 
+            #         frameon=False, # Ensure no border
+            #         borderpad=self.LEGEND_BORDER_PADDING,
+            #         fontsize=self.LEGEND_FONT_SIZE,
+            #         labelspacing=0.2
+            #     )
             
             # Remove x-ticks and labels since we have the legend
             ax.set_xticks([])
@@ -421,7 +421,7 @@ class TrainingCutoffPlotter(BasePlotter):
             ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE)
             
             # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
@@ -497,6 +497,111 @@ class TrainingCutoffPlotter(BasePlotter):
                 # For now, just setting it back if it existed.
                 pass # Or print a warning if original_hatch_linewidth was None and it matters.
     
+    def create_horizontal_legend(self, model_type='AlphaFold3', width=6, height=1, save=True, filename="training_cutoff_legend"):
+        """
+        Create a standalone horizontal legend figure for training cutoff plots.
+        
+        Args:
+            model_type (str): Model type ('AlphaFold3' or 'Boltz1') to determine colors
+            width (float): Width of the legend figure
+            height (float): Height of the legend figure 
+            save (bool): Whether to save the figure
+            filename (str): Filename for saving
+            
+        Returns:
+            fig: The created legend figure
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(width, height))
+        
+        # Define colors based on model type
+        if model_type == 'AlphaFold3':
+            colors = [
+                self.PRE_CCD_COLOR_AF3,
+                self.PRE_SMILES_COLOR_AF3,
+                self.POST_CCD_COLOR_AF3,
+                self.POST_SMILES_COLOR_AF3
+            ]
+        elif model_type == 'Boltz1' or model_type == 'Boltz-1':
+            colors = [
+                self.PRE_CCD_COLOR_BOLTZ1,
+                self.PRE_SMILES_COLOR_BOLTZ1,
+                self.POST_CCD_COLOR_BOLTZ1,
+                self.POST_SMILES_COLOR_BOLTZ1
+            ]
+        else:
+            # Fallback to AF3 colors
+            colors = [
+                self.PRE_CCD_COLOR_AF3,
+                self.PRE_SMILES_COLOR_AF3,
+                self.POST_CCD_COLOR_AF3,
+                self.POST_SMILES_COLOR_AF3
+            ]
+        
+        labels = [
+            "Pre-2021 CCD",
+            "Pre-2021 SMILES",
+            "Post-2021 CCD",
+            "Post-2021 SMILES"
+        ]
+        
+        # Define hatches for legend (use denser hatches for better visibility)
+        legend_hatches = [
+            self.PRE_TRAINING_HATCH, 
+            self.PRE_TRAINING_HATCH, 
+            self.LEGEND_POST_TRAINING_HATCH, 
+            self.LEGEND_POST_TRAINING_HATCH
+        ]
+        
+        # Create legend patches for bars
+        legend_handles = []
+        for label, color, hatch in zip(labels, colors, legend_hatches):
+            patch = plt.Rectangle(
+                (0, 0), 1, 1,
+                facecolor=color,
+                edgecolor=self.BAR_EDGE_COLOR,
+                hatch=hatch,
+                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                label=label
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend
+        threshold_line = plt.Line2D(
+            [0, 1], [0, 0],
+            color=self.THRESHOLD_LEGEND_COLOR,
+            linestyle=self.THRESHOLD_LINE_STYLE,
+            linewidth=self.THRESHOLD_LINE_WIDTH,
+            label='Threshold'
+        )
+        legend_handles.append(threshold_line)
+        
+        # Create horizontal legend
+        legend = ax.legend(
+            handles=legend_handles,
+            loc='center',
+            ncol=5,  # 5 columns for horizontal layout (4 bars + threshold)
+            frameon=False,
+            fontsize=self.LEGEND_FONT_SIZE,
+            handlelength=1.5,
+            handletextpad=0.5,
+            columnspacing=1.0
+        )
+        
+        # Remove all axes and spines
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        
+        # Adjust layout to center the legend
+        plt.tight_layout()
+        
+        # Save if requested
+        if save:
+            save_figure(fig, filename)
+            
+        return fig
+
     def _get_metric_columns(self, metric_type):
         """Get the column names for a specific metric type."""
         if metric_type.upper() == 'RMSD':
