@@ -7,10 +7,10 @@ import subprocess
 from config import PlotConfig
 from data_loader import DataLoader
 from horizontal_bars import HorizontalBarPlotter
-from rmsd_plotter import RMSDPlotter
 from ptm_plotter import PTMPlotter
 from comparison_plotter import ComparisonPlotter
 from training_cutoff_plotter import TrainingCutoffPlotter
+from hal_comparison import HALComparisonPlotter
 from poi_e3l_plotter import POI_E3LPlotter
 from property_plotter import PropertyPlotter
 from rmsd_complex_isolated import RMSDComplexIsolatedPlotter
@@ -36,10 +36,10 @@ class PlottingApp:
         
         # Initialize plotters
         self.bar_plotter = HorizontalBarPlotter()
-        self.rmsd_plotter = RMSDPlotter()
         self.ptm_plotter = PTMPlotter()
         self.comparison_plotter = ComparisonPlotter()
         self.training_cutoff_plotter = TrainingCutoffPlotter()
+        self.hal_comparison_plotter = HALComparisonPlotter()
         self.poi_e3l_plotter = POI_E3LPlotter()
         self.property_plotter = PropertyPlotter()
         self.rmsd_complex_isolated_plotter = RMSDComplexIsolatedPlotter()
@@ -481,6 +481,82 @@ class PlottingApp:
             import traceback
             traceback.print_exc()
 
+    def plot_hal_comparison(self):
+        """
+        Generate plots comparing HAL (No Ligand) results with AlphaFold3 and Boltz1 models.
+        """
+        print("\nHAL vs Model Comparison Plot Settings:")
+        
+        # Check for required data files
+        hal_file_path = '../../data/hal_04732948/hal_results.csv'
+        combined_file_path = '../../data/af3_results/combined_results.csv'
+        
+        if not os.path.exists(hal_file_path):
+            print(f"Error: HAL results file not found at: {hal_file_path}")
+            return
+            
+        if not os.path.exists(combined_file_path):
+            print(f"Error: Combined results file not found at: {combined_file_path}")
+            return
+        
+        # Ask for threshold display
+        add_threshold = input("Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+        threshold_value = 0.23  # Default DockQ threshold
+        
+        if add_threshold:
+            threshold_input = input(f"Threshold value [{threshold_value}]: ").strip()
+            if threshold_input:
+                try:
+                    threshold_value = float(threshold_input)
+                except ValueError:
+                    print(f"Invalid threshold value. Using default: {threshold_value}")
+        
+        try:
+            print("\nGenerating HAL vs Model comparison plots...")
+            
+            # Generate both AF3 and Boltz1 comparisons with legends
+            af3_fig, boltz1_fig, af3_legend_fig, boltz1_legend_fig = self.hal_comparison_plotter.plot_both_comparisons(
+                hal_file_path=hal_file_path,
+                combined_file_path=combined_file_path,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                save=False,  # Handled by self.save_plots
+                debug=False
+            )
+            
+            # Save the main comparison plots
+            if af3_fig is not None:
+                self.save_plots([af3_fig], "hal_comparison_alphafold3_dockq")
+                print("✓ AlphaFold3 vs HAL comparison plot generated successfully")
+            else:
+                print("Warning: Failed to generate AlphaFold3 vs HAL comparison plot")
+            
+            if boltz1_fig is not None:
+                self.save_plots([boltz1_fig], "hal_comparison_boltz1_dockq")
+                print("✓ Boltz1 vs HAL comparison plot generated successfully")
+            else:
+                print("Warning: Failed to generate Boltz1 vs HAL comparison plot")
+            
+            # Save the legend plots
+            if af3_legend_fig is not None:
+                self.save_plots([af3_legend_fig], "hal_comparison_legend_alphafold3")
+                print("✓ AlphaFold3 legend generated successfully")
+            else:
+                print("Warning: Failed to generate AlphaFold3 legend")
+                
+            if boltz1_legend_fig is not None:
+                self.save_plots([boltz1_legend_fig], "hal_comparison_legend_boltz1")
+                print("✓ Boltz1 legend generated successfully")
+            else:
+                print("Warning: Failed to generate Boltz1 legend")
+            
+            print(f"\n✓ HAL vs Model comparison plots generated successfully")
+            
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+
     def plot_training_cutoff(self):
         """
         Generate plots comparing model performance on structures from before
@@ -626,10 +702,10 @@ class PlottingApp:
                     width=6, 
                     height=1, 
                     save=False,
-                    filename="training_cutoff_legend_alphafold3"
+                    filename="af3_training_cutoff_legend"
                 )
                 if af3_legend_fig is not None:
-                    self.save_plots([af3_legend_fig], "training_cutoff_legend_alphafold3")
+                    self.save_plots([af3_legend_fig], "af3_training_cutoff_legend")
                     print("✓ AlphaFold3 horizontal legend generated successfully")
                 else:
                     print("Warning: Failed to generate AlphaFold3 horizontal legend")
@@ -640,10 +716,10 @@ class PlottingApp:
                     width=6, 
                     height=1, 
                     save=False,
-                    filename="training_cutoff_legend_boltz1"
+                    filename="boltz1_training_cutoff_legend"
                 )
                 if boltz1_legend_fig is not None:
-                    self.save_plots([boltz1_legend_fig], "training_cutoff_legend_boltz1")
+                    self.save_plots([boltz1_legend_fig], "boltz1_training_cutoff_legend")
                     print("✓ Boltz1 horizontal legend generated successfully")
                 else:
                     print("Warning: Failed to generate Boltz1 horizontal legend")
@@ -1107,8 +1183,8 @@ class PlottingApp:
         print("\nAvailable Plot Types:")
         print("1. AF3 vs Boltz1 Comparison")
         print("2. Training Cutoff Comparison")
-        print("3. Horizontal Bars (Mean & Std Dev)")
-        print("4. RMSD, iRMSD, LRMSD Plots")
+        print("3. HAL vs Model Comparison")
+        print("4. Horizontal Bars (Mean & Std Dev)")
         print("5. pTM and ipTM Plots")
         print("6. POI and E3L Analysis")
         print("7. Property vs LRMSD Analysis")
@@ -1143,8 +1219,8 @@ class PlottingApp:
                 # Generate all plot types
                 self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
+                self.plot_hal_comparison()
                 self.plot_horizontal_bars()
-                self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
                 self.plot_poi_e3l_rmsd()
                 self.plot_property_vs_lrmsd()
@@ -1162,9 +1238,9 @@ class PlottingApp:
                 elif plot_choice == '2':
                     self.plot_training_cutoff()
                 elif plot_choice == '3':
-                    self.plot_horizontal_bars()
+                    self.plot_hal_comparison()
                 elif plot_choice == '4':
-                    self.plot_rmsd_horizontal_bars()
+                    self.plot_horizontal_bars()
                 elif plot_choice == '5':
                     self.plot_ptm_bars()
                 elif plot_choice == '6':
