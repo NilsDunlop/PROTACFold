@@ -338,7 +338,7 @@ class HALComparisonPlotter(BasePlotter):
         ax.set_ylim(0, 1)
         
         # Set x-axis limits to reduce empty space at beginning and end
-        x_margin = bar_width * spacing_factor * 1.5  # Small margin around the bars
+        x_margin = bar_width * spacing_factor * 2.5  # Small margin around the bars
         ax.set_xlim(x_positions[0] - x_margin, x_positions[-1] + x_margin)
         
         # No legend in the main plot as requested
