@@ -21,7 +21,7 @@ class ComparisonPlotter(BasePlotter):
     AXIS_LABEL_FONT_SIZE = 13 # Increased from 12 to 13
     TICK_LABEL_FONT_SIZE = 12 # Increased from 11 to 12
     VALUE_LABEL_FONT_SIZE = 12 # Kept the same
-    LEGEND_FONT_SIZE = 10.5   # Increased from 9.5 to 10.5
+    LEGEND_FONT_SIZE = 11   # Increased from 9.5 to 11
     
     # Bar appearance - REFINED for cleaner look
     BAR_WIDTH = 0.08          # Increased from 0.05 to 0.08 for better visibility
@@ -310,8 +310,8 @@ class ComparisonPlotter(BasePlotter):
             bar_labels = [
                 "AF3 CCD",
                 "AF3 SMILES",
-                "Boltz-1 CCD",
-                "Boltz-1 SMILES"
+                "B1 CCD",
+                "B1 SMILES"
             ]
             
             # Get the mean values in the correct order
@@ -394,7 +394,7 @@ class ComparisonPlotter(BasePlotter):
             ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
             
             # Set axis labels
-            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE)
             
             # Create appropriate title based on whether we're filtering by seed
             if is_seed_specific:
@@ -522,6 +522,85 @@ class ComparisonPlotter(BasePlotter):
             specific_seed=specific_seed
         )
 
+    def create_horizontal_legend(self, width=6, height=1, save=True, filename="comparison_legend"):
+        """
+        Create a standalone horizontal legend figure for comparison plots.
+        
+        Args:
+            width (float): Width of the legend figure
+            height (float): Height of the legend figure 
+            save (bool): Whether to save the figure
+            filename (str): Filename for saving
+            
+        Returns:
+            fig: The created legend figure
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(width, height))
+        
+        # Define colors and labels
+        colors = [
+            PlotConfig.AF3_CCD_COLOR,      # AF3 CCD
+            PlotConfig.AF3_SMILES_COLOR,   # AF3 SMILES
+            PlotConfig.BOLTZ1_CCD_COLOR,   # B1 CCD
+            PlotConfig.BOLTZ1_SMILES_COLOR # B1 SMILES
+        ]
+        
+        labels = [
+            "AF3 CCD",
+            "AF3 SMILES", 
+            "B1 CCD",
+            "B1 SMILES"
+        ]
+        
+        # Create legend patches for bars
+        legend_handles = []
+        for label, color in zip(labels, colors):
+            patch = plt.Rectangle(
+                (0, 0), 1, 1,
+                facecolor=color,
+                edgecolor='black',
+                linewidth=0.5,
+                label=label
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend
+        threshold_line = plt.Line2D(
+            [0, 1], [0, 0],
+            color='grey',
+            linestyle='--',
+            linewidth=1.0,
+            label='Threshold'
+        )
+        legend_handles.append(threshold_line)
+        
+        # Create horizontal legend
+        legend = ax.legend(
+            handles=legend_handles,
+            loc='center',
+            ncol=5,  # 5 columns for horizontal layout (4 bars + threshold)
+            frameon=False,
+            fontsize=self.LEGEND_FONT_SIZE,
+            handlelength=1.5,
+            handletextpad=0.5,
+            columnspacing=1.0
+        )
+        
+        # Remove all axes and spines
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        
+        # Adjust layout to center the legend
+        plt.tight_layout()
+        
+        # Save if requested
+        if save:
+            save_figure(fig, filename)
+            
+        return fig
+
     def _get_metric_columns(self, metric_type):
         """Get the column names for a specific metric type."""
         if metric_type.upper() == 'RMSD':
@@ -646,7 +725,7 @@ class ComparisonPlotter(BasePlotter):
                     color=PlotConfig.BOLTZ1_CCD_COLOR,
                     edgecolor='black',
                     linewidth=self.BAR_EDGE_LINE_WIDTH,
-                    label='Boltz1 CCD' if i == 0 else None
+                    label='B1 CCD' if i == 0 else None
                 )
                 if i == 0:
                     legend_handles.append(bar)
@@ -662,7 +741,7 @@ class ComparisonPlotter(BasePlotter):
                     color=PlotConfig.BOLTZ1_SMILES_COLOR,
                     edgecolor='black',
                     linewidth=self.BAR_EDGE_LINE_WIDTH,
-                    label='Boltz1 SMILES' if i == 0 else None
+                    label='B1 SMILES' if i == 0 else None
                 )
                 if i == 0:
                     legend_handles.append(bar)
@@ -691,7 +770,7 @@ class ComparisonPlotter(BasePlotter):
         ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
         
         # Set axis labels and title
-        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE)
         
         # Set the title
         title = f"AlphaFold3 vs. Boltz1 - {metric_type}{title_suffix}"

@@ -459,6 +459,23 @@ class PlottingApp:
             
             print(f"\n✓ Generated comparison plots for all metrics: {', '.join([m['name'] for m in all_metrics])}")
             
+            # Generate the horizontal legend as a separate figure
+            try:
+                print("\nGenerating horizontal legend for comparison plots...")
+                legend_fig = self.comparison_plotter.create_horizontal_legend(
+                    width=6, 
+                    height=1, 
+                    save=False,
+                    filename="af3_vs_boltz1_legend"
+                )
+                if legend_fig is not None:
+                    self.save_plots([legend_fig], "af3_vs_boltz1_legend")
+                    print("✓ Horizontal legend generated successfully")
+                else:
+                    print("Warning: Failed to generate horizontal legend")
+            except Exception as legend_error:
+                print(f"Error generating horizontal legend: {legend_error}")
+            
         except Exception as e:
             print(f"Error: {e}")
             import traceback
@@ -1061,10 +1078,10 @@ class PlottingApp:
         print("PLOTTING TOOLKIT MENU".center(50))
         print("="*50)
         print("\nAvailable Plot Types:")
-        print("1. Horizontal Bars (Mean & Std Dev)")
-        print("2. RMSD, iRMSD, LRMSD Plots")
-        print("3. pTM and ipTM Plots")
-        print("4. AF3 vs Boltz1 Comparison")
+        print("1. AF3 vs Boltz1 Comparison")
+        print("2. Horizontal Bars (Mean & Std Dev)")
+        print("3. RMSD, iRMSD, LRMSD Plots")
+        print("4. pTM and ipTM Plots")
         print("5. Training Cutoff Comparison")
         print("6. POI and E3L Analysis")
         print("7. Property vs LRMSD Analysis")
@@ -1097,10 +1114,10 @@ class PlottingApp:
                 
             if choice == '8':
                 # Generate all plot types
+                self.plot_comparison("boltz1")
                 self.plot_horizontal_bars()
                 self.plot_rmsd_horizontal_bars()
                 self.plot_ptm_bars()
-                self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
                 self.plot_poi_e3l_rmsd()
                 self.plot_property_vs_lrmsd()
@@ -1114,13 +1131,13 @@ class PlottingApp:
                 plot_choice = plot_choice.strip()
                 
                 if plot_choice == '1':
-                    self.plot_horizontal_bars()
-                elif plot_choice == '2':
-                    self.plot_rmsd_horizontal_bars()
-                elif plot_choice == '3':
-                    self.plot_ptm_bars()
-                elif plot_choice == '4':
                     self.plot_comparison("boltz1")
+                elif plot_choice == '2':
+                    self.plot_horizontal_bars()
+                elif plot_choice == '3':
+                    self.plot_rmsd_horizontal_bars()
+                elif plot_choice == '4':
+                    self.plot_ptm_bars()
                 elif plot_choice == '5':
                     self.plot_training_cutoff()
                 elif plot_choice == '6':
