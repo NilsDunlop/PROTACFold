@@ -8,7 +8,17 @@ from config import PlotConfig
 from utils import save_figure
 
 class POI_E3LPlotter(BasePlotter):
-    """Class for plotting POI and E3 ligase metrics."""
+    """
+    Class for plotting POI and E3 ligase metrics in grid layouts.
+    
+    This class provides methods for creating grid-style plots showing both 
+    Protein of Interest (POI) and E3 Ligase metrics in organized layouts:
+    - Single model grids (POI and E3L for one model)
+    - Combined grids (POI and E3L for multiple models)
+    
+    The original separate plotting methods are deprecated in favor of 
+    cleaner grid layouts.
+    """
     
     # --- Protein Group and Color Map Constants ---
     PROTAC_POI_GROUPS = {
@@ -53,22 +63,25 @@ class POI_E3LPlotter(BasePlotter):
     }
 
     # --- Default Styling and Layout Constants ---
-    # General Plotting Style
+    # General Plotting Style - REFINED for cleaner look
     CLS_DEFAULT_BAR_WIDTH = 0.7
     CLS_BAR_ALPHA = 1
     CLS_BAR_EDGE_COLOR = 'black'
     CLS_BAR_LINEWIDTH = 0.5
-    CLS_ERROR_BAR_CAPSIZE = 5
+    CLS_ERROR_BAR_CAPSIZE = 3              # Reduced from 5 to 3
+    CLS_ERROR_BAR_THICKNESS = 0.8          # Added for consistency
+    CLS_ERROR_BAR_ALPHA = 0.7              # Added for consistency
     CLS_THRESHOLD_LINE_ALPHA = 1
+    CLS_THRESHOLD_LINE_WIDTH = 1.0         # Added for consistency
 
-    # Font Sizes
-    CLS_PLOT_TITLE_FONTSIZE = 14
+    # Font Sizes - INCREASED for better readability in smaller plots
+    CLS_PLOT_TITLE_FONTSIZE = 15      # Increased from 14 to 15
     CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID = 2  # Increment for PlotConfig.AXIS_LABEL_SIZE in grid plots
     CLS_YTICK_FONTSIZE = 12
     CLS_TICK_FONTSIZE_GRID = 13  # For combined grid plots
-    CLS_LEGEND_FONTSIZE_RMSD = 9.5
-    CLS_LEGEND_FONTSIZE_GRID = 13 # For combined grid plots
-    CLS_LEGEND_FONTSIZE_LABEL = 14 # For legend labels
+    CLS_LEGEND_FONTSIZE_RMSD = 11      # Increased from 9.5 to 11
+    CLS_LEGEND_FONTSIZE_GRID = 13      # For combined grid plots
+    CLS_LEGEND_FONTSIZE_LABEL = 15     # Increased from 14 to 15 for legend labels
 
     # Legend Styling
     CLS_LEGEND_FRAME_ON = False
@@ -79,23 +92,24 @@ class POI_E3LPlotter(BasePlotter):
     CLS_LEGEND_NCOL_POI_MAX = 1
     CLS_LEGEND_NCOL_GRID_MAX = 1
 
-    # Default Sizing for plot_poi_e3l_rmsd and _create_rmsd_plot
-    CLS_PLOT_DEFAULT_WIDTH_RMSD = 6.0
+    # Default Sizing for plot_poi_e3l_rmsd and _create_rmsd_plot - REDUCED for compact plots
+    CLS_PLOT_DEFAULT_WIDTH_RMSD = 4.0  # Reduced from 6.0 to 4.0
     CLS_HEIGHT_CALC_MIN_RMSD = 8.0
     CLS_HEIGHT_CALC_FACTOR_RMSD = 0.35
     CLS_HEIGHT_CALC_PADDING_RMSD = 2.0
     CLS_E3L_HEIGHT_MIN_RMSD = 4.0
 
-    # Default Sizing for plot_combined_grid
-    CLS_GRID_DEFAULT_WIDTH = 12.0
+    # Default Sizing for plot_combined_grid - REDUCED for compact plots
+    CLS_GRID_DEFAULT_WIDTH = 8.0          # Reduced from 12.0 to 8.0
     CLS_GRID_HEIGHT_CALC_FACTOR = 0.4
     CLS_GRID_HEIGHT_CALC_PADDING = 3.0
     CLS_GRID_DEFAULT_OVERALL_HEIGHT = 12.0
     CLS_GRID_X_AXIS_PADDING_FACTOR = 0.05
     CLS_GRID_HSPACE = 0.05
     CLS_GRID_YLABEL_PAD = 20
-    CLS_GRID_YLABEL_X_COORD = -0.25
+    CLS_GRID_YLABEL_X_COORD = -0.45
     CLS_GRID_YLABEL_Y_COORD = 0.5
+    CLS_GRID_ALPHA = 0.2
     
     # --- New constant for single model grid plots ---
     CLS_SINGLE_MODEL_GRID_WIDTH = CLS_GRID_DEFAULT_WIDTH / 2  # Half of the combined grid width
@@ -126,185 +140,31 @@ class POI_E3LPlotter(BasePlotter):
         debug=False
     ):
         """
-        Plot RMSD or DockQ for POIs and E3Ls with highest values at the top.
+        DEPRECATED: This method is deprecated. Use plot_single_model_grid() instead for a cleaner grid layout.
         
-        Args:
-            df: DataFrame with RMSD data
-            model_type: 'AlphaFold3' or 'Boltz-1'
-            metric_type: 'RMSD' or 'DockQ'
-            add_threshold: Whether to add a threshold line
-            threshold_value: Value for the threshold line
-            width: Figure width
-            height: Figure height (calculated automatically if None)
-            bar_width: Width of the bars
-            save: Whether to save the figure
-            legend_position: Position for the legend (defaults to bottom left if None)
-            molecule_type: Type of molecule to filter by ('PROTAC' or 'MOLECULAR GLUE')
-            debug: Enable debugging output
-            
-        Returns:
-            tuple: (fig_poi_list, fig_e3l) - the created figures, where fig_poi_list is a list of POI figures
+        This method now redirects to plot_single_model_grid() to maintain backwards compatibility.
         """
-        # Enable debugging for this call if requested
-        self.debug = debug or self.debug
+        print("Warning: plot_poi_e3l_rmsd() is deprecated. Using plot_single_model_grid() instead.")
         
-        # Verify that the dataframe is not empty
-        if df.empty:
-            print(f"Error: Input dataframe is empty")
-            return [], None
+        # Redirect to the grid method
+        fig = self.plot_single_model_grid(
+            df=df,
+            model_type=model_type,
+            metric_type=metric_type,
+            add_threshold=add_threshold,
+            threshold_value=threshold_value,
+            width=width / 2,  # Adjust width since grid is different layout
+            height=height,
+            bar_width=bar_width,
+            save=save,
+            legend_position=legend_position,
+            molecule_type=molecule_type,
+            debug=debug
+        )
         
-        # Filter data based on model type - accept both 'Boltz1' and 'Boltz-1'
-        if model_type == 'Boltz-1':
-            model_variants = ['Boltz-1', 'Boltz1']
-            filtered_df = df[df['MODEL_TYPE'].isin(model_variants)].copy()
-        else:
-            filtered_df = df[df['MODEL_TYPE'] == model_type].copy()
-        
-        if len(filtered_df) == 0:
-            print(f"Error: No data available for model type '{model_type}'")
-            return [], None
-        
-        # Filter by molecule type
-        # Check if we have MOLECULE_TYPE column (newer datasets) or TYPE column (older datasets)
-        molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in filtered_df.columns else 'TYPE'
-        
-        if molecule_type_col in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df[molecule_type_col] == molecule_type].copy()
-            
-            if filtered_df.empty:
-                print(f"Error: No data available for molecule type '{molecule_type}'")
-                available_types = df[df['MODEL_TYPE'] == model_type][molecule_type_col].unique()
-                print(f"Available molecule types: {available_types}")
-                return [], None
-        else:
-            print(f"Warning: No '{molecule_type_col}' column found in data, skipping molecule type filtering")
-        
-        # Determine valid seeds based on model type
-        if model_type == 'AlphaFold3':
-            valid_seeds = [24, 37, 42]
-        else:  # Boltz-1
-            valid_seeds = [24, 37, 42]
-            
-        # Filter by seeds
-        filtered_df = filtered_df[filtered_df['SEED'].isin(valid_seeds)]
-        
-        if len(filtered_df) == 0:
-            print(f"Error: No data available for selected seeds")
-            return [], None
-            
-        # Select appropriate groups and color maps based on molecule type
-        if molecule_type == "PROTAC":
-            poi_groups = self.PROTAC_POI_GROUPS
-            e3_groups = self.PROTAC_E3_GROUPS
-            poi_color_map = self.PROTAC_POI_COLOR_MAP
-            e3_color_map = self.PROTAC_E3_COLOR_MAP
-        else:  # MOLECULAR GLUE
-            poi_groups = self.MG_POI_GROUPS
-            e3_groups = self.MG_E3_GROUPS
-            poi_color_map = self.MG_POI_COLOR_MAP
-            e3_color_map = self.MG_E3_COLOR_MAP
-        
-        # Process POI data
-        poi_results = self._process_protein_data(filtered_df, 'SIMPLE_POI_NAME', poi_groups, metric_type)
-        
-        # Process E3L data
-        e3l_results = self._process_protein_data(filtered_df, 'SIMPLE_E3_NAME', e3_groups, metric_type)
-        
-        # If no results, return early
-        if not poi_results and not e3l_results:
-            print("No valid POI or E3L data found after filtering")
-            return [], None
-        
-        # Sort results by metric value
-        sorted_e3l_results = self._get_sorted_e3l_results(molecule_type, e3l_results, metric_type)
-        
-        # Create POI plots
-        poi_fig_list = []
-        poi_data_count = 0
-        poi_height = None
-        if poi_results:
-            # Define group order for color mapping reference
-            if molecule_type == "PROTAC":
-                poi_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators",
-                             "Apoptosis_Regulators", "Diverse_Enzymes"]
-            else:  # MOLECULAR GLUE
-                poi_order = ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
-                            "RNA_Translation_Regulators", "Signaling_Metabolism"]
-            
-            # Sort POI results by metric value (highest at top)
-            sorted_poi_results = self._sort_results_by_group_order(poi_results, poi_order, metric_type)
-            poi_data_count = len(sorted_poi_results)
-            
-            # Calculate appropriate height for POI plots if not provided
-            if height is None:
-                poi_height = max(self.CLS_HEIGHT_CALC_MIN_RMSD, poi_data_count * self.CLS_HEIGHT_CALC_FACTOR_RMSD + self.CLS_HEIGHT_CALC_PADDING_RMSD)
-            else:
-                poi_height = height
-                
-            # Create the POI plots
-            poi_fig_list = self._create_split_poi_plots(
-                sorted_poi_results, 
-                poi_color_map,
-                model_type, 
-                metric_type,
-                add_threshold, 
-                threshold_value, 
-                width, 
-                poi_height, 
-                bar_width, 
-                save,
-                legend_position=legend_position,
-                molecule_type=molecule_type
-            )
-        
-        # Create E3L plot
-        fig_e3l = None
-        if sorted_e3l_results:
-            # Define the legend groups order for visual consistency
-            if molecule_type == "PROTAC":
-                legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
-            else:  # MOLECULAR GLUE
-                legend_order = ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
-            
-            # Calculate height for E3L plot proportional to number of elements, maintaining the same bar thickness
-            e3l_data_count = len(sorted_e3l_results)
-            
-            # If we have POI data, calculate E3L height proportional to POI height, otherwise calculate directly
-            if poi_data_count > 0 and poi_height is not None:
-                # Remove fixed 2-unit padding to get just the content height, then scale by data count ratio
-                content_height = poi_height - self.CLS_HEIGHT_CALC_PADDING_RMSD # Use padding constant
-                bar_space_ratio = poi_data_count / content_height
-                
-                # Scale the content height by number of E3L data points, then add back padding
-                e3l_content_height = e3l_data_count / bar_space_ratio
-                e3l_height = e3l_content_height + self.CLS_HEIGHT_CALC_PADDING_RMSD # Use padding constant
-                
-                # Ensure a minimum reasonable height for small datasets
-                e3l_height = max(e3l_height, self.CLS_E3L_HEIGHT_MIN_RMSD) # Use min height constant
-                
-                self._debug_print(f"E3L height: {e3l_height} (POI height: {poi_height}, POI count: {poi_data_count}, E3L count: {e3l_data_count})")
-            else:
-                # Calculate directly if no POI data to reference
-                e3l_height = max(self.CLS_E3L_HEIGHT_MIN_RMSD, e3l_data_count * self.CLS_HEIGHT_CALC_FACTOR_RMSD + self.CLS_HEIGHT_CALC_PADDING_RMSD)
-                
-            fig_e3l = self._create_rmsd_plot(
-                sorted_e3l_results, 
-                'E3L', 
-                e3_color_map,
-                model_type,
-                metric_type,
-                add_threshold, 
-                threshold_value, 
-                width, 
-                e3l_height, 
-                bar_width, 
-                save,
-                custom_legend_order=legend_order,
-                legend_position=legend_position,
-                molecule_type=molecule_type
-            )
-        
-        return poi_fig_list, fig_e3l
+        # Return in the old format (list of POI figs, E3L fig) for compatibility
+        # Since grid returns a single figure, we return it as the E3L figure
+        return [], fig
     
     def _get_sorted_e3l_results(self, molecule_type, e3l_results, metric_type=None):
         """
@@ -435,46 +295,14 @@ class POI_E3LPlotter(BasePlotter):
         molecule_type="PROTAC"
     ):
         """
-        Create multiple POI metric plots with at most 25 structures each.
+        DEPRECATED: This method is deprecated and only kept for backwards compatibility.
+        Use plot_single_model_grid() or plot_combined_grid() instead.
         
-        Args:
-            data: Processed data from _process_protein_data
-            color_map: Dictionary mapping groups to colors
-            model_type: 'AlphaFold3' or 'Boltz-1'
-            metric_type: 'RMSD' or 'DockQ'
-            add_threshold: Whether to add a threshold line
-            threshold_value: Value for the threshold line
-            width: Figure width
-            height: Figure height
-            bar_width: Width of the bars
-            save: Whether to save the figure
-            legend_position: Position for the legend
-            molecule_type: Type of molecule being plotted
-            
         Returns:
-            list: List of matplotlib figures
+            list: Empty list to maintain compatibility
         """
-        if not data:
-            return []
-            
-        # Create a single plot with all POIs
-        fig = self._create_rmsd_plot(
-            data, 
-            'POI', 
-            color_map,
-            model_type,
-            metric_type,
-            add_threshold, 
-            threshold_value, 
-            width, 
-            height, 
-            bar_width, 
-            save,
-            suffix="",
-            legend_position=legend_position,
-            molecule_type=molecule_type
-        )
-        return [fig] if fig else []
+        print("Warning: _create_split_poi_plots() is deprecated. Use grid plotting methods instead.")
+        return []
         
     def _create_rmsd_plot(
         self, 
@@ -553,12 +381,13 @@ class POI_E3LPlotter(BasePlotter):
         bars = ax.barh(positions, means, bar_width, xerr=stds, 
                       color=colors, alpha=self.CLS_BAR_ALPHA, 
                       edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
-                      error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE})
+                      error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE, 
+                                'capthick': self.CLS_ERROR_BAR_THICKNESS, 'alpha': self.CLS_ERROR_BAR_ALPHA})
         
         # Add threshold line if requested
         if add_threshold and threshold_value is not None:
-            ax.axvline(x=threshold_value, color=PlotConfig.GRAY, linestyle='--', 
-                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, label='Threshold')
+            ax.axvline(x=threshold_value, color='gray', linestyle='--', 
+                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, linewidth=self.CLS_THRESHOLD_LINE_WIDTH, label='Threshold')
             
         # Customize the plot
         ax.set_yticks(positions)
@@ -566,12 +395,17 @@ class POI_E3LPlotter(BasePlotter):
         
         # Set appropriate x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         else:  # DockQ
-            ax.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Add grid
-        ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
+        ax.grid(axis='x', linestyle='--', alpha=self.CLS_GRID_ALPHA)
+        
+        # Set y-axis limits to reduce empty space for POI plots
+        if protein_type == 'POI':
+            y_margin = 0.6  # Small margin around the bars for POI
+            ax.set_ylim(positions[0] - y_margin, positions[-1] + y_margin)
         
         # Create legend elements
         legend_elements = self._create_legend_elements(groups, color_map, custom_legend_order, add_threshold)
@@ -581,18 +415,18 @@ class POI_E3LPlotter(BasePlotter):
             legend_position, protein_type, metric_type, means
         )
         
-        # Create the legend
-        legend = ax.legend(
-            handles=legend_elements,
-            loc=legend_loc,
-            ncol=1 if protein_type == 'POI' else min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements)),
-            fontsize=self.CLS_LEGEND_FONTSIZE_RMSD,
-            framealpha=self.CLS_LEGEND_FRAME_ALPHA,
-            frameon=self.CLS_LEGEND_FRAME_ON,
-            facecolor='white',
-            columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
-            handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
-        )
+        # Create the legend - COMMENTED OUT FOR NOW
+        # legend = ax.legend(
+        #     handles=legend_elements,
+        #     loc=legend_loc,
+        #     ncol=1 if protein_type == 'POI' else min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements)),
+        #     fontsize=self.CLS_LEGEND_FONTSIZE_RMSD,
+        #     framealpha=self.CLS_LEGEND_FRAME_ALPHA,
+        #     frameon=self.CLS_LEGEND_FRAME_ON,
+        #     facecolor='white',
+        #     columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
+        #     handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
+        # )
         
         # Adjust layout
         plt.tight_layout()
@@ -648,7 +482,7 @@ class POI_E3LPlotter(BasePlotter):
         # Add threshold to legend if it exists
         if add_threshold:
             from matplotlib.lines import Line2D
-            threshold_line = Line2D([0], [0], color=PlotConfig.GRAY, linestyle='--',
+            threshold_line = Line2D([0], [0], color='gray', linestyle='--',
                                    label='Threshold')
             legend_elements.append(threshold_line)
         
@@ -845,9 +679,9 @@ class POI_E3LPlotter(BasePlotter):
                 
             # Set x-axis label based on metric type
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
             else:  # DockQ
-                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Set consistent x-axis limits for all subplots
         for ax in all_axes:
@@ -870,8 +704,8 @@ class POI_E3LPlotter(BasePlotter):
              label_pad_val = max_tick_width + 0.5 # This 0.5 could be a constant too, e.g. CLS_GRID_YLABEL_TICK_PADDING
         
         # Set the labels with the consistent pad and increased font size
-        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
-        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, labelpad=self.CLS_GRID_YLABEL_PAD)
+        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Further alignment adjustments - moved closer to the axis
         left_axes[0].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
@@ -1011,12 +845,13 @@ class POI_E3LPlotter(BasePlotter):
         bars = ax.barh(positions, means, bar_width, xerr=stds, 
                      color=colors, alpha=self.CLS_BAR_ALPHA, 
                      edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
-                     error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE})
+                     error_kw={'ecolor': 'black', 'capsize': self.CLS_ERROR_BAR_CAPSIZE, 
+                               'capthick': self.CLS_ERROR_BAR_THICKNESS, 'alpha': self.CLS_ERROR_BAR_ALPHA})
         
         # Add threshold line if requested
         if add_threshold and threshold_value is not None:
-            ax.axvline(x=threshold_value, color=PlotConfig.GRAY, linestyle='--', 
-                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, label='Threshold')
+            ax.axvline(x=threshold_value, color='gray', linestyle='--', 
+                      alpha=self.CLS_THRESHOLD_LINE_ALPHA, linewidth=self.CLS_THRESHOLD_LINE_WIDTH, label='Threshold')
             
         # Set title if provided
         if title:
@@ -1027,7 +862,12 @@ class POI_E3LPlotter(BasePlotter):
         ax.set_yticklabels(names, fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Add grid
-        ax.grid(axis='x', alpha=PlotConfig.GRID_ALPHA)
+        ax.grid(axis='x', linestyle='--', alpha=self.CLS_GRID_ALPHA)
+        
+        # Set y-axis limits to reduce empty space for POI plots
+        if any(n in " ".join(names) for n in ["BTK", "SMARCA", "BRD4", "CDK12", "IKZF1"]):  # POI indicators
+            y_margin = 0.6  # Small margin around the bars for POI
+            ax.set_ylim(positions[0] - y_margin, positions[-1] + y_margin)
         
         # Create and show legend if requested
         if show_legend:
@@ -1038,17 +878,17 @@ class POI_E3LPlotter(BasePlotter):
             
             ncol = 1 if is_poi_plot else min(self.CLS_LEGEND_NCOL_E3L_MAX, len(legend_elements))
             
-            ax.legend(
-                handles=legend_elements,
-                loc=legend_position,
-                ncol=ncol,
-                fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
-                framealpha=self.CLS_LEGEND_FRAME_ALPHA,
-                frameon=self.CLS_LEGEND_FRAME_ON,
-                facecolor='white',
-                columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
-                handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
-            )
+            # ax.legend(
+            #     handles=legend_elements,
+            #     loc=legend_position,
+            #     ncol=ncol,
+            #     fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
+            #     framealpha=self.CLS_LEGEND_FRAME_ALPHA,
+            #     frameon=self.CLS_LEGEND_FRAME_ON,
+            #     facecolor='white',
+            #     columnspacing=self.CLS_LEGEND_COLUMN_SPACING,
+            #     handletextpad=self.CLS_LEGEND_HANDLE_TEXT_PAD
+            # )
 
     def plot_single_model_grid(
         self,
@@ -1182,7 +1022,7 @@ class POI_E3LPlotter(BasePlotter):
         
         # Set y-label
         ax_poi.set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
-                          labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+                          labelpad=self.CLS_GRID_YLABEL_PAD)
         ax_poi.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
         
         # No x-axis label for top row
@@ -1214,14 +1054,14 @@ class POI_E3LPlotter(BasePlotter):
         
         # Set y-label
         ax_e3l.set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
-                          labelpad=self.CLS_GRID_YLABEL_PAD, fontweight='bold')
+                          labelpad=self.CLS_GRID_YLABEL_PAD)
         ax_e3l.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
         
         # Set x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         else:  # DockQ
-            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, fontweight='bold')
+            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Save figure if requested
         if save:
@@ -1309,3 +1149,214 @@ class POI_E3LPlotter(BasePlotter):
                 single_figs.append(single_fig)
         
         return combined_fig, single_figs
+    
+    def create_vertical_legend(
+        self, 
+        protein_type='POI',
+        molecule_type="PROTAC", 
+        add_threshold=True,
+        width=2, 
+        height=6, 
+        save=True, 
+        filename=None
+    ):
+        """
+        Create a standalone vertical legend figure for POI/E3L plots.
+        
+        Args:
+            protein_type (str): 'POI' or 'E3L' to determine which legend to create
+            molecule_type (str): 'PROTAC' or 'MOLECULAR GLUE' to determine color mapping
+            add_threshold (bool): Whether to include threshold line in legend
+            width (float): Width of the legend figure
+            height (float): Height of the legend figure 
+            save (bool): Whether to save the figure
+            filename (str): Filename for saving (auto-generated if None)
+            
+        Returns:
+            fig: The created legend figure
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(width, height))
+        
+        # Get appropriate groups and color maps based on protein type and molecule type
+        if protein_type == 'POI':
+            if molecule_type == "PROTAC":
+                groups = self.PROTAC_POI_GROUPS
+                color_map = self.PROTAC_POI_COLOR_MAP
+                legend_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators", 
+                               "Apoptosis_Regulators", "Diverse_Enzymes"]
+            else:  # MOLECULAR GLUE
+                groups = self.MG_POI_GROUPS
+                color_map = self.MG_POI_COLOR_MAP
+                legend_order = ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
+                               "RNA_Translation_Regulators", "Signaling_Metabolism"]
+        else:  # E3L
+            if molecule_type == "PROTAC":
+                groups = self.PROTAC_E3_GROUPS
+                color_map = self.PROTAC_E3_COLOR_MAP
+                legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
+            else:  # MOLECULAR GLUE
+                groups = self.MG_E3_GROUPS
+                color_map = self.MG_E3_COLOR_MAP
+                legend_order = ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
+        
+        # Create legend patches for groups
+        legend_handles = []
+        for group in legend_order:
+            display_name = group.replace('_', ' ')
+            color = color_map.get(group, 'gray')
+            patch = plt.Rectangle(
+                (0, 0), 1, 1,
+                facecolor=color,
+                edgecolor=self.CLS_BAR_EDGE_COLOR,
+                linewidth=self.CLS_BAR_LINEWIDTH,
+                label=display_name
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend if requested
+        if add_threshold:
+            threshold_line = plt.Line2D(
+                [0, 1], [0, 0],
+                color='gray',
+                linestyle='--',
+                linewidth=self.CLS_THRESHOLD_LINE_WIDTH,
+                label='Threshold'
+            )
+            legend_handles.append(threshold_line)
+        
+        # Create vertical legend (ncol=1 for vertical arrangement)
+        legend = ax.legend(
+            handles=legend_handles,
+            loc='center',
+            ncol=1,  # Single column for vertical layout
+            frameon=False,
+            fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
+            handlelength=1.5,
+            handletextpad=0.5,
+            columnspacing=1.0
+        )
+        
+        # Remove all axes and spines
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        
+        # Adjust layout to center the legend
+        plt.tight_layout()
+        
+        # Generate filename if not provided
+        if filename is None:
+            filename = f"poi_e3l_legend_vertical_{protein_type.lower()}_{molecule_type.lower().replace(' ', '_')}"
+        
+        # Save if requested
+        if save:
+            self.save_plot(fig, filename)
+            
+        return fig
+    
+    def create_horizontal_legend(
+        self, 
+        protein_type='POI',
+        molecule_type="PROTAC", 
+        add_threshold=True,
+        width=6, 
+        height=1, 
+        save=True, 
+        filename=None
+    ):
+        """
+        Create a standalone horizontal legend figure for POI/E3L plots.
+        
+        Args:
+            protein_type (str): 'POI' or 'E3L' to determine which legend to create
+            molecule_type (str): 'PROTAC' or 'MOLECULAR GLUE' to determine color mapping
+            add_threshold (bool): Whether to include threshold line in legend
+            width (float): Width of the legend figure
+            height (float): Height of the legend figure 
+            save (bool): Whether to save the figure
+            filename (str): Filename for saving (auto-generated if None)
+            
+        Returns:
+            fig: The created legend figure
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(width, height))
+        
+        # Get appropriate groups and color maps based on protein type and molecule type
+        if protein_type == 'POI':
+            if molecule_type == "PROTAC":
+                groups = self.PROTAC_POI_GROUPS
+                color_map = self.PROTAC_POI_COLOR_MAP
+                legend_order = ["Kinases", "Nuclear_Regulators", "Signaling_Modulators", 
+                               "Apoptosis_Regulators", "Diverse_Enzymes"]
+            else:  # MOLECULAR GLUE
+                groups = self.MG_POI_GROUPS
+                color_map = self.MG_POI_COLOR_MAP
+                legend_order = ["Kinases", "Nuclear_Regulators", "Transcription_Factors",
+                               "RNA_Translation_Regulators", "Signaling_Metabolism"]
+        else:  # E3L
+            if molecule_type == "PROTAC":
+                groups = self.PROTAC_E3_GROUPS
+                color_map = self.PROTAC_E3_COLOR_MAP
+                legend_order = ["CRBN", "VHL", "BIRC2", "DCAF1"]
+            else:  # MOLECULAR GLUE
+                groups = self.MG_E3_GROUPS
+                color_map = self.MG_E3_COLOR_MAP
+                legend_order = ["CRBN", "VHL", "TRIM_Ligase", "DCAF_Receptors", "Others"]
+        
+        # Create legend patches for groups
+        legend_handles = []
+        for group in legend_order:
+            display_name = group.replace('_', ' ')
+            color = color_map.get(group, PlotConfig.GRAY)
+            patch = plt.Rectangle(
+                (0, 0), 1, 1,
+                facecolor=color,
+                edgecolor=self.CLS_BAR_EDGE_COLOR,
+                linewidth=self.CLS_BAR_LINEWIDTH,
+                label=display_name
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend if requested
+        if add_threshold:
+            threshold_line = plt.Line2D(
+                [0, 1], [0, 0],
+                color='gray',
+                linestyle='--',
+                linewidth=self.CLS_THRESHOLD_LINE_WIDTH,
+                label='Threshold'
+            )
+            legend_handles.append(threshold_line)
+        
+        # Create horizontal legend
+        ncol = len(legend_handles)  # All items in one row
+        legend = ax.legend(
+            handles=legend_handles,
+            loc='center',
+            ncol=ncol,
+            frameon=False,
+            fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
+            handlelength=1.5,
+            handletextpad=0.5,
+            columnspacing=1.0
+        )
+        
+        # Remove all axes and spines
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        
+        # Adjust layout to center the legend
+        plt.tight_layout()
+        
+        # Generate filename if not provided
+        if filename is None:
+            filename = f"poi_e3l_legend_{protein_type.lower()}_{molecule_type.lower().replace(' ', '_')}"
+        
+        # Save if requested
+        if save:
+            self.save_plot(fig, filename)
+            
+        return fig

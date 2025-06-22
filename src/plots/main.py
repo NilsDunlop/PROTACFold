@@ -758,191 +758,123 @@ class PlottingApp:
             print(f"Invalid molecule type. Only {'/'.join(allowed_types)} are supported. Using default: PROTAC")
             molecule_type = "PROTAC"
         
-        # Ask for plot type (now with 3 options)
-        plot_type_input = input("Plot type (1=Individual model, 2=Combined grid, 3=All) [1]: ").strip() or "1"
-        plot_grid = plot_type_input == "2"
-        plot_all = plot_type_input == "3"
+        # Get metric type
+        metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
+        metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
         
-        if plot_grid or plot_all:
-            # Get metric type
-            metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
-            metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
-            
-            # Set default threshold based on metric type
-            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
-            
-            # Ask for threshold display
-            add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
-            threshold_value = default_threshold
-            if add_threshold:
-                threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
-                if threshold_input:
-                    threshold_value = float(threshold_input)
-            
-            if plot_all:
-                # Generate both combined and individual plots
-                print(f"Generating combined and individual plots for POI and E3L {metric_type} ({molecule_type})...")
-                
-                # Use the new plot_all_model_grids method that creates both combined and individual plots
-                combined_fig, single_figs = self.poi_e3l_plotter.plot_all_model_grids(
-                    df=self.df_combined,
-                    model_types=['AlphaFold3', 'Boltz-1'],
-                    metric_type=metric_type,
-                    add_threshold=add_threshold,
-                    threshold_value=threshold_value,
-                    save=False,
-                    legend_position='lower right',
-                    molecule_type=molecule_type
-                )
-                
-                # Save the combined grid plot
-                if combined_fig is not None:
-                    filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
-                    self.save_plots([combined_fig], filename)
-                
-                # Save individual model plots
-                if single_figs:
-                    for i, fig in enumerate(single_figs):
-                        if fig is not None:
-                            model_name = 'alphafold3' if i == 0 else 'boltz_1'
-                            filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
-                            self.save_plots([fig], filename)
-                
-            elif plot_grid:
-                # For combined grid layout only
-                print(f"Generating combined 2x2 grid with POI and E3L {metric_type} plots for AlphaFold3 and Boltz-1 ({molecule_type})...")
-                
-                # Create combined grid plot with POI on top and E3L on bottom
-                fig = self.poi_e3l_plotter.plot_combined_grid(
-                    df=self.df_combined,
-                    model_types=['AlphaFold3', 'Boltz-1'],
-                    metric_type=metric_type,
-                    add_threshold=add_threshold,
-                    threshold_value=threshold_value,
-                    save=False,
-                    molecule_type=molecule_type
-                )
-                
-                # Save the grid plot
+        # Set default threshold based on metric type
+        default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+        
+        # Ask for threshold display
+        add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
+        threshold_value = default_threshold
+        if add_threshold:
+            threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
+            if threshold_input:
+                threshold_value = float(threshold_input)
+        
+        # Generate both combined and individual plots (default behavior)
+        print(f"Generating combined and individual plots for POI and E3L {metric_type} ({molecule_type})...")
+        
+        # Use the plot_all_model_grids method that creates both combined and individual plots
+        combined_fig, single_figs = self.poi_e3l_plotter.plot_all_model_grids(
+            df=self.df_combined,
+            model_types=['AlphaFold3', 'Boltz-1'],
+            metric_type=metric_type,
+            add_threshold=add_threshold,
+            threshold_value=threshold_value,
+            save=False,
+            legend_position='lower right',
+            molecule_type=molecule_type
+        )
+        
+        # Save the combined grid plot
+        if combined_fig is not None:
+            filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
+            self.save_plots([combined_fig], filename)
+        
+        # Save individual model plots
+        if single_figs:
+            for i, fig in enumerate(single_figs):
                 if fig is not None:
-                    filename = f"poi_e3l_grid_{metric_type.lower()}_combined_{molecule_type.lower().replace(' ', '_')}"
+                    model_name = 'alphafold3' if i == 0 else 'boltz_1'
+                    filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
                     self.save_plots([fig], filename)
-                else:
-                    print(f"Warning: No combined grid plot was generated. Check your data.")
-                
-                # Generate individual model plots
-                generate_individual = input("Also generate individual model plots? (y/n) [n]: ").strip().lower() == 'y'
-                if generate_individual:
-                    for model_type in ['AlphaFold3', 'Boltz-1']:
-                        fig = self.poi_e3l_plotter.plot_single_model_grid(
-                            df=self.df_combined,
-                            model_type=model_type,
-                            metric_type=metric_type,
-                            add_threshold=add_threshold,
-                            threshold_value=threshold_value,
-                            save=False,
-                            molecule_type=molecule_type
-                        )
-                        
-                        if fig is not None:
-                            model_name = model_type.lower().replace('-', '_')
-                            filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
-                            self.save_plots([fig], filename)
-                
-        else:
-            # Get available model types
-            available_models = sorted(self.df_combined['MODEL_TYPE'].unique())
-            print(f"Available model types: {', '.join(available_models)}")
-            default_model = "AlphaFold3" if "AlphaFold3" in available_models else available_models[0]
+        
+        # Generate both horizontal and vertical legends
+        try:
+            print("\nGenerating horizontal and vertical legends for POI and E3L plots...")
             
-            # Get model type
-            model_type_input = input(f"Model type ({'/'.join(available_models)}) [{default_model}]: ").strip() or default_model
-            
-            # Standardize model type
-            if model_type_input.lower() in ["boltz1", "boltz-1"]:
-                model_type = "Boltz-1"  # Use this internally for consistency
-            elif model_type_input in available_models:
-                model_type = model_type_input
+            # Generate POI horizontal legend
+            poi_legend_fig = self.poi_e3l_plotter.create_horizontal_legend(
+                protein_type='POI',
+                molecule_type=molecule_type,
+                add_threshold=add_threshold,
+                width=8, 
+                height=1, 
+                save=False,
+                filename=None
+            )
+            if poi_legend_fig is not None:
+                filename = f"poi_e3l_legend_poi_{molecule_type.lower().replace(' ', '_')}"
+                self.save_plots([poi_legend_fig], filename)
+                print("✓ POI horizontal legend generated successfully")
             else:
-                print(f"Invalid model type. Using default: {default_model}")
-                model_type = default_model
+                print("Warning: Failed to generate POI horizontal legend")
             
-            # Get metric type
-            metric_type_input = input("Metric type (RMSD/DockQ) [RMSD]: ").strip().upper() or "RMSD"
-            metric_type = metric_type_input if metric_type_input in ["RMSD", "DOCKQ"] else "RMSD"
+            # Generate POI vertical legend
+            poi_vertical_legend_fig = self.poi_e3l_plotter.create_vertical_legend(
+                protein_type='POI',
+                molecule_type=molecule_type,
+                add_threshold=add_threshold,
+                width=2, 
+                height=6, 
+                save=False,
+                filename=None
+            )
+            if poi_vertical_legend_fig is not None:
+                filename = f"poi_e3l_legend_vertical_poi_{molecule_type.lower().replace(' ', '_')}"
+                self.save_plots([poi_vertical_legend_fig], filename)
+                print("✓ POI vertical legend generated successfully")
+            else:
+                print("Warning: Failed to generate POI vertical legend")
             
-            # Set default threshold based on metric type
-            default_threshold = 4.0 if metric_type == "RMSD" else 0.23
+            # Generate E3L horizontal legend
+            e3l_legend_fig = self.poi_e3l_plotter.create_horizontal_legend(
+                protein_type='E3L',
+                molecule_type=molecule_type,
+                add_threshold=add_threshold,
+                width=6, 
+                height=1, 
+                save=False,
+                filename=None
+            )
+            if e3l_legend_fig is not None:
+                filename = f"poi_e3l_legend_e3l_{molecule_type.lower().replace(' ', '_')}"
+                self.save_plots([e3l_legend_fig], filename)
+                print("✓ E3L horizontal legend generated successfully")
+            else:
+                print("Warning: Failed to generate E3L horizontal legend")
             
-            # Ask for threshold display
-            add_threshold = input(f"Add threshold line? (y/n) [y]: ").strip().lower() != 'n'
-            threshold_value = default_threshold
-            if add_threshold:
-                threshold_input = input(f"Threshold value [{default_threshold}]: ").strip()
-                if threshold_input:
-                    threshold_value = float(threshold_input)
-            
-            # Ask for plot style (Original style with separate POI and E3L plots or new grid style)
-            plot_style_input = input("Plot style (1=Original separate plots, 2=Grid style) [1]: ").strip() or "1"
-            use_grid_style = plot_style_input == "2"
-            
-            try:
-                if use_grid_style:
-                    # Use the new single model grid style
-                    print(f"Generating grid-style POI and E3L {metric_type} plot for {model_type} ({molecule_type})...")
-                    
-                    fig = self.poi_e3l_plotter.plot_single_model_grid(
-                        df=self.df_combined,
-                        model_type=model_type,
-                        metric_type=metric_type,
-                        add_threshold=add_threshold,
-                        threshold_value=threshold_value,
-                        save=False,
-                        molecule_type=molecule_type
-                    )
-                    
-                    if fig is not None:
-                        model_name = model_type.lower().replace('-', '_')
-                        filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
-                        self.save_plots([fig], filename)
-                    else:
-                        print(f"Warning: No grid-style plot was generated. Check your data.")
-                    
-                else:
-                    # Original separate POI and E3L plots
-                    print(f"Generating POI and E3L {metric_type} plots for {model_type} ({molecule_type})...")
-                    
-                    figs_poi, fig_e3l = self.poi_e3l_plotter.plot_poi_e3l_rmsd(
-                        df=self.df_combined,
-                        model_type=model_type,
-                        metric_type=metric_type,
-                        add_threshold=add_threshold,
-                        threshold_value=threshold_value,
-                        save=False,
-                        molecule_type=molecule_type
-                    )
-                    
-                    # Save the POI plots
-                    if figs_poi:
-                        for i, fig_poi in enumerate(figs_poi):
-                            if fig_poi is not None:
-                                filename = f"poi_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}_part{i+1}"
-                                self.save_plots([fig_poi], filename)
-                        print(f"Saved {len(figs_poi)} POI plots")
-                    else:
-                        print(f"Warning: No POI {metric_type} plots were generated. Check your data.")
-                    
-                    # Save the E3L plot
-                    if fig_e3l is not None:
-                        filename = f"e3l_{metric_type.lower()}_{model_type.lower().replace('-', '_')}_{molecule_type.lower().replace(' ', '_')}"
-                        self.save_plots([fig_e3l], filename)
-                    else:
-                        print(f"Warning: No E3L {metric_type} plot was generated. Check your data.")
-                    
-            except Exception as e:
-                print(f"Error: {e}")
-                import traceback
-                traceback.print_exc()
+            # Generate E3L vertical legend
+            e3l_vertical_legend_fig = self.poi_e3l_plotter.create_vertical_legend(
+                protein_type='E3L',
+                molecule_type=molecule_type,
+                add_threshold=add_threshold,
+                width=2, 
+                height=4, 
+                save=False,
+                filename=None
+            )
+            if e3l_vertical_legend_fig is not None:
+                filename = f"poi_e3l_legend_vertical_e3l_{molecule_type.lower().replace(' ', '_')}"
+                self.save_plots([e3l_vertical_legend_fig], filename)
+                print("✓ E3L vertical legend generated successfully")
+            else:
+                print("Warning: Failed to generate E3L vertical legend")
+                
+        except Exception as legend_error:
+            print(f"Error generating legends for POI/E3L plots: {legend_error}")
     
     def plot_property_vs_lrmsd(self):
         """Generate combined plot of molecular properties vs LRMSD."""
@@ -1184,9 +1116,9 @@ class PlottingApp:
         print("1. AF3 vs Boltz1 Comparison")
         print("2. Training Cutoff Comparison")
         print("3. HAL vs Model Comparison")
-        print("4. Horizontal Bars (Mean & Std Dev)")
-        print("5. pTM and ipTM Plots")
-        print("6. POI and E3L Analysis")
+        print("4. POI and E3L Analysis")
+        print("5. Horizontal Bars (Mean & Std Dev)")
+        print("6. pTM and ipTM Plots")
         print("7. Property vs LRMSD Analysis")
         print("8. Generate All Plot Types")
         print("9. RMSD Complex/Isolated")
@@ -1220,9 +1152,9 @@ class PlottingApp:
                 self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
                 self.plot_hal_comparison()
+                self.plot_poi_e3l_rmsd()
                 self.plot_horizontal_bars()
                 self.plot_ptm_bars()
-                self.plot_poi_e3l_rmsd()
                 self.plot_property_vs_lrmsd()
                 self.plot_rmsd_complex_isolated()
                 continue
@@ -1240,11 +1172,11 @@ class PlottingApp:
                 elif plot_choice == '3':
                     self.plot_hal_comparison()
                 elif plot_choice == '4':
-                    self.plot_horizontal_bars()
-                elif plot_choice == '5':
-                    self.plot_ptm_bars()
-                elif plot_choice == '6':
                     self.plot_poi_e3l_rmsd()
+                elif plot_choice == '5':
+                    self.plot_horizontal_bars()
+                elif plot_choice == '6':
+                    self.plot_ptm_bars()
                 elif plot_choice == '7':
                     self.plot_property_vs_lrmsd()
                 elif plot_choice == '9':
