@@ -1105,6 +1105,26 @@ class PlottingApp:
                     self.save_plots(perpdb_figs, filename_perpdb_base)
                 else:
                     print(f"    Failed to generate per-PDB plots for {model_type} {input_type}.")
+        
+        # Generate legends for per-PDB plots
+        print("\nGenerating legends for per-PDB plots...")
+        for model_type in model_types_to_plot:
+            if model_type not in self.df_combined['MODEL_TYPE'].unique():
+                continue
+            for input_type in ['CCD', 'SMILES']:
+                print(f"  Generating legend for {model_type} {input_type}...")
+                legend_fig = self.rmsd_complex_isolated_plotter.create_horizontal_legend(
+                    model_type=model_type,
+                    input_type=input_type,
+                    save=False,
+                    filename=f"rmsd_perpdb_legend_{model_type.lower()}_{input_type.lower()}"
+                )
+                if legend_fig:
+                    filename_legend = f"rmsd_perpdb_legend_{model_type.lower()}_{input_type.lower()}"
+                    self.save_plots([legend_fig], filename_legend)
+                else:
+                    print(f"    Failed to generate legend for {model_type} {input_type}.")
+        
         print("\nRMSD Complex/Isolated plots generation complete.")
 
     def display_menu(self):

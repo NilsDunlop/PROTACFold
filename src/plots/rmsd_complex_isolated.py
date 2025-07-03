@@ -15,26 +15,46 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
     separately for CCD and SMILES inputs, and for AlphaFold3 and Boltz1 models.
     """
 
-    # General Plot dimensions & appearance
-    TITLE_FONT_SIZE = 16 # Kept for per-PDB plots 
-    AXIS_LABEL_FONT_SIZE = 12 # General axis label size, used by aggregated plot y-axis
+    # General Plot dimensions & appearance - REDUCED for compact Nature-style plots
+    TITLE_FONT_SIZE = 15 # Reduced from 16 to 15 for consistency with training cutoff plotter
+    AXIS_LABEL_FONT_SIZE = 14 # Updated to match property plotter (was 13)
 
-    # Specific for Aggregated Plot
-    AGGREGATED_PLOT_WIDTH = 4
-    AGGREGATED_PLOT_HEIGHT = 4
-    AGGREGATED_TICK_LABEL_FONT_SIZE = 11
-    AGGREGATED_LEGEND_FONT_SIZE = 9.5
-    AGGREGATED_BAR_WIDTH = 0.6
+    # Specific for Aggregated Plot - REDUCED for compact Nature-style plots
+    AGGREGATED_PLOT_WIDTH = 2.5  # Slightly increased from 2 to 2.5 for better bar visibility
+    AGGREGATED_PLOT_HEIGHT = 3   # Reduced from 4 to 3 (same as training cutoff plotter)
+    AGGREGATED_TICK_LABEL_FONT_SIZE = 13  # Updated to match property plotter (was 12)
+    AGGREGATED_LEGEND_FONT_SIZE = 7       # Reduced from 11 to 9 for better proportions
+    AGGREGATED_BAR_WIDTH = 0.6           # Increased from 0.5 to 0.6 for better visibility in aggregated plots
     
-    # Specific for Per-PDB Plot
-    PER_PDB_PLOT_WIDTH = 5
+    # Specific for Per-PDB Plot - REDUCED for compact Nature-style plots
+    PER_PDB_PLOT_WIDTH = 3        # Reduced from 5 to 3
     # PER_PDB_PLOT_HEIGHT will be dynamic
-    PER_PDB_AXIS_LABEL_FONT_SIZE = 13 # New specific axis label size for per-PDB
-    PER_PDB_TICK_LABEL_FONT_SIZE = 13
-    PER_PDB_LEGEND_FONT_SIZE = 12
+    PER_PDB_AXIS_LABEL_FONT_SIZE = 14 # Updated to match property plotter (was 13)
+    PER_PDB_TICK_LABEL_FONT_SIZE = 13 # Updated to match property plotter (was 12)
+    PER_PDB_LEGEND_FONT_SIZE = 11     # Reduced from 12 to 11 for consistency
     BAR_SPACING_HORIZONTAL = 0 # Space between bars WITHIN a PDB group (Complex, POI, E3)
-    BAR_HEIGHT_HORIZONTAL = 0.30 
-    PDB_INTER_GROUP_SPACING = 0.2 # Space BETWEEN PDB groups
+    BAR_HEIGHT_HORIZONTAL = 0.2       # Reduced from 0.30 to 0.2 for more compact layout
+    PDB_INTER_GROUP_SPACING = 0.15    # Reduced from 0.2 to 0.15 for tighter spacing
+
+    # Bar appearance - REFINED for cleaner look
+    BAR_EDGE_COLOR = 'black'
+    BAR_EDGE_LINE_WIDTH = 0.5     # Same as training cutoff plotter
+    BAR_SPACING_FACTOR = 1.8      # Same as training cutoff plotter for consistency
+
+    # Error bar appearance - REFINED for cleaner look
+    ERROR_BAR_CAPSIZE = 3         # Same as training cutoff plotter
+    ERROR_BAR_THICKNESS = 0.8     # Same as training cutoff plotter
+    ERROR_BAR_ALPHA = 0.7         # Same as training cutoff plotter
+
+    # Grid properties
+    GRID_LINESTYLE = '--'
+    GRID_ALPHA = 0.2              # Same as training cutoff plotter
+
+    # Threshold line properties
+    THRESHOLD_LINE_COLOR = 'gray' # Changed from 'grey' to 'gray' for consistency
+    THRESHOLD_LINE_STYLE = '--'
+    THRESHOLD_LINE_ALPHA = 1      # Same as training cutoff plotter
+    THRESHOLD_LINE_WIDTH = 1.0    # Same as training cutoff plotter
 
     MAX_STRUCTURES_PER_HORIZONTAL_PLOT = 20
     DEFAULT_RMSD_THRESHOLD = 4.0
@@ -121,7 +141,9 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         x_pos = np.arange(len(component_labels))
         
         ax.bar(x_pos, means, yerr=errors, width=self.AGGREGATED_BAR_WIDTH,
-               color=component_colors, capsize=5, edgecolor='black', linewidth=0.5)
+               color=component_colors, capsize=self.ERROR_BAR_CAPSIZE, 
+               edgecolor=self.BAR_EDGE_COLOR, linewidth=self.BAR_EDGE_LINE_WIDTH,
+               error_kw={'ecolor': 'black', 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA})
         
         ax.set_ylabel('RMSD (Å)', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
         ax.set_xticks([]) # Remove x-ticks
@@ -131,25 +153,40 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         max_val_with_error = max((m + e) for m, e in zip(means, errors)) if means else 0
         current_threshold_value = threshold_value if threshold_value is not None else self.DEFAULT_RMSD_THRESHOLD
         
+        # Create legend for aggregated plots (easier to read than horizontal legends)
         legend_handles = []
+        legend_labels = []
+        
         # Create legend items for each bar component
-        for i, label in enumerate(component_labels):
-            legend_handles.append(plt.Rectangle((0,0),1,1, facecolor=component_colors[i], edgecolor='black', linewidth=0.5))
+        for i, (label, color) in enumerate(zip(component_labels, component_colors)):
+            legend_handles.append(plt.Rectangle((0,0),1,1, facecolor=color, 
+                                              edgecolor=self.BAR_EDGE_COLOR, 
+                                              linewidth=self.BAR_EDGE_LINE_WIDTH))
+            legend_labels.append(label)
 
+        # Add threshold line if requested
         if add_threshold:
-            ax.axhline(y=current_threshold_value, color='gray', linestyle='--', linewidth=1.0) # No label here, add to custom handles
-            legend_handles.append(Line2D([0], [0], color='gray', linestyle='--', linewidth=1.0))
-            component_labels_for_legend = list(component_labels) + [f'Threshold']
-            ax.legend(legend_handles, component_labels_for_legend, loc='best', fontsize=self.AGGREGATED_LEGEND_FONT_SIZE, frameon=False)
-            ax.set_ylim(0, 6) # Fixed y-axis range
-        else:
-            ax.legend(legend_handles, component_labels, loc='best', fontsize=self.AGGREGATED_LEGEND_FONT_SIZE, frameon=False)
-            ax.set_ylim(0, 6) # Fixed y-axis range
+            ax.axhline(y=current_threshold_value, color=self.THRESHOLD_LINE_COLOR, 
+                      linestyle=self.THRESHOLD_LINE_STYLE, linewidth=self.THRESHOLD_LINE_WIDTH,
+                      alpha=self.THRESHOLD_LINE_ALPHA)
+            
+            # Add threshold to legend
+            legend_handles.append(plt.Line2D([0], [0], color=self.THRESHOLD_LINE_COLOR, 
+                                           linestyle=self.THRESHOLD_LINE_STYLE, 
+                                           linewidth=self.THRESHOLD_LINE_WIDTH))
+            legend_labels.append('Threshold')
+        
+        # Add legend in top right corner
+        ax.legend(legend_handles, legend_labels, loc='upper right', 
+                 fontsize=self.AGGREGATED_LEGEND_FONT_SIZE, frameon=False)
+        
+        # Set fixed y-axis range
+        ax.set_ylim(0, 6)
 
         # Apply specific tick label size for y-axis
         ax.tick_params(axis='y', labelsize=self.AGGREGATED_TICK_LABEL_FONT_SIZE)
 
-        ax.grid(axis='y', linestyle='--', alpha=0.2)
+        ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
         plt.tight_layout() # Removed rect to allow tight_layout to manage spacing without suptitle
 
         if save:
@@ -412,18 +449,18 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
 
                 # Plot Complex RMSD (single horizontal bar)
                 ax.barh(y_pos_complex, complex_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=complex_x_errors,
-                        facecolor=complex_color, edgecolor='black', linewidth=0.5, label=complex_label if page_num == 1 else None,
-                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+                        facecolor=complex_color, edgecolor=self.BAR_EDGE_COLOR, linewidth=self.BAR_EDGE_LINE_WIDTH,
+                        error_kw={'ecolor': 'black', 'capsize': self.ERROR_BAR_CAPSIZE, 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA})
 
                 # Plot POI RMSD (base of stacked bar)
                 ax.barh(y_pos_stacked, poi_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=poi_x_errors,
-                        facecolor=poi_color, edgecolor='black', linewidth=0.5, label=poi_label if page_num == 1 else None,
-                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+                        facecolor=poi_color, edgecolor=self.BAR_EDGE_COLOR, linewidth=self.BAR_EDGE_LINE_WIDTH,
+                        error_kw={'ecolor': 'black', 'capsize': self.ERROR_BAR_CAPSIZE, 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA})
 
                 # Plot E3 RMSD (stacked on top of POI)
                 ax.barh(y_pos_stacked, e3_values, left=poi_values, height=self.BAR_HEIGHT_HORIZONTAL, xerr=e3_x_errors,
-                        facecolor=e3_color, edgecolor='black', linewidth=0.5, label=e3_label if page_num == 1 else None,
-                        error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
+                        facecolor=e3_color, edgecolor=self.BAR_EDGE_COLOR, linewidth=self.BAR_EDGE_LINE_WIDTH,
+                        error_kw={'ecolor': 'black', 'capsize': self.ERROR_BAR_CAPSIZE, 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA})
 
                 # Update max RMSD considering all components
                 complex_max = np.nanmax(complex_values + complex_x_errors) if len(complex_values) > 0 else 0
@@ -440,21 +477,13 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 ax.set_yticklabels(y_ticks_pdb_labels, fontsize=self.PER_PDB_TICK_LABEL_FONT_SIZE)
                 ax.invert_yaxis() # PDBs sorted by custom criteria, this makes 0-index (highest RMSD) appear at top
 
-                # Legend
-                handles, labels_legend = [], []
-                # Add legend entries for all three components
-                handles.append(plt.Rectangle((0,0),1,1, facecolor=complex_color, edgecolor='black', linewidth=0.5))
-                labels_legend.append(complex_label)
-                handles.append(plt.Rectangle((0,0),1,1, facecolor=poi_color, edgecolor='black', linewidth=0.5))
-                labels_legend.append(poi_label)
-                handles.append(plt.Rectangle((0,0),1,1, facecolor=e3_color, edgecolor='black', linewidth=0.5))
-                labels_legend.append(e3_label)
+                # LEGEND REMOVED FOR COMPACT PLOTS - to be added later with editing software
 
                 current_threshold_value = threshold_value if threshold_value is not None else self.DEFAULT_RMSD_THRESHOLD
                 if add_threshold:
-                    ax.axvline(x=current_threshold_value, color='gray', linestyle='--', linewidth=1.0)
-                    handles.append(Line2D([0], [0], color='gray', linestyle='--', linewidth=1.0))
-                    labels_legend.append(f'Threshold')
+                    ax.axvline(x=current_threshold_value, color=self.THRESHOLD_LINE_COLOR, 
+                              linestyle=self.THRESHOLD_LINE_STYLE, linewidth=self.THRESHOLD_LINE_WIDTH,
+                              alpha=self.THRESHOLD_LINE_ALPHA)
                     ax.set_xlim(0, max(max_rmsd_on_page * 1.1, current_threshold_value * 1.1, 1.0))
                 else:
                     ax.set_xlim(0, max(max_rmsd_on_page * 1.1, 1.0))
@@ -462,8 +491,6 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 # Force x-axis to show only integer values
                 import matplotlib.ticker as ticker
                 ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True, min_n_ticks=2))
-
-                ax.legend(handles, labels_legend, loc='best', fontsize=self.PER_PDB_LEGEND_FONT_SIZE, frameon=False)
                 
                 page_info = f" (Page {page_num} of {len(paginated_pdb_ids_for_category)})" if len(paginated_pdb_ids_for_category) > 1 else ""
                 
@@ -475,9 +502,9 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                     cleaned_label_text = category_label_text.replace(" Å", "")
                     plot_title = f'RMSD: {cleaned_label_text}{page_info}'
                 
-                fig.suptitle(plot_title, fontsize=self.TITLE_FONT_SIZE) # Removed fontweight='bold'
+                fig.suptitle(plot_title, fontsize=self.TITLE_FONT_SIZE)
                 
-                ax.grid(axis='x', linestyle='--', alpha=0.2)
+                ax.grid(axis='x', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
                 plt.tight_layout(rect=[0, 0, 1, 0.99]) # Add padding at top for title (96% of figure height for content)
 
                 if save:
@@ -490,3 +517,72 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 all_axes.append(ax)
                 
         return all_figs, all_axes 
+
+    def create_horizontal_legend(self, model_type='AlphaFold3', input_type='CCD', width=6, height=1, save=True, filename="rmsd_complex_isolated_legend"):
+        """
+        Create a standalone horizontal legend figure for RMSD Complex/Isolated plots.
+        
+        Args:
+            model_type (str): Model type ('AlphaFold3' or 'Boltz1') to determine colors
+            input_type (str): Input type ('CCD' or 'SMILES') to determine colors
+            width (float): Width of the legend figure
+            height (float): Height of the legend figure 
+            save (bool): Whether to save the figure
+            filename (str): Filename for saving
+            
+        Returns:
+            fig: The created legend figure
+        """
+        # Create figure
+        fig, ax = plt.subplots(figsize=(width, height))
+        
+        # Get colors for the specific model and input type
+        _, colors, labels = self._get_rmsd_component_columns_and_colors(model_type, input_type)
+        
+        # Create legend patches for bars
+        legend_handles = []
+        for label, color in zip(labels, colors):
+            patch = plt.Rectangle(
+                (0, 0), 1, 1,
+                facecolor=color,
+                edgecolor=self.BAR_EDGE_COLOR,
+                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                label=label
+            )
+            legend_handles.append(patch)
+        
+        # Add threshold line to legend
+        threshold_line = plt.Line2D(
+            [0, 1], [0, 0],
+            color=self.THRESHOLD_LINE_COLOR,
+            linestyle=self.THRESHOLD_LINE_STYLE,
+            linewidth=self.THRESHOLD_LINE_WIDTH,
+            label='Threshold'
+        )
+        legend_handles.append(threshold_line)
+        
+        # Create horizontal legend
+        legend = ax.legend(
+            handles=legend_handles,
+            loc='center',
+            ncol=4,  # 4 columns for horizontal layout (3 components + threshold)
+            frameon=False,
+            fontsize=self.AGGREGATED_LEGEND_FONT_SIZE,
+            handlelength=1.5,
+            handletextpad=0.5,
+            columnspacing=1.0
+        )
+        
+        # Remove all axes and spines
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        
+        # Adjust layout to center the legend
+        plt.tight_layout()
+        
+        # Save if requested
+        if save:
+            save_figure(fig, filename)
+            
+        return fig 
