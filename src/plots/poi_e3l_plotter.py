@@ -63,25 +63,25 @@ class POI_E3LPlotter(BasePlotter):
     }
 
     # --- Default Styling and Layout Constants ---
-    # General Plotting Style - REFINED for cleaner look
+    # General Plotting Style
     CLS_DEFAULT_BAR_WIDTH = 0.7
     CLS_BAR_ALPHA = 1
     CLS_BAR_EDGE_COLOR = 'black'
     CLS_BAR_LINEWIDTH = 0.5
-    CLS_ERROR_BAR_CAPSIZE = 3              # Reduced from 5 to 3
-    CLS_ERROR_BAR_THICKNESS = 0.8          # Added for consistency
-    CLS_ERROR_BAR_ALPHA = 0.7              # Added for consistency
+    CLS_ERROR_BAR_CAPSIZE = 3
+    CLS_ERROR_BAR_THICKNESS = 0.8
+    CLS_ERROR_BAR_ALPHA = 0.7
     CLS_THRESHOLD_LINE_ALPHA = 1
-    CLS_THRESHOLD_LINE_WIDTH = 1.0         # Added for consistency
+    CLS_THRESHOLD_LINE_WIDTH = 1.0
 
-    # Font Sizes - INCREASED for better readability in smaller plots
-    CLS_PLOT_TITLE_FONTSIZE = 15      # Increased from 14 to 15
-    CLS_AXIS_LABEL_FONTSIZE_INCREMENT_GRID = 2  # Increment for PlotConfig.AXIS_LABEL_SIZE in grid plots
-    CLS_YTICK_FONTSIZE = 12
-    CLS_TICK_FONTSIZE_GRID = 13  # For combined grid plots
-    CLS_LEGEND_FONTSIZE_RMSD = 11      # Increased from 9.5 to 11
-    CLS_LEGEND_FONTSIZE_GRID = 13      # For combined grid plots
-    CLS_LEGEND_FONTSIZE_LABEL = 15     # Increased from 14 to 15 for legend labels
+    # Font Sizes
+    CLS_PLOT_TITLE_FONTSIZE = 14
+    CLS_AXIS_LABEL_FONTSIZE = 15
+    CLS_YTICK_FONTSIZE = 13
+    CLS_TICK_FONTSIZE_GRID = 13
+    CLS_LEGEND_FONTSIZE_RMSD = 11
+    CLS_LEGEND_FONTSIZE_GRID = 13
+    CLS_LEGEND_FONTSIZE_LABEL = 15
 
     # Legend Styling
     CLS_LEGEND_FRAME_ON = False
@@ -391,13 +391,13 @@ class POI_E3LPlotter(BasePlotter):
             
         # Customize the plot
         ax.set_yticks(positions)
-        ax.set_yticklabels(names, fontsize=self.CLS_TICK_FONTSIZE_GRID)
+        ax.set_yticklabels(names, fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
         
         # Set appropriate x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+            ax.set_xlabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         else:  # DockQ
-            ax.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+            ax.set_xlabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         
         # Add grid
         ax.grid(axis='x', linestyle='--', alpha=self.CLS_GRID_ALPHA)
@@ -679,9 +679,9 @@ class POI_E3LPlotter(BasePlotter):
                 
             # Set x-axis label based on metric type
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
             else:  # DockQ
-                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         
         # Set consistent x-axis limits for all subplots
         for ax in all_axes:
@@ -704,8 +704,8 @@ class POI_E3LPlotter(BasePlotter):
              label_pad_val = max_tick_width + 0.5 # This 0.5 could be a constant too, e.g. CLS_GRID_YLABEL_TICK_PADDING
         
         # Set the labels with the consistent pad and increased font size
-        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, labelpad=self.CLS_GRID_YLABEL_PAD)
-        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', labelpad=self.CLS_GRID_YLABEL_PAD)
+        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         
         # Further alignment adjustments - moved closer to the axis
         left_axes[0].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
@@ -1021,7 +1021,7 @@ class POI_E3LPlotter(BasePlotter):
         ax_poi.set_xlim(x_lim)
         
         # Set y-label
-        ax_poi.set_ylabel('Protein of Interest', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
+        ax_poi.set_ylabel('Protein of Interest', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', 
                           labelpad=self.CLS_GRID_YLABEL_PAD)
         ax_poi.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
         
@@ -1053,15 +1053,15 @@ class POI_E3LPlotter(BasePlotter):
         ax_e3l.set_xlim(x_lim)
         
         # Set y-label
-        ax_e3l.set_ylabel('E3 Ligase', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL, 
+        ax_e3l.set_ylabel('E3 Ligase', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', 
                           labelpad=self.CLS_GRID_YLABEL_PAD)
         ax_e3l.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
         
         # Set x-axis label based on metric type
         if metric_type == 'RMSD':
-            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         else:  # DockQ
-            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_LEGEND_FONTSIZE_LABEL)
+            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
         
         # Save figure if requested
         if save:
