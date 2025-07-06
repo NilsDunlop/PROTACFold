@@ -7,24 +7,16 @@ from config import PlotConfig
 from data_loader import DataLoader
 from utils import categorize_by_cutoffs, save_figure
 
-# Constant for bar height across all plots - REDUCED for compact Nature-style plots
-BAR_HEIGHT = 0.2  # Reduced from 0.3 to 0.2
-BAR_SPACING = 0.03  # Reduced from 0.05 to 0.03
-
-# Font size constants - INCREASED for better readability in smaller plots
-TICK_LABEL_FONTSIZE = 11  # Increased from 10 to 11
-AXIS_LABEL_FONTSIZE = 13  # Increased from 12 to 13
-LEGEND_FONTSIZE = 11      # Increased from 10 to 11
-ANNOTATION_FONTSIZE = 10  # Increased from 9 to 10
+# All constants now imported from PlotConfig for centralized configuration
 
 class HorizontalBarPlotter(BasePlotter):
     """Class for creating horizontal bar plots comparing means with error bars."""
     
     def plot_bars(self, df_agg, molecule_type="PROTAC", classification_cutoff=None, 
                 metrics=None, add_threshold=False, threshold_values=None,
-                show_y_labels_on_all=False, width=8, height=None,  # Reduced width from 10 to 8
+                show_y_labels_on_all=False, width=PlotConfig.HORIZONTAL_BAR_WIDTH, height=None,
                 save=False, max_structures_per_plot=20,
-                binary_plot_width: float | None = 3, # Reduced binary plot width from 4 to 3
+                binary_plot_width: float | None = PlotConfig.BINARY_PLOT_WIDTH,
                 binary_title_fontsize: float | None = None, # New parameter for binary plot title font size
                 smiles_color: str | None = None, # New parameter for SMILES bar color
                 ccd_color: str | None = None # New parameter for CCD bar color
@@ -65,17 +57,17 @@ class HorizontalBarPlotter(BasePlotter):
         
         # Default threshold values if needed but not provided, matching new metrics order
         if add_threshold and threshold_values is None:
-            threshold_values = [4, 0.23, 4] # RMSD, DockQ, LRMSD
+            threshold_values = [PlotConfig.DEFAULT_RMSD_THRESHOLD, PlotConfig.DEFAULT_DOCKQ_THRESHOLD, PlotConfig.DEFAULT_LRMSD_THRESHOLD] # RMSD, DockQ, LRMSD
             
         # For binary plot, RMSD threshold is the first element of the reordered threshold_values
-        binary_threshold_value = threshold_values[0] if add_threshold and threshold_values and len(threshold_values) > 0 else (4 if add_threshold else None)
+        binary_threshold_value = threshold_values[0] if add_threshold and threshold_values and len(threshold_values) > 0 else (PlotConfig.DEFAULT_RMSD_THRESHOLD if add_threshold else None)
         
         # Use provided classification cutoffs (should be pre-calculated from main.py using AlphaFold3 aggregated data)
         final_classification_cutoff = classification_cutoff
         
         # Fallback to default cutoffs if no cutoffs provided
         if final_classification_cutoff is None:
-            final_classification_cutoff = [2.0, 4.0, 6.0, 8.0]
+            final_classification_cutoff = [2.0, PlotConfig.DEFAULT_RMSD_THRESHOLD, 6.0, 8.0]
             print("Warning: No classification cutoffs provided to horizontal_bars.py. Using default cutoffs. This should not happen if main.py is working correctly.")
         
         df_filtered = df_agg[df_agg['TYPE'] == molecule_type].copy()
@@ -208,11 +200,11 @@ class HorizontalBarPlotter(BasePlotter):
         
         plot_height_val = height
         if plot_height_val is None:
-            structure_height_per_entry = (2 * BAR_HEIGHT + BAR_SPACING) * 0.85 # Two bars (SMILES, CCD) per PDB, scaled for tighter spacing
-            plot_height_val = max(3, 1.2 + n_structures * structure_height_per_entry) # Reduced min height from 4 to 3, margins from 1.5 to 1.2
+            structure_height_per_entry = (2 * PlotConfig.BAR_HEIGHT + PlotConfig.BAR_SPACING) * PlotConfig.HORIZONTAL_BAR_Y_SPACING # Two bars (SMILES, CCD) per PDB, scaled for tighter spacing
+            plot_height_val = max(PlotConfig.HORIZONTAL_BAR_MIN_HEIGHT, PlotConfig.HORIZONTAL_BAR_HEIGHT_PADDING + n_structures * structure_height_per_entry)
             # Ensure height is not excessively large if few structures
             if n_structures < 5: # Adjust this threshold as needed
-                 plot_height_val = max(plot_height_val, 3) # Reduced minimum from 4 to 3
+                 plot_height_val = max(plot_height_val, PlotConfig.HORIZONTAL_BAR_MIN_HEIGHT)
 
 
         fig, ax = plt.subplots(1, 1, figsize=(width, plot_height_val))
@@ -224,10 +216,10 @@ class HorizontalBarPlotter(BasePlotter):
         ]
         
         # Reduce spacing between PDB groups for more compact layout
-        y_positions = np.arange(n_structures) * 0.85  # Scale down by 15% for tighter spacing
+        y_positions = np.arange(n_structures) * PlotConfig.HORIZONTAL_BAR_Y_SPACING
         
-        smiles_offset = -BAR_HEIGHT/2 - BAR_SPACING/2
-        ccd_offset = BAR_HEIGHT/2 + BAR_SPACING/2
+        smiles_offset = -PlotConfig.BAR_HEIGHT/2 - PlotConfig.BAR_SPACING/2
+        ccd_offset = PlotConfig.BAR_HEIGHT/2 + PlotConfig.BAR_SPACING/2
         
         smiles_mean_col = f"{smiles_col}_mean"
         smiles_std_col = f"{smiles_col}_std"
@@ -240,19 +232,19 @@ class HorizontalBarPlotter(BasePlotter):
         smiles_values = binary_df_sorted[smiles_mean_col].fillna(0).values if smiles_mean_col in binary_df_sorted else np.zeros(n_structures)
         # Capture the bar container for SMILES bars
         smiles_container = ax.barh(
-            y_positions + smiles_offset, smiles_values, height=BAR_HEIGHT,
-            color=current_smiles_color, edgecolor='black', 
-            linewidth=0.5, xerr=smiles_xerr,
-            error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+            y_positions + smiles_offset, smiles_values, height=PlotConfig.BAR_HEIGHT,
+            color=current_smiles_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+            linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=smiles_xerr,
+            error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
         )
         
         ccd_values = binary_df_sorted[ccd_mean_col].fillna(0).values if ccd_mean_col in binary_df_sorted else np.zeros(n_structures)
         # Capture the bar container for CCD bars
         ccd_container = ax.barh(
-            y_positions + ccd_offset, ccd_values, height=BAR_HEIGHT,
-            color=current_ccd_color, edgecolor='black', 
-            linewidth=0.5, xerr=ccd_xerr,
-            error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+            y_positions + ccd_offset, ccd_values, height=PlotConfig.BAR_HEIGHT,
+            color=current_ccd_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+            linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=ccd_xerr,
+            error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
         )
         
         # Create legend handles using actual plotted artists - COMMENTED OUT FOR NOW
@@ -270,20 +262,20 @@ class HorizontalBarPlotter(BasePlotter):
 
         if add_threshold and threshold_value is not None:
             ax.axvline(
-                x=threshold_value, color='grey', linestyle='--', 
-                alpha=0.7, linewidth=1.0
+                x=threshold_value, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, 
+                alpha=PlotConfig.THRESHOLD_LINE_ALPHA, linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
             )
             # from matplotlib.lines import Line2D
             # threshold_line = Line2D([0], [0], color='grey', linestyle='--', 
             #                         alpha=0.7, linewidth=1.0, label='Threshold')
             # legend_handles.append(threshold_line)
         
-        ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE)
-        ax.set_ylabel('PDB ID', fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_xlabel(axis_label, fontsize=PlotConfig.AXIS_LABEL_SIZE)
+        ax.set_ylabel('PDB ID', fontsize=PlotConfig.AXIS_LABEL_SIZE)
         
         ax.set_yticks(y_positions)
         ax.set_yticklabels(pdb_labels)
-        ax.tick_params(axis='both', which='major', labelsize=TICK_LABEL_FONTSIZE)
+        ax.tick_params(axis='both', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
         
         ax.set_xlim(0.0)
         # Adjust x-max if all values are small, e.g. all RMSD < 1
@@ -293,9 +285,9 @@ class HorizontalBarPlotter(BasePlotter):
              ax.set_xlim(0.0, max(max_rmsd_val * 1.1, ax.get_xlim()[1] if threshold_value is None else max(threshold_value * 1.1, max_rmsd_val * 1.1) ))
 
 
-        ax.set_ylim(-0.4, (n_structures - 1) * 0.85 + 0.4)  # Adjust limits for scaled y_positions
+        ax.set_ylim(-0.4, (n_structures - 1) * PlotConfig.HORIZONTAL_BAR_Y_SPACING + 0.4)  # Adjust limits for scaled y_positions
         
-        # ax.legend(handles=legend_handles, loc='best', framealpha=0, edgecolor='none', fontsize=LEGEND_FONTSIZE)  # COMMENTED OUT FOR NOW
+        # ax.legend(handles=legend_handles, loc='best', framealpha=0, edgecolor='none', fontsize=PlotConfig.LEGEND_TEXT_SIZE)  # COMMENTED OUT FOR NOW
         
         plt.tight_layout()
         
@@ -417,8 +409,8 @@ class HorizontalBarPlotter(BasePlotter):
         if plot_height is None:
             # Calculate height based on number of structures and bar height
             # Each structure needs space for two bars (SMILES and CCD) with spacing, scaled for tighter spacing
-            structure_height = (2 * BAR_HEIGHT + BAR_SPACING) * 0.85
-            plot_height = max(3, 1.2 + n_pdbs * structure_height)  # Reduced min height from 4 to 3, margins from 1.5 to 1.2
+            structure_height = (2 * PlotConfig.BAR_HEIGHT + PlotConfig.BAR_SPACING) * PlotConfig.HORIZONTAL_BAR_Y_SPACING
+            plot_height = max(PlotConfig.HORIZONTAL_BAR_MIN_HEIGHT, PlotConfig.HORIZONTAL_BAR_HEIGHT_PADDING + n_pdbs * structure_height)
         
         fig, axes = plt.subplots(1, n_metrics, figsize=(width, plot_height), 
                                  sharey=not show_y_labels_on_all)
@@ -428,11 +420,11 @@ class HorizontalBarPlotter(BasePlotter):
             axes = [axes]
         
         # Y-axis positions - reduce spacing between PDB groups for more compact layout
-        y_positions = np.arange(n_pdbs) * 0.85  # Scale down by 15% for tighter spacing
+        y_positions = np.arange(n_pdbs) * PlotConfig.HORIZONTAL_BAR_Y_SPACING
         
         # Bar offsets
-        smiles_offset = -BAR_HEIGHT/2 - BAR_SPACING/2
-        ccd_offset = BAR_HEIGHT/2 + BAR_SPACING/2
+        smiles_offset = -PlotConfig.BAR_HEIGHT/2 - PlotConfig.BAR_SPACING/2
+        ccd_offset = PlotConfig.BAR_HEIGHT/2 + PlotConfig.BAR_SPACING/2
         
         # Create legend handles - COMMENTED OUT FOR NOW
         current_smiles_color = smiles_color if smiles_color else PlotConfig.SMILES_PRIMARY
@@ -476,17 +468,17 @@ class HorizontalBarPlotter(BasePlotter):
                 # Only plot for non-NaN values
                 if any(smiles_mask):
                     ax.barh(
-                        smiles_y[smiles_mask], smiles_values[smiles_mask], height=BAR_HEIGHT,
-                                            color=current_smiles_color, edgecolor='black', 
-                    linewidth=0.5, xerr=smiles_xerr[smiles_mask],
-                    error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+                        smiles_y[smiles_mask], smiles_values[smiles_mask], height=PlotConfig.BAR_HEIGHT,
+                                            color=current_smiles_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=smiles_xerr[smiles_mask],
+                    error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
                     )
             else:
                 ax.barh(
-                    smiles_y, smiles_values, height=BAR_HEIGHT,
-                    color=current_smiles_color, edgecolor='black', 
-                    linewidth=0.5, xerr=smiles_xerr,
-                    error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+                    smiles_y, smiles_values, height=PlotConfig.BAR_HEIGHT,
+                    color=current_smiles_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=smiles_xerr,
+                    error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
                 )
             
             # Plot CCD bars (only for non-binary or if values exist)
@@ -498,24 +490,24 @@ class HorizontalBarPlotter(BasePlotter):
                 # Only plot for non-NaN values
                 if any(ccd_mask):
                     ax.barh(
-                        ccd_y[ccd_mask], ccd_values[ccd_mask], height=BAR_HEIGHT,
-                                            color=current_ccd_color, edgecolor='black', 
-                    linewidth=0.5, xerr=ccd_xerr[ccd_mask],
-                    error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+                        ccd_y[ccd_mask], ccd_values[ccd_mask], height=PlotConfig.BAR_HEIGHT,
+                                            color=current_ccd_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=ccd_xerr[ccd_mask],
+                    error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
                     )
             else:
                 ax.barh(
-                    ccd_y, ccd_values, height=BAR_HEIGHT,
-                    color=current_ccd_color, edgecolor='black', 
-                    linewidth=0.5, xerr=ccd_xerr,
-                    error_kw={'ecolor': 'black', 'capsize': 2, 'capthick': 0.8}  # Reduced capsize from 3 to 2, capthick from 1 to 0.8
+                    ccd_y, ccd_values, height=PlotConfig.BAR_HEIGHT,
+                    color=current_ccd_color, edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH, xerr=ccd_xerr,
+                    error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}
                 )
             
             # Add threshold if requested
             if add_threshold and i < len(threshold_values) and threshold_values[i] is not None:
                 ax.axvline(
-                    x=threshold_values[i], color='grey', linestyle='--', 
-                    alpha=0.7, linewidth=1.0
+                    x=threshold_values[i], color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, 
+                    alpha=PlotConfig.THRESHOLD_LINE_ALPHA, linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
                 )
                 
                 # Add threshold to legend if first subplot - COMMENTED OUT FOR NOW
@@ -533,28 +525,28 @@ class HorizontalBarPlotter(BasePlotter):
                         ax.text(
                             0.05, y_pos, 'Binary', 
                             verticalalignment='center', 
-                            fontsize=ANNOTATION_FONTSIZE,
+                            fontsize=PlotConfig.ANNOTATION_SIZE,
                             color=PlotConfig.GRAY
                         )
             
             # Set axis labels
-            ax.set_xlabel(axis_label, fontsize=AXIS_LABEL_FONTSIZE)
+            ax.set_xlabel(axis_label, fontsize=PlotConfig.AXIS_LABEL_SIZE)
             if i == 0:
-                ax.set_ylabel('PDB ID', fontsize=AXIS_LABEL_FONTSIZE)
+                ax.set_ylabel('PDB ID', fontsize=PlotConfig.AXIS_LABEL_SIZE)
             
             # Set y-ticks and labels
             ax.set_yticks(y_positions)
             if i == 0 or show_y_labels_on_all:
                 ax.set_yticklabels(pdb_labels)
             
-            ax.tick_params(axis='both', which='major', labelsize=TICK_LABEL_FONTSIZE)
+            ax.tick_params(axis='both', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
             
             # Set axis limits
             if "DockQ" in axis_label:
                 ax.set_xlim(0.0, 1.10)
             else:
                 ax.set_xlim(0.0) # Keep lower bound at 0 for other plots
-            ax.set_ylim(-0.4, (len(category_df) - 1) * 0.85 + 0.4)  # Adjust limits for scaled y_positions
+            ax.set_ylim(-0.4, (len(category_df) - 1) * PlotConfig.HORIZONTAL_BAR_Y_SPACING + 0.4)  # Adjust limits for scaled y_positions
         
         # Add legend to the first subplot (RMSD plot) only if it's NOT the last category plot - COMMENTED OUT FOR NOW
         # current_plot_label_simple = category_title.replace("Ternary:", "").strip()
@@ -566,7 +558,7 @@ class HorizontalBarPlotter(BasePlotter):
         #         loc='best',
         #         framealpha=0,
         #         edgecolor='none',
-        #         fontsize=LEGEND_FONTSIZE
+        #         fontsize=PlotConfig.LEGEND_TEXT_SIZE
         #     )
         
         # Add category as title

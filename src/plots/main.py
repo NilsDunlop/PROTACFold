@@ -14,7 +14,7 @@ from hal_comparison import HALComparisonPlotter
 from poi_e3l_plotter import POI_E3LPlotter
 from property_plotter import PropertyPlotter
 from rmsd_complex_isolated import RMSDComplexIsolatedPlotter
-from utils import categorize_by_cutoffs
+from utils import categorize_by_cutoffs, create_plot_filename
 
 class PlottingApp:
     """Main application for generating and saving plots."""
@@ -142,7 +142,12 @@ class PlottingApp:
             
         for i, fig in enumerate(valid_figs):
             # Create a descriptive filename
-            filename = f"{base_name}_{i+1}of{len(valid_figs)}_{timestamp}.png"
+            if len(valid_figs) == 1:
+                # Single figure - no page numbering needed
+                filename = f"{base_name}_{timestamp}.png"
+            else:
+                # Multiple figures - add page numbering
+                filename = f"{base_name}_page{i+1}of{len(valid_figs)}_{timestamp}.png"
             filepath = os.path.join(self.output_dir, filename)
             
             # Save the figure
@@ -211,7 +216,8 @@ class PlottingApp:
                 smiles_color=PlotConfig.SMILES_PRIMARY, # AF3 specific color
                 ccd_color=PlotConfig.CCD_PRIMARY # AF3 specific color
             )
-            self.save_plots(figs_af3, f"horizontal_bars_af3_{molecule_type.replace(' ', '_').lower()}")
+            filename = create_plot_filename('bars', model_type='af3', molecule_type=molecule_type)
+            self.save_plots(figs_af3, filename)
         except Exception as e:
             print(f"Error generating AlphaFold3 horizontal bar plots: {e}")
 
@@ -231,7 +237,8 @@ class PlottingApp:
                     smiles_color=PlotConfig.BOLTZ1_SMILES_COLOR, # Boltz1 specific color
                     ccd_color=PlotConfig.BOLTZ1_CCD_COLOR # Boltz1 specific color
                 )
-                self.save_plots(figs_boltz1, f"horizontal_bars_boltz1_{molecule_type.replace(' ', '_').lower()}")
+                filename = create_plot_filename('bars', model_type='boltz1', molecule_type=molecule_type)
+                self.save_plots(figs_boltz1, filename)
             except Exception as e:
                 print(f"Error generating Boltz1 horizontal bar plots: {e}")
         else:
@@ -334,7 +341,8 @@ class PlottingApp:
                 )
                 
                 if figs_af3:
-                    self.save_plots(figs_af3, f"af3_ptm_iptm_comparison_{molecule_type.replace(' ', '_').lower()}")
+                    filename = create_plot_filename('ptm', model_type='af3', molecule_type=molecule_type)
+                    self.save_plots(figs_af3, filename)
                 else:
                     print(f"No AlphaFold3 PTM/ipTM plots were generated for {molecule_type}.")
                 
@@ -362,7 +370,8 @@ class PlottingApp:
                 )
                 
                 if figs_boltz1:
-                    self.save_plots(figs_boltz1, f"boltz1_ptm_iptm_comparison_{molecule_type.replace(' ', '_').lower()}")
+                    filename = create_plot_filename('ptm', model_type='boltz1', molecule_type=molecule_type)
+                    self.save_plots(figs_boltz1, filename)
                 else:
                     print(f"No Boltz1 PTM/ipTM plots were generated for {molecule_type}.")
             
@@ -451,9 +460,14 @@ class PlottingApp:
                 if fig is not None:
                     # Use appropriate filename based on comparison type
                     if is_seed_specific:
-                        self.save_plots([fig], f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}")
+                        filename = create_plot_filename('comparison', molecule_type=molecule_type, 
+                                                      metric_type=metric_type, comparison_type='seed', 
+                                                      seed=specific_seed)
+                        self.save_plots([fig], filename)
                     else:
-                        self.save_plots([fig], f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}")
+                        filename = create_plot_filename('comparison', molecule_type=molecule_type, 
+                                                      metric_type=metric_type, comparison_type='mean')
+                        self.save_plots([fig], filename)
                 else:
                     print(f"Warning: Failed to generate {'seed-specific' if is_seed_specific else 'mean'} {metric_type} comparison plot")
             
@@ -469,7 +483,8 @@ class PlottingApp:
                     filename="af3_vs_boltz1_legend"
                 )
                 if legend_fig is not None:
-                    self.save_plots([legend_fig], "af3_vs_boltz1_legend")
+                    filename = create_plot_filename('comparison', legend='legend')
+                    self.save_plots([legend_fig], filename)
                     print("✓ Horizontal legend generated successfully")
                 else:
                     print("Warning: Failed to generate horizontal legend")
@@ -526,26 +541,30 @@ class PlottingApp:
             
             # Save the main comparison plots
             if af3_fig is not None:
-                self.save_plots([af3_fig], "hal_comparison_alphafold3_dockq")
+                filename = create_plot_filename('hal', model_type='af3', metric_type='dockq')
+                self.save_plots([af3_fig], filename)
                 print("✓ AlphaFold3 vs HAL comparison plot generated successfully")
             else:
                 print("Warning: Failed to generate AlphaFold3 vs HAL comparison plot")
             
             if boltz1_fig is not None:
-                self.save_plots([boltz1_fig], "hal_comparison_boltz1_dockq")
+                filename = create_plot_filename('hal', model_type='boltz1', metric_type='dockq')
+                self.save_plots([boltz1_fig], filename)
                 print("✓ Boltz1 vs HAL comparison plot generated successfully")
             else:
                 print("Warning: Failed to generate Boltz1 vs HAL comparison plot")
             
             # Save the legend plots
             if af3_legend_fig is not None:
-                self.save_plots([af3_legend_fig], "hal_comparison_legend_alphafold3")
+                filename = create_plot_filename('hal', model_type='af3', legend='legend')
+                self.save_plots([af3_legend_fig], filename)
                 print("✓ AlphaFold3 legend generated successfully")
             else:
                 print("Warning: Failed to generate AlphaFold3 legend")
                 
             if boltz1_legend_fig is not None:
-                self.save_plots([boltz1_legend_fig], "hal_comparison_legend_boltz1")
+                filename = create_plot_filename('hal', model_type='boltz1', legend='legend')
+                self.save_plots([boltz1_legend_fig], filename)
                 print("✓ Boltz1 legend generated successfully")
             else:
                 print("Warning: Failed to generate Boltz1 legend")

@@ -11,57 +11,16 @@ class HALComparisonPlotter(BasePlotter):
     and AlphaFold3/Boltz-1 with CCD and SMILES ligands.
     """
     
-    # Plot dimensions for compact Nature-style plots
-    PLOT_WIDTH = 10 
-    PLOT_HEIGHT = 3   
-
-    # Font sizes for better readability in smaller plots
-    TITLE_FONT_SIZE = 15
-    AXIS_LABEL_FONT_SIZE = 14
-    VALUE_LABEL_FONT_SIZE = 12
-    LEGEND_FONT_SIZE = 11
-    TICK_LABEL_FONT_SIZE = 13
-
-    # Bar appearance
-    BAR_WIDTH = 0.20
-    BAR_EDGE_COLOR = 'black'
-    BAR_EDGE_LINE_WIDTH = 0.5
-    BAR_SPACING_FACTOR = 1.0
-
-    # Error bar appearance
-    ERROR_BAR_COLOR = 'black'
-    ERROR_BAR_CAPSIZE = 3
-    ERROR_BAR_THICKNESS = 0.8
-    ERROR_BAR_ALPHA = 0.7
-
-    # Grid properties
-    GRID_LINESTYLE = '--'
-    GRID_ALPHA = 0.2
-
-    # Threshold line properties
-    THRESHOLD_LINE_COLOR = 'gray'
-    THRESHOLD_LEGEND_COLOR = 'gray'
-    THRESHOLD_LINE_STYLE = '--'
-    THRESHOLD_LINE_ALPHA = 1
-    THRESHOLD_LINE_WIDTH = 1.0
-
-    # Default threshold value for DockQ
-    DEFAULT_DOCKQ_THRESHOLD = 0.23
-
+    # Constants now imported from PlotConfig
     # Colors for different conditions
-    AF3_CCD_COLOR = getattr(PlotConfig, 'CCD_PRIMARY', '#FF7F50')      # Coral-like for AF3 CCD
-    AF3_SMILES_COLOR = getattr(PlotConfig, 'SMILES_PRIMARY', '#1F77B4') # Blue-like for AF3 SMILES
+    AF3_CCD_COLOR = PlotConfig.CCD_PRIMARY
+    AF3_SMILES_COLOR = PlotConfig.SMILES_PRIMARY
     
-    BOLTZ1_CCD_COLOR = '#A157DB'    # Purple-like for Boltz1 CCD
-    BOLTZ1_SMILES_COLOR = '#57DB80' # Green-like for Boltz1 SMILES
+    BOLTZ1_CCD_COLOR = PlotConfig.BOLTZ1_CCD_COLOR
+    BOLTZ1_SMILES_COLOR = PlotConfig.BOLTZ1_SMILES_COLOR
     
     # HAL (No Ligand) color - using a neutral gray
-    HAL_COLOR = '#808080'  # Gray for HAL/No Ligand
-
-    # Legend properties
-    LEGEND_LOCATION = 'best'
-    LEGEND_BORDER_PADDING = 0.8
-    # --- End Plot Configuration Constants ---
+    HAL_COLOR = PlotConfig.HAL_COLOR
 
     def __init__(self, debug=False):
         """Initialize the HAL comparison plotter."""
@@ -189,14 +148,14 @@ class HALComparisonPlotter(BasePlotter):
         """
         self.debug = debug or self.debug
         
-        plot_width = width if width is not None else self.PLOT_WIDTH
-        plot_height = height if height is not None else self.PLOT_HEIGHT
+        plot_width = width if width is not None else PlotConfig.HAL_PLOT_WIDTH
+        plot_height = height if height is not None else PlotConfig.HAL_PLOT_HEIGHT
 
         self._debug_print(f"Starting plot_hal_comparison with model_type={model_type}")
         self._debug_print(f"Plot dimensions: width={plot_width}, height={plot_height}")
         
         if threshold_value is None:
-            threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
+            threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
             self._debug_print(f"Using default threshold value: {threshold_value}")
         
         if merged_df.empty:
@@ -255,8 +214,8 @@ class HALComparisonPlotter(BasePlotter):
         self._debug_print(f"SMILES values range: {np.min(smiles_values):.3f} - {np.max(smiles_values):.3f}")
         self._debug_print(f"HAL values range: {np.min(hal_values):.3f} - {np.max(hal_values):.3f}")
         
-        bar_width = self.BAR_WIDTH
-        spacing_factor = self.BAR_SPACING_FACTOR
+        bar_width = PlotConfig.HAL_BAR_WIDTH
+        spacing_factor = PlotConfig.HAL_BAR_SPACING_FACTOR
         
         # Create positions for each group of 3 bars with tighter spacing between PDB groups
         x_positions = np.arange(n_structures) * 0.8  # Reduce spacing between PDB groups
@@ -266,45 +225,45 @@ class HALComparisonPlotter(BasePlotter):
         
         bars_ccd = ax.bar(
             ccd_positions, ccd_values, bar_width,
-            color=ccd_color, edgecolor=self.BAR_EDGE_COLOR,
-            linewidth=self.BAR_EDGE_LINE_WIDTH, label=ccd_label
+            color=ccd_color, edgecolor=PlotConfig.BAR_EDGE_COLOR,
+            linewidth=PlotConfig.BAR_EDGE_WIDTH, label=ccd_label
         )
         
         bars_smiles = ax.bar(
             smiles_positions, smiles_values, bar_width,
-            color=smiles_color, edgecolor=self.BAR_EDGE_COLOR,
-            linewidth=self.BAR_EDGE_LINE_WIDTH, label=smiles_label
+            color=smiles_color, edgecolor=PlotConfig.BAR_EDGE_COLOR,
+            linewidth=PlotConfig.BAR_EDGE_WIDTH, label=smiles_label
         )
         
         bars_hal = ax.bar(
             hal_positions, hal_values, bar_width,
-            color=hal_color, edgecolor=self.BAR_EDGE_COLOR,
-            linewidth=self.BAR_EDGE_LINE_WIDTH, label=hal_label
+            color=hal_color, edgecolor=PlotConfig.BAR_EDGE_COLOR,
+            linewidth=PlotConfig.BAR_EDGE_WIDTH, label=hal_label
         )
         
         if add_threshold:
             ax.axhline(
                 y=threshold_value,
-                color=self.THRESHOLD_LINE_COLOR,
-                linestyle=self.THRESHOLD_LINE_STYLE,
-                alpha=self.THRESHOLD_LINE_ALPHA,
-                linewidth=self.THRESHOLD_LINE_WIDTH
+                color=PlotConfig.THRESHOLD_LINE_COLOR,
+                linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                alpha=PlotConfig.THRESHOLD_LINE_ALPHA,
+                linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
             )
             self._debug_print(f"Added threshold line at y={threshold_value}")
         
-        ax.set_xlabel('PDB ID', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
-        ax.set_ylabel('DockQ Score', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_xlabel('PDB ID', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax.set_ylabel('DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         ax.set_xticks(x_positions)
-        ax.set_xticklabels(pdb_ids, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
+        ax.set_xticklabels(pdb_ids, rotation=90, ha='center', fontsize=PlotConfig.TICK_LABEL_SIZE)
         
         # Set y-axis ticks with single digit precision
         y_ticks = np.arange(0, 1.1, 0.2)  # 0.0, 0.2, 0.4, 0.6, 0.8, 1.0
         ax.set_yticks(y_ticks)
         ax.set_yticklabels([f"{tick:.1f}" for tick in y_ticks])
-        ax.tick_params(axis='y', which='major', labelsize=self.TICK_LABEL_FONT_SIZE)
+        ax.tick_params(axis='y', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
         
-        ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
+        ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
         
         # Set y-axis limits to fixed range 0-1 for consistent comparison
         ax.set_ylim(0, 1)
@@ -363,17 +322,17 @@ class HALComparisonPlotter(BasePlotter):
             patch = plt.Rectangle(
                 (0, 0), 1, 1,
                 facecolor=color,
-                edgecolor=self.BAR_EDGE_COLOR,
-                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                linewidth=PlotConfig.BAR_EDGE_WIDTH,
                 label=label
             )
             legend_handles.append(patch)
         
         threshold_line = plt.Line2D(
             [0, 1], [0, 0],
-            color=self.THRESHOLD_LEGEND_COLOR,
-            linestyle=self.THRESHOLD_LINE_STYLE,
-            linewidth=self.THRESHOLD_LINE_WIDTH,
+            color=PlotConfig.THRESHOLD_LINE_COLOR,
+            linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+            linewidth=PlotConfig.THRESHOLD_LINE_WIDTH,
             label='Threshold'
         )
         legend_handles.append(threshold_line)
@@ -383,7 +342,7 @@ class HALComparisonPlotter(BasePlotter):
             loc='center',
             ncol=4,  # 4 columns for horizontal layout (3 bars + threshold)
             frameon=False,
-            fontsize=self.LEGEND_FONT_SIZE,
+            fontsize=PlotConfig.LEGEND_TEXT_SIZE,
             handlelength=1.5,
             handletextpad=0.5,
             columnspacing=1.0

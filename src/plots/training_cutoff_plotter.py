@@ -12,74 +12,26 @@ class TrainingCutoffPlotter(BasePlotter):
     the AlphaFold3/Boltz-1 training cutoff date (2021-09-30).
     """
     
-    # Plot dimensions for compact Nature-style plots
-    PLOT_WIDTH = 3
-    PLOT_HEIGHT = 3
-
-    # Font sizes for better readability in smaller plots
-    TITLE_FONT_SIZE = 15
-    AXIS_LABEL_FONT_SIZE = 14
-    TICK_LABEL_FONT_SIZE = 13 
-    VALUE_LABEL_FONT_SIZE = 12
-    LEGEND_FONT_SIZE = 11
-
-    # Bar appearance
-    BAR_WIDTH = 0.08
-    BAR_EDGE_COLOR = 'black'
-    BAR_EDGE_LINE_WIDTH = 0.5
-    BAR_SPACING_FACTOR = 1.8 
-
-    # Hatches for post-training bars
-    PRE_TRAINING_HATCH = ''
-    POST_TRAINING_HATCH = '//' 
-    POST_TRAINING_HATCH_LINE_WIDTH = 0.5
-    # Denser hatches for legend representation
-    LEGEND_POST_TRAINING_HATCH = '///'
-
+    # Constants now imported from PlotConfig
     # Bar Colors
-    PRE_CCD_COLOR_AF3 = getattr(PlotConfig, 'CCD_PRIMARY', '#FF7F50')
-    PRE_SMILES_COLOR_AF3 = getattr(PlotConfig, 'SMILES_PRIMARY', '#1F77B4')
+    PRE_CCD_COLOR_AF3 = PlotConfig.CCD_PRIMARY
+    PRE_SMILES_COLOR_AF3 = PlotConfig.SMILES_PRIMARY
     POST_CCD_COLOR_AF3 = PRE_CCD_COLOR_AF3
     POST_SMILES_COLOR_AF3 = PRE_SMILES_COLOR_AF3
 
     # Boltz1 specific colors
-    PRE_CCD_COLOR_BOLTZ1 = '#A157DB'
-    PRE_SMILES_COLOR_BOLTZ1 = '#57DB80'
+    PRE_CCD_COLOR_BOLTZ1 = PlotConfig.BOLTZ1_CCD_COLOR
+    PRE_SMILES_COLOR_BOLTZ1 = PlotConfig.BOLTZ1_SMILES_COLOR
     POST_CCD_COLOR_BOLTZ1 = PRE_CCD_COLOR_BOLTZ1
     POST_SMILES_COLOR_BOLTZ1 = PRE_SMILES_COLOR_BOLTZ1
 
-    # Error bar appearance
-    ERROR_BAR_COLOR = 'black'
-    ERROR_BAR_CAPSIZE = 3
-    ERROR_BAR_THICKNESS = 0.8
-    ERROR_BAR_ALPHA = 0.7
-
-    # Grid properties
-    GRID_LINESTYLE = '--'
-    GRID_ALPHA = 0.2
-
-    # Threshold line properties
-    THRESHOLD_LINE_COLOR = 'gray'
-    THRESHOLD_LEGEND_COLOR = 'gray'
-    THRESHOLD_LINE_STYLE = '--'
-    THRESHOLD_LINE_ALPHA = 1
-    THRESHOLD_LINE_WIDTH = 1.0
-
-    # Default threshold values
-    DEFAULT_RMSD_THRESHOLD = 4.0
+    # Default threshold values - different from PlotConfig for compatibility
     DEFAULT_DOCKQ_THRESHOLD = 0.5
-    DEFAULT_LRMSD_THRESHOLD = 4.0
-
-    # Legend properties
-    LEGEND_LOCATION = 'best'
-    LEGEND_BORDER_PADDING = 0.8
-
-    TRAINING_CUTOFF_DATE = pd.to_datetime('2021-09-30')
     
     def __init__(self, debug=False):
         """Initialize the training cutoff plotter."""
         super().__init__()
-        self.training_cutoff = self.TRAINING_CUTOFF_DATE
+        self.training_cutoff = PlotConfig.TRAINING_CUTOFF_DATE
         self.debug = debug
     
     def _debug_print(self, message):
@@ -123,12 +75,12 @@ class TrainingCutoffPlotter(BasePlotter):
         """
         self.debug = debug or self.debug
         
-        plot_width = width if width is not None else self.PLOT_WIDTH
-        plot_height = height if height is not None else self.PLOT_HEIGHT
+        plot_width = width if width is not None else PlotConfig.STANDARD_WIDTH
+        plot_height = height if height is not None else PlotConfig.STANDARD_HEIGHT
 
         # Store and set hatch linewidth
         original_hatch_linewidth = plt.rcParams.get('hatch.linewidth')
-        plt.rcParams['hatch.linewidth'] = self.POST_TRAINING_HATCH_LINE_WIDTH
+        plt.rcParams['hatch.linewidth'] = PlotConfig.POST_TRAINING_HATCH_LINE_WIDTH
         
         try:
             self._debug_print(f"Starting plot_training_cutoff_comparison with metric_type={metric_type}, model_type={model_type}")
@@ -153,15 +105,15 @@ class TrainingCutoffPlotter(BasePlotter):
             
             if threshold_value is None:
                 if metric_type.upper() == 'RMSD':
-                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
                     threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
                 elif metric_type.upper() == 'LRMSD':
-                    threshold_value = self.DEFAULT_LRMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
                     add_threshold = False
                 else:
-                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 self._debug_print(f"Using default threshold value: {threshold_value} for metric {metric_type}")
             
             df_filtered = df[df['MODEL_TYPE'] == model_type].copy()
@@ -245,8 +197,8 @@ class TrainingCutoffPlotter(BasePlotter):
             errors = metrics['errors']
             counts = metrics['counts']
             
-            bar_width = self.BAR_WIDTH
-            spacing_factor = self.BAR_SPACING_FACTOR
+            bar_width = PlotConfig.TRAINING_BAR_WIDTH
+            spacing_factor = PlotConfig.TRAINING_BAR_SPACING_FACTOR
             bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
             
             if model_type == 'AlphaFold3':
@@ -273,9 +225,9 @@ class TrainingCutoffPlotter(BasePlotter):
                     self.POST_SMILES_COLOR_AF3
                 ]
             
-            hatches = [self.PRE_TRAINING_HATCH, self.PRE_TRAINING_HATCH, self.POST_TRAINING_HATCH, self.POST_TRAINING_HATCH]
+            hatches = [PlotConfig.PRE_TRAINING_HATCH, PlotConfig.PRE_TRAINING_HATCH, PlotConfig.POST_TRAINING_HATCH, PlotConfig.POST_TRAINING_HATCH]
             
-            legend_hatches = [self.PRE_TRAINING_HATCH, self.PRE_TRAINING_HATCH, self.LEGEND_POST_TRAINING_HATCH, self.LEGEND_POST_TRAINING_HATCH]
+            legend_hatches = [PlotConfig.PRE_TRAINING_HATCH, PlotConfig.PRE_TRAINING_HATCH, PlotConfig.LEGEND_POST_TRAINING_HATCH, PlotConfig.LEGEND_POST_TRAINING_HATCH]
             
             bar_labels = [
                 "Pre-2021 CCD",
@@ -306,20 +258,20 @@ class TrainingCutoffPlotter(BasePlotter):
                 values,
                 bar_width,
                 color=colors,
-                edgecolor=self.BAR_EDGE_COLOR,
-                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                linewidth=PlotConfig.BAR_EDGE_WIDTH,
                 yerr=error_values,
-                error_kw={'ecolor': self.ERROR_BAR_COLOR, 'capsize': self.ERROR_BAR_CAPSIZE, 'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA},
+                error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS, 'alpha': PlotConfig.ERROR_BAR_ALPHA},
                 hatch=hatches
             )
             
             if add_threshold and metric_type.upper() != 'PTM':
                 ax.axhline(
                     y=threshold_value,
-                    color=self.THRESHOLD_LINE_COLOR,
-                    linestyle=self.THRESHOLD_LINE_STYLE,
-                    alpha=self.THRESHOLD_LINE_ALPHA,
-                    linewidth=self.THRESHOLD_LINE_WIDTH
+                    color=PlotConfig.THRESHOLD_LINE_COLOR,
+                    linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                    alpha=PlotConfig.THRESHOLD_LINE_ALPHA,
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
                 )
                 self._debug_print(f"Added threshold line at y={threshold_value}")
             
@@ -329,9 +281,9 @@ class TrainingCutoffPlotter(BasePlotter):
                 patch = plt.Rectangle(
                     (0, 0), 1, 1, 
                     facecolor=color, 
-                    edgecolor=self.BAR_EDGE_COLOR, 
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR, 
                     hatch=hatch,
-                    linewidth=self.BAR_EDGE_LINE_WIDTH, 
+                    linewidth=PlotConfig.BAR_EDGE_WIDTH, 
                     label=label
                 )
                 legend_handles.append(patch)
@@ -339,9 +291,9 @@ class TrainingCutoffPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = Line2D(
                     [0, 1], [0, 0], 
-                    color=self.THRESHOLD_LEGEND_COLOR, 
-                    linestyle=self.THRESHOLD_LINE_STYLE,
-                    linewidth=self.THRESHOLD_LINE_WIDTH, 
+                    color=PlotConfig.THRESHOLD_LINE_COLOR, 
+                    linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, 
                     label='Threshold'
                 )
                 legend_handles.append(threshold_line)
@@ -353,9 +305,9 @@ class TrainingCutoffPlotter(BasePlotter):
             ax.set_xticks([])
             ax.set_xticklabels([])
             
-            ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
+            ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
             
-            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
             
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
             self._debug_print(f"Calculated ymax for data: {ymax}")
@@ -366,8 +318,8 @@ class TrainingCutoffPlotter(BasePlotter):
                 current_ylim = fixed_ylim
                 self._debug_print(f"Using fixed Y-axis limits: {fixed_ylim}")
             else:
-                if metric_type.upper() == 'RMSD' and threshold_value >= self.DEFAULT_RMSD_THRESHOLD:
-                    current_ylim = (0, max(self.DEFAULT_RMSD_THRESHOLD + 0.5, ymax * 1.1))
+                if metric_type.upper() == 'RMSD' and threshold_value >= PlotConfig.DEFAULT_RMSD_THRESHOLD:
+                    current_ylim = (0, max(PlotConfig.DEFAULT_RMSD_THRESHOLD + 0.5, ymax * 1.1))
                 elif metric_type.upper() == 'DOCKQ':
                     # DockQ scores range from 0 to 1
                     current_ylim = (0, min(1.05, max(self.DEFAULT_DOCKQ_THRESHOLD + 0.1, ymax * 1.1)))
@@ -384,7 +336,7 @@ class TrainingCutoffPlotter(BasePlotter):
             self._debug_print(f"Y-axis limits set to: {ax.get_ylim()}")
             used_ylim = ax.get_ylim()
             
-            ax.tick_params(axis='both', which='major', labelsize=self.TICK_LABEL_FONT_SIZE)
+            ax.tick_params(axis='both', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
             
             plt.tight_layout()
             
@@ -463,10 +415,10 @@ class TrainingCutoffPlotter(BasePlotter):
         
         # Use denser hatches for legend
         legend_hatches = [
-            self.PRE_TRAINING_HATCH, 
-            self.PRE_TRAINING_HATCH, 
-            self.LEGEND_POST_TRAINING_HATCH, 
-            self.LEGEND_POST_TRAINING_HATCH
+            PlotConfig.PRE_TRAINING_HATCH, 
+            PlotConfig.PRE_TRAINING_HATCH, 
+            PlotConfig.LEGEND_POST_TRAINING_HATCH, 
+            PlotConfig.LEGEND_POST_TRAINING_HATCH
         ]
         
         legend_handles = []
@@ -474,18 +426,18 @@ class TrainingCutoffPlotter(BasePlotter):
             patch = plt.Rectangle(
                 (0, 0), 1, 1,
                 facecolor=color,
-                edgecolor=self.BAR_EDGE_COLOR,
+                edgecolor=PlotConfig.BAR_EDGE_COLOR,
                 hatch=hatch,
-                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                linewidth=PlotConfig.BAR_EDGE_WIDTH,
                 label=label
             )
             legend_handles.append(patch)
         
         threshold_line = Line2D(
             [0, 1], [0, 0],
-            color=self.THRESHOLD_LEGEND_COLOR,
-            linestyle=self.THRESHOLD_LINE_STYLE,
-            linewidth=self.THRESHOLD_LINE_WIDTH,
+            color=PlotConfig.THRESHOLD_LINE_COLOR,
+            linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+            linewidth=PlotConfig.THRESHOLD_LINE_WIDTH,
             label='Threshold'
         )
         legend_handles.append(threshold_line)
@@ -495,7 +447,7 @@ class TrainingCutoffPlotter(BasePlotter):
             loc='center',
             ncol=5,
             frameon=False,
-            fontsize=self.LEGEND_FONT_SIZE,
+            fontsize=PlotConfig.LEGEND_TEXT_SIZE,
             handlelength=1.5,
             handletextpad=0.5,
             columnspacing=1.0

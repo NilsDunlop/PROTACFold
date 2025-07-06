@@ -4,46 +4,10 @@ import pandas as pd
 from base_plotter import BasePlotter
 from config import PlotConfig
 from data_loader import DataLoader
-from utils import save_figure, distribute_pdb_ids
+from utils import save_figure, distribute_pdb_ids, create_plot_filename
 
 class ComparisonPlotter(BasePlotter):
     """Class for creating comparison plots between different model types."""
-    
-    # Plot dimensions for compact Nature-style plots
-    PLOT_WIDTH = 3
-    PLOT_HEIGHT = 3
-    
-    # Font sizes for better readability in smaller plots
-    TITLE_FONT_SIZE = 15
-    AXIS_LABEL_FONT_SIZE = 14
-    TICK_LABEL_FONT_SIZE = 13
-    LEGEND_FONT_SIZE = 11
-    
-    # Bar appearance
-    BAR_WIDTH = 0.08
-    BAR_EDGE_LINE_WIDTH = 0.5
-    BAR_SPACING_FACTOR = 1.8
-    
-    # Error bar appearance
-    ERROR_BAR_CAPSIZE = 3
-    ERROR_BAR_THICKNESS = 0.8
-    ERROR_BAR_ALPHA = 0.7
-    
-    # Grid properties
-    GRID_ALPHA = 0.2
-    GRID_LINESTYLE = '--'
-    
-    # Threshold line properties
-    THRESHOLD_LINE_ALPHA = 1
-    THRESHOLD_LINE_WIDTH = 1.0
-    
-    # Default threshold values
-    DEFAULT_RMSD_THRESHOLD = 4.0
-    DEFAULT_DOCKQ_THRESHOLD = 0.5
-    DEFAULT_LRMSD_THRESHOLD = 4.0
-    DEFAULT_PTM_THRESHOLD = 0.7
-    
-    MAX_STRUCTURES_PER_PAGE = 20
     
     def __init__(self):
         """Initialize the comparison plotter."""
@@ -85,21 +49,21 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             tuple: (figures, axes)
         """
-        width = width if width is not None else self.PLOT_WIDTH
-        height = height if height is not None else self.PLOT_HEIGHT
-        max_structures = max_structures if max_structures is not None else self.MAX_STRUCTURES_PER_PAGE
+        width = width if width is not None else PlotConfig.STANDARD_WIDTH
+        height = height if height is not None else PlotConfig.STANDARD_HEIGHT
+        max_structures = max_structures if max_structures is not None else PlotConfig.MAX_STRUCTURES_PER_PAGE
         
         if threshold_value is None:
             if metric_type.upper() == 'RMSD':
-                threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
-                threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
             elif metric_type.upper() == 'LRMSD':
-                threshold_value = self.DEFAULT_LRMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
             elif metric_type.upper() == 'PTM':
-                threshold_value = self.DEFAULT_PTM_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_PTM_THRESHOLD
             else:
-                threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
         
         df_filtered = DataLoader.filter_comparison_data(
             df, 
@@ -205,20 +169,20 @@ class ComparisonPlotter(BasePlotter):
             fig, ax: The created figure and axis
         """
         try:
-            width = width if width is not None else self.PLOT_WIDTH
-            height = height if height is not None else self.PLOT_HEIGHT
+            width = width if width is not None else PlotConfig.STANDARD_WIDTH
+            height = height if height is not None else PlotConfig.STANDARD_HEIGHT
             
             if threshold_value is None:
                 if metric_type.upper() == 'RMSD':
-                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
-                    threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
                 elif metric_type.upper() == 'LRMSD':
-                    threshold_value = self.DEFAULT_LRMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
-                    threshold_value = self.DEFAULT_PTM_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_PTM_THRESHOLD
                 else:
-                    threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                    threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
             
             is_seed_specific = specific_seed is not None
             
@@ -269,8 +233,8 @@ class ComparisonPlotter(BasePlotter):
             errors = metrics['errors']
             counts = metrics['counts']
             
-            bar_width = self.BAR_WIDTH
-            spacing_factor = self.BAR_SPACING_FACTOR
+            bar_width = PlotConfig.BAR_WIDTH
+            spacing_factor = PlotConfig.BAR_SPACING_FACTOR
             bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
             
             colors = [
@@ -306,20 +270,20 @@ class ComparisonPlotter(BasePlotter):
                 values,
                 bar_width,
                 color=colors,
-                edgecolor='black',
-                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH,
                 yerr=error_values,
-                error_kw={'ecolor': 'black', 'capsize': self.ERROR_BAR_CAPSIZE, 
-                           'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA}
+                error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 
+                           'capthick': PlotConfig.ERROR_BAR_THICKNESS, 'alpha': PlotConfig.ERROR_BAR_ALPHA}
             )
             
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = ax.axhline(
                     y=threshold_value,
-                    color='grey',  # Using 'grey' for consistency
-                    linestyle='--',
-                    alpha=self.THRESHOLD_LINE_ALPHA,
-                    linewidth=self.THRESHOLD_LINE_WIDTH
+                    color=PlotConfig.THRESHOLD_LINE_COLOR,
+                    linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                    alpha=PlotConfig.THRESHOLD_LINE_ALPHA,
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
                 )
             
             legend_handles = []
@@ -337,9 +301,9 @@ class ComparisonPlotter(BasePlotter):
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = plt.Line2D(
                     [0, 1], [0, 0],
-                    color='grey',  # Using 'grey' for consistency
-                    linestyle='--',
-                    linewidth=1.0, 
+                    color=PlotConfig.THRESHOLD_LINE_COLOR,
+                    linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, 
                     label='Threshold'
                 )
                 legend_handles.append(threshold_line)
@@ -357,9 +321,9 @@ class ComparisonPlotter(BasePlotter):
             ax.set_xticks([])
             ax.set_xticklabels([])
             
-            ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
+            ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
             
-            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+            ax.set_ylabel(y_label, fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
             
             if is_seed_specific:
                 if metric_type.upper() in ['DOCKQ', 'PTM']:
@@ -370,7 +334,7 @@ class ComparisonPlotter(BasePlotter):
                 title = ""
                 
             if title:
-                fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE, fontweight='bold')
+                fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE, fontweight='bold')
             
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
             if metric_type.upper() == 'RMSD' and threshold_value >= 4.0:
@@ -396,9 +360,12 @@ class ComparisonPlotter(BasePlotter):
             
             if save:
                 if is_seed_specific:
-                    filename = f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}"
+                    filename = create_plot_filename('comparison', molecule_type=molecule_type, 
+                                                  metric_type=metric_type, comparison_type='seed', 
+                                                  seed=specific_seed)
                 else:
-                    filename = f"af3_vs_boltz1_mean_{molecule_type.lower()}_{metric_type.lower()}"
+                    filename = create_plot_filename('comparison', molecule_type=molecule_type, 
+                                                  metric_type=metric_type, comparison_type='mean')
                 save_figure(fig, filename)
             
             return fig, ax
@@ -442,8 +409,8 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig, ax: The created figure and axis
         """
-        width = width if width is not None else self.PLOT_WIDTH
-        height = height if height is not None else self.PLOT_HEIGHT
+        width = width if width is not None else PlotConfig.STANDARD_WIDTH
+        height = height if height is not None else PlotConfig.STANDARD_HEIGHT
         
         # No threshold for PTM
         if metric_type.upper() == 'PTM':
@@ -451,13 +418,13 @@ class ComparisonPlotter(BasePlotter):
 
         elif threshold_value is None:
             if metric_type.upper() == 'RMSD':
-                threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
-                threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
             elif metric_type.upper() == 'LRMSD':
-                threshold_value = self.DEFAULT_LRMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
             else:
-                threshold_value = self.DEFAULT_RMSD_THRESHOLD
+                threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 
         return self.plot_mean_comparison(
             df=df,
@@ -473,7 +440,7 @@ class ComparisonPlotter(BasePlotter):
             specific_seed=specific_seed
         )
 
-    def create_horizontal_legend(self, width=6, height=1, save=True, filename="comparison_legend"):
+    def create_horizontal_legend(self, width=6, height=1, save=True, filename=None):
         """
         Create a standalone horizontal legend figure for comparison plots.
         
@@ -527,7 +494,7 @@ class ComparisonPlotter(BasePlotter):
             loc='center',
             ncol=5,  # 5 columns for horizontal layout (4 bars + threshold)
             frameon=False,
-            fontsize=self.LEGEND_FONT_SIZE,
+            fontsize=PlotConfig.LEGEND_TEXT_SIZE,
             handlelength=1.5,
             handletextpad=0.5,
             columnspacing=1.0
@@ -540,6 +507,8 @@ class ComparisonPlotter(BasePlotter):
         plt.tight_layout()
         
         if save:
+            if filename is None:
+                filename = create_plot_filename('comparison', legend='legend')
             save_figure(fig, filename)
             
         return fig
@@ -600,8 +569,8 @@ class ComparisonPlotter(BasePlotter):
         
         x_positions = np.arange(len(sorted_pdb_ids))
         
-        bar_width = self.BAR_WIDTH
-        spacing_factor = self.BAR_SPACING_FACTOR
+        bar_width = PlotConfig.BAR_WIDTH
+        spacing_factor = PlotConfig.BAR_SPACING_FACTOR
         bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
         
         legend_handles = []
@@ -620,8 +589,8 @@ class ComparisonPlotter(BasePlotter):
                     ccd_value,
                     bar_width,
                     color=PlotConfig.AF3_CCD_COLOR,
-                    edgecolor='black',
-                    linewidth=self.BAR_EDGE_LINE_WIDTH,
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH,
                     label='AF3 CCD' if i == 0 else None
                 )
                 if i == 0:
@@ -635,8 +604,8 @@ class ComparisonPlotter(BasePlotter):
                     smiles_value,
                     bar_width,
                     color=PlotConfig.AF3_SMILES_COLOR,
-                    edgecolor='black',
-                    linewidth=self.BAR_EDGE_LINE_WIDTH,
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH,
                     label='AF3 SMILES' if i == 0 else None
                 )
                 if i == 0:
@@ -652,8 +621,8 @@ class ComparisonPlotter(BasePlotter):
                     ccd_value,
                     bar_width,
                     color=PlotConfig.BOLTZ1_CCD_COLOR,
-                    edgecolor='black',
-                    linewidth=self.BAR_EDGE_LINE_WIDTH,
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH,
                     label='B1 CCD' if i == 0 else None
                 )
                 if i == 0:
@@ -667,8 +636,8 @@ class ComparisonPlotter(BasePlotter):
                     smiles_value,
                     bar_width,
                     color=PlotConfig.BOLTZ1_SMILES_COLOR,
-                    edgecolor='black',
-                    linewidth=self.BAR_EDGE_LINE_WIDTH,
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR,
+                    linewidth=PlotConfig.BAR_EDGE_LINE_WIDTH,
                     label='B1 SMILES' if i == 0 else None
                 )
                 if i == 0:
@@ -678,10 +647,10 @@ class ComparisonPlotter(BasePlotter):
         if add_threshold and metric_type.upper() != 'PTM':
             threshold_line = ax.axhline(
                 y=threshold_value,
-                color='grey',  # Using 'grey' for consistency
-                linestyle='--',
-                alpha=self.THRESHOLD_LINE_ALPHA,
-                linewidth=self.THRESHOLD_LINE_WIDTH
+                color=PlotConfig.THRESHOLD_LINE_COLOR,
+                linestyle=PlotConfig.THRESHOLD_LINE_STYLE,
+                alpha=PlotConfig.THRESHOLD_LINE_ALPHA,
+                linewidth=PlotConfig.THRESHOLD_LINE_WIDTH
             )
         
         # Create PDB labels with an asterisk for structures released after the AF3 training cutoff
@@ -693,20 +662,20 @@ class ComparisonPlotter(BasePlotter):
             pdb_labels.append(pdb_label)
         
         ax.set_xticks(x_positions)
-        ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
+        ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=PlotConfig.TICK_LABEL_SIZE)
         
-        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_ylabel(y_label, fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         title = f"AlphaFold3 vs. Boltz1 - {metric_type}{title_suffix}"
         
         if total_pages > 1:
             title += f" (Page {page_num} of {total_pages})"
         
-        fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE)
+        fig.suptitle(title, fontsize=PlotConfig.TITLE_SIZE)
         
         ax.set_ylim(0, max_value * 1.1)
         
-        ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
+        ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
         
         # Add legend - COMMENTED OUT FOR NOW
         # if add_threshold and threshold_value is not None and metric_type.upper() != 'PTM' and max_value < threshold_value * 1.5:

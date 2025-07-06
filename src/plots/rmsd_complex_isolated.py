@@ -10,40 +10,7 @@ from utils import save_figure, distribute_pdb_ids
 class RMSDComplexIsolatedPlotter(BasePlotter):
     """Generates plots for RMSD of complex, POI, and E3 ligase components."""
 
-    # Plot dimensions and appearance
-    TITLE_FONT_SIZE = 15
-    AXIS_LABEL_FONT_SIZE = 14
-
-    # Aggregated plot settings
-    AGGREGATED_PLOT_WIDTH = 3
-    AGGREGATED_PLOT_HEIGHT = 3
-    AGGREGATED_TICK_LABEL_FONT_SIZE = 13
-    AGGREGATED_LEGEND_FONT_SIZE = 11
-    AGGREGATED_BAR_WIDTH = 0.6
-    
-    # Bar and error bar appearance
-    BAR_EDGE_LINE_WIDTH = 0.5
-    ERROR_BAR_CAPSIZE = 3
-    ERROR_BAR_THICKNESS = 0.8
-    ERROR_BAR_ALPHA = 0.7
-    
-    # Grid and threshold styling
-    GRID_ALPHA = 0.2
-    GRID_LINESTYLE = '--'
-    THRESHOLD_LINE_ALPHA = 1
-    THRESHOLD_LINE_WIDTH = 1.0
-    
-    # Per-PDB plot settings
-    PER_PDB_PLOT_WIDTH = 5
-    PER_PDB_AXIS_LABEL_FONT_SIZE = 13
-    PER_PDB_TICK_LABEL_FONT_SIZE = 13
-    PER_PDB_LEGEND_FONT_SIZE = 12
-    BAR_SPACING_HORIZONTAL = 0
-    BAR_HEIGHT_HORIZONTAL = 0.30 
-    PDB_INTER_GROUP_SPACING = 0.2
-
-    MAX_STRUCTURES_PER_HORIZONTAL_PLOT = 20
-    DEFAULT_RMSD_THRESHOLD = 4.0
+    # Constants now imported from PlotConfig
 
     def __init__(self):
         """Initialize the plotter."""
@@ -118,23 +85,23 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         """Configure axes for aggregated plot."""
         x_pos = np.arange(len(component_labels))
         
-        ax.bar(x_pos, means, yerr=errors, width=self.AGGREGATED_BAR_WIDTH,
-               color=component_colors, capsize=self.ERROR_BAR_CAPSIZE, 
-               edgecolor='black', linewidth=self.BAR_EDGE_LINE_WIDTH,
-               error_kw={'elinewidth': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA})
+        ax.bar(x_pos, means, yerr=errors, width=PlotConfig.RMSD_AGGREGATED_BAR_WIDTH,
+               color=component_colors, capsize=PlotConfig.ERROR_BAR_CAPSIZE, 
+               edgecolor='black', linewidth=PlotConfig.BAR_EDGE_WIDTH,
+               error_kw={'elinewidth': PlotConfig.ERROR_BAR_THICKNESS, 'alpha': PlotConfig.ERROR_BAR_ALPHA})
         
-        ax.set_ylabel('RMSD (Å)', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_ylabel('RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         ax.set_xticks([])
         ax.set_xticklabels([])
         
         if add_threshold:
-            threshold_val = threshold_value if threshold_value is not None else self.DEFAULT_RMSD_THRESHOLD
+            threshold_val = threshold_value if threshold_value is not None else PlotConfig.DEFAULT_RMSD_THRESHOLD
             ax.axhline(y=threshold_val, color='gray', linestyle='--', 
-                      linewidth=self.THRESHOLD_LINE_WIDTH, alpha=self.THRESHOLD_LINE_ALPHA)
+                      linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, alpha=PlotConfig.THRESHOLD_LINE_ALPHA)
         
         ax.set_ylim(0, 6)
-        ax.tick_params(axis='y', labelsize=self.AGGREGATED_TICK_LABEL_FONT_SIZE)
-        ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
+        ax.tick_params(axis='y', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
 
     def plot_aggregated_rmsd_components(self, df, model_type, molecule_type, 
                                         input_type='CCD', add_threshold=True, 
@@ -152,7 +119,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         component_cols, component_colors, component_labels = self._get_rmsd_component_columns_and_colors(model_type, input_type)
         means, errors = self._calculate_component_stats(df_model, component_cols)
 
-        fig, ax = plt.subplots(figsize=(self.AGGREGATED_PLOT_WIDTH, self.AGGREGATED_PLOT_HEIGHT))
+        fig, ax = plt.subplots(figsize=(PlotConfig.RMSD_AGGREGATED_WIDTH, PlotConfig.RMSD_AGGREGATED_HEIGHT))
         self._setup_aggregated_plot_axes(ax, means, errors, component_colors, component_labels, 
                                         add_threshold, threshold_value)
         
@@ -225,9 +192,9 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
     def _calculate_plot_height(self, n_pdbs):
         """Calculate dynamic plot height based on number of PDBs."""
         num_bar_groups_per_pdb = 2
-        height_per_pdb = num_bar_groups_per_pdb * self.BAR_HEIGHT_HORIZONTAL + (num_bar_groups_per_pdb - 1) * self.BAR_SPACING_HORIZONTAL
+        height_per_pdb = num_bar_groups_per_pdb * PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL + (num_bar_groups_per_pdb - 1) * PlotConfig.RMSD_BAR_SPACING_HORIZONTAL
         total_height = n_pdbs * height_per_pdb
-        total_spacing = (n_pdbs - 1) * self.PDB_INTER_GROUP_SPACING if n_pdbs > 0 else 0
+        total_spacing = (n_pdbs - 1) * PlotConfig.RMSD_PDB_INTER_GROUP_SPACING if n_pdbs > 0 else 0
         return max(5, 1.5 + total_height + total_spacing)
 
     def _aggregate_page_data(self, page_df, component_cols):
@@ -254,12 +221,12 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
 
     def _calculate_bar_positions(self, n_pdbs):
         """Calculate bar positions for plotting."""
-        height_per_pdb = 2 * self.BAR_HEIGHT_HORIZONTAL + self.BAR_SPACING_HORIZONTAL
-        step_per_pdb = height_per_pdb + self.PDB_INTER_GROUP_SPACING
+        height_per_pdb = 2 * PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL + PlotConfig.RMSD_BAR_SPACING_HORIZONTAL
+        step_per_pdb = height_per_pdb + PlotConfig.RMSD_PDB_INTER_GROUP_SPACING
         y_pos_base = np.arange(n_pdbs) * step_per_pdb
         
         y_pos_complex = y_pos_base
-        y_pos_stacked = y_pos_base + (self.BAR_HEIGHT_HORIZONTAL + self.BAR_SPACING_HORIZONTAL)
+        y_pos_stacked = y_pos_base + (PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL + PlotConfig.RMSD_BAR_SPACING_HORIZONTAL)
         
         return y_pos_complex, y_pos_stacked, y_pos_base
 
@@ -296,36 +263,36 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
     def _plot_rmsd_bars(self, ax, y_pos_complex, y_pos_stacked, values, errors, colors, labels, page_num):
         """Plot the RMSD bars for all components."""
         # Complex RMSD (single bar)
-        ax.barh(y_pos_complex, values['complex_values'], height=self.BAR_HEIGHT_HORIZONTAL, 
+        ax.barh(y_pos_complex, values['complex_values'], height=PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL, 
                 xerr=errors['complex_errors'], facecolor=colors[0], edgecolor='black', linewidth=0.5, 
                 label=labels[0] if page_num == 1 else None,
                 error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
 
         # POI RMSD (base of stacked bar)
-        ax.barh(y_pos_stacked, values['poi_values'], height=self.BAR_HEIGHT_HORIZONTAL, 
+        ax.barh(y_pos_stacked, values['poi_values'], height=PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL, 
                 xerr=errors['poi_errors'], facecolor=colors[1], edgecolor='black', linewidth=0.5, 
                 label=labels[1] if page_num == 1 else None,
                 error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
 
         # E3 RMSD (stacked on POI)
         ax.barh(y_pos_stacked, values['e3_values'], left=values['poi_values'], 
-                height=self.BAR_HEIGHT_HORIZONTAL, xerr=errors['e3_errors'], 
+                height=PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL, xerr=errors['e3_errors'], 
                 facecolor=colors[2], edgecolor='black', linewidth=0.5, 
                 label=labels[2] if page_num == 1 else None,
                 error_kw={'ecolor': 'black', 'capsize': 2, 'alpha': 0.7})
 
     def _setup_per_pdb_axes(self, ax, y_pos_base, pdb_labels, max_rmsd, add_threshold, threshold_value):
         """Setup axes for per-PDB plot."""
-        ax.set_xlabel('RMSD (Å)', fontsize=self.PER_PDB_AXIS_LABEL_FONT_SIZE, fontweight='bold')
-        ax.set_ylabel('PDB Identifier', fontsize=self.PER_PDB_AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_xlabel('RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax.set_ylabel('PDB Identifier', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
-        height_per_pdb = 2 * self.BAR_HEIGHT_HORIZONTAL + self.BAR_SPACING_HORIZONTAL
-        tick_positions = y_pos_base + (height_per_pdb - self.BAR_HEIGHT_HORIZONTAL) / 2.0
+        height_per_pdb = 2 * PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL + PlotConfig.RMSD_BAR_SPACING_HORIZONTAL
+        tick_positions = y_pos_base + (height_per_pdb - PlotConfig.RMSD_BAR_HEIGHT_HORIZONTAL) / 2.0
         ax.set_yticks(tick_positions)
-        ax.set_yticklabels(pdb_labels, fontsize=self.PER_PDB_TICK_LABEL_FONT_SIZE)
+        ax.set_yticklabels(pdb_labels, fontsize=PlotConfig.TICK_LABEL_SIZE)
         ax.invert_yaxis()
 
-        threshold_val = threshold_value if threshold_value is not None else self.DEFAULT_RMSD_THRESHOLD
+        threshold_val = threshold_value if threshold_value is not None else PlotConfig.DEFAULT_RMSD_THRESHOLD
         if add_threshold:
             ax.axvline(x=threshold_val, color='gray', linestyle='--', linewidth=1.0)
             ax.set_xlim(0, max(max_rmsd * 1.1, threshold_val * 1.1, 1.0))
@@ -391,7 +358,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
             if len(category_pdb_ids) == 0:
                 continue
             
-            paginated_pdb_ids = distribute_pdb_ids(category_pdb_ids, self.MAX_STRUCTURES_PER_HORIZONTAL_PLOT)
+            paginated_pdb_ids = distribute_pdb_ids(category_pdb_ids, PlotConfig.MAX_STRUCTURES_PER_HORIZONTAL_PLOT)
 
             for page_num, page_pdb_ids in enumerate(paginated_pdb_ids, 1):
                 page_df = df_category_sorted[df_category_sorted['PDB_ID'].isin(page_pdb_ids)].copy()
@@ -424,7 +391,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 n_pdbs = len(page_data)
                 plot_height = self._calculate_plot_height(n_pdbs)
                 
-                fig, ax = plt.subplots(figsize=(self.PER_PDB_PLOT_WIDTH, plot_height))
+                fig, ax = plt.subplots(figsize=(PlotConfig.RMSD_PER_PDB_WIDTH, plot_height))
                 
                 pdb_labels = self._generate_pdb_labels(page_data)
                 y_pos_complex, y_pos_stacked, y_pos_base = self._calculate_bar_positions(n_pdbs)
@@ -444,10 +411,10 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 self._setup_per_pdb_axes(ax, y_pos_base, pdb_labels, max_rmsd, add_threshold, threshold_value)
                 
                 handles, legend_labels = self._create_per_pdb_legend(component_colors, component_labels, add_threshold)
-                ax.legend(handles, legend_labels, loc='best', fontsize=self.PER_PDB_LEGEND_FONT_SIZE, frameon=False)
+                ax.legend(handles, legend_labels, loc='best', fontsize=PlotConfig.LEGEND_TEXT_SIZE, frameon=False)
                 
                 plot_title = self._generate_plot_title(category_label, page_num, len(paginated_pdb_ids))
-                fig.suptitle(plot_title, fontsize=self.TITLE_FONT_SIZE)
+                fig.suptitle(plot_title, fontsize=PlotConfig.TITLE_SIZE)
                 
                 plt.tight_layout(rect=[0, 0, 1, 0.99])
 
@@ -474,7 +441,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 (0, 0), 1, 1,
                 facecolor=color,
                 edgecolor='black',
-                linewidth=self.BAR_EDGE_LINE_WIDTH,
+                linewidth=PlotConfig.BAR_EDGE_WIDTH,
                 label=label
             )
             legend_handles.append(patch)
@@ -484,7 +451,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 [0, 1], [0, 0],
                 color='gray',
                 linestyle='--',
-                linewidth=self.THRESHOLD_LINE_WIDTH,
+                linewidth=PlotConfig.THRESHOLD_LINE_WIDTH,
                 label='Threshold'
             )
             legend_handles.append(threshold_line)
@@ -494,7 +461,7 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
             loc='center',
             ncol=1,
             frameon=False,
-            fontsize=self.AGGREGATED_LEGEND_FONT_SIZE,
+            fontsize=PlotConfig.LEGEND_TEXT_SIZE,
             handlelength=1.5,
             handletextpad=0.5,
             columnspacing=1.0

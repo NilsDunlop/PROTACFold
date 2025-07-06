@@ -62,42 +62,7 @@ class POI_E3LPlotter(BasePlotter):
         "Others": PlotConfig.GRAY,
     }
 
-    # --- Default Styling and Layout Constants ---
-    CLS_DEFAULT_BAR_WIDTH = 0.6
-    CLS_BAR_ALPHA = 1
-    CLS_BAR_EDGE_COLOR = 'black'
-    CLS_BAR_LINEWIDTH = 0.5
-    CLS_ERROR_BAR_CAPSIZE = 3    
-    CLS_ERROR_BAR_THICKNESS = 0.8         
-    CLS_ERROR_BAR_ALPHA = 0.7             
-    CLS_THRESHOLD_LINE_ALPHA = 1
-    CLS_THRESHOLD_LINE_WIDTH = 1.0         
-
-    CLS_PLOT_TITLE_FONTSIZE = 15
-    CLS_TICK_FONTSIZE_GRID = 13
-    CLS_LEGEND_FONTSIZE_GRID = 11
-    CLS_AXIS_LABEL_FONTSIZE = 14
-
-    CLS_LEGEND_NCOL_E3L_MAX = 2
-
-    # Sizing for Combined Grids
-    CLS_GRID_DEFAULT_WIDTH = 8.0
-    CLS_GRID_HEIGHT_CALC_FACTOR = 0.4
-    CLS_GRID_HEIGHT_CALC_PADDING = 3.0
-    CLS_GRID_DEFAULT_OVERALL_HEIGHT = 12.0
-    CLS_GRID_X_AXIS_PADDING_FACTOR = 0.05
-    CLS_GRID_HSPACE = 0.05
-    CLS_GRID_YLABEL_PAD = 20
-    CLS_GRID_YLABEL_X_COORD = -0.45
-    CLS_GRID_YLABEL_Y_COORD = 0.5
-    CLS_GRID_ALPHA = 0.2
-    
-    # Sizing for Single Model Grids
-    CLS_SINGLE_MODEL_GRID_WIDTH = CLS_GRID_DEFAULT_WIDTH / 2 
-    
-    # Sizing for Vertical Plots
-    CLS_VERTICAL_PLOT_HEIGHT = 4.0
-    CLS_VERTICAL_PLOT_WIDTH = 6.0
+    # Constants now imported from PlotConfig
     
     def __init__(self, debug=False):
         """Initialize the plotter."""
@@ -164,12 +129,12 @@ class POI_E3LPlotter(BasePlotter):
         Args:
             all_data (list): A list of lists, where each inner list contains data dictionaries.
             padding_factor (float, optional): Factor to pad the range by. 
-                                            Defaults to CLS_GRID_X_AXIS_PADDING_FACTOR.
+                                            Defaults to PlotConfig.POI_E3L_X_AXIS_PADDING_FACTOR.
         
         Returns:
             tuple: A tuple containing (global_min, global_max).
         """
-        padding = padding_factor if padding_factor is not None else self.CLS_GRID_X_AXIS_PADDING_FACTOR
+        padding = padding_factor if padding_factor is not None else PlotConfig.POI_E3L_X_AXIS_PADDING_FACTOR
         
         global_min, global_max = float('inf'), float('-inf')
 
@@ -193,9 +158,9 @@ class POI_E3LPlotter(BasePlotter):
         metric_type='RMSD',
         add_threshold=True,
         threshold_value=4.0,
-        width=CLS_GRID_DEFAULT_WIDTH,
+        width=PlotConfig.POI_E3L_GRID_WIDTH,
         height=None,
-        bar_width=CLS_DEFAULT_BAR_WIDTH,
+        bar_width=PlotConfig.POI_E3L_BAR_WIDTH,
         save=False,
         legend_position='lower right',
         molecule_type="PROTAC",
@@ -243,11 +208,11 @@ class POI_E3LPlotter(BasePlotter):
             height_ratio = [max_poi_count, max_e3l_count]
             if height is None:
                 total_data_points = max_poi_count + max_e3l_count
-                height = total_data_points * self.CLS_GRID_HEIGHT_CALC_FACTOR + self.CLS_GRID_HEIGHT_CALC_PADDING
+                height = total_data_points * PlotConfig.POI_E3L_GRID_HEIGHT_FACTOR + PlotConfig.POI_E3L_GRID_HEIGHT_PADDING
         else:
             height_ratio = [2, 1]
             if height is None:
-                height = self.CLS_GRID_DEFAULT_OVERALL_HEIGHT
+                height = PlotConfig.POI_E3L_GRID_DEFAULT_HEIGHT
         
         # --- X-axis Limit Calculation ---
         global_min, global_max = self._calculate_global_axis_lims(
@@ -255,7 +220,7 @@ class POI_E3LPlotter(BasePlotter):
         )
 
         fig = plt.figure(figsize=(width, height), constrained_layout=True)
-        gs = fig.add_gridspec(2, 2, height_ratios=height_ratio, hspace=self.CLS_GRID_HSPACE)
+        gs = fig.add_gridspec(2, 2, height_ratios=height_ratio, hspace=PlotConfig.POI_E3L_HSPACE)
         
         all_axes = []
         left_axes = []
@@ -304,9 +269,9 @@ class POI_E3LPlotter(BasePlotter):
             )
             
             if metric_type == 'RMSD':
-                ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+                ax_e3l.set_xlabel('RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
             else:
-                ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+                ax_e3l.set_xlabel('DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         for ax in all_axes:
             ax.set_xlim(global_min, global_max)
@@ -319,11 +284,11 @@ class POI_E3LPlotter(BasePlotter):
                 width_inches = bbox.width / fig.dpi
                 max_tick_width = max(max_tick_width, width_inches)
         
-        left_axes[0].set_ylabel('Protein of Interest', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', labelpad=self.CLS_GRID_YLABEL_PAD)
-        left_axes[1].set_ylabel('E3 Ligase', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+        left_axes[0].set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold', labelpad=PlotConfig.POI_E3L_YLABEL_PAD)
+        left_axes[1].set_ylabel('E3 Ligase', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
-        left_axes[0].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
-        left_axes[1].yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        left_axes[0].yaxis.set_label_coords(PlotConfig.POI_E3L_YLABEL_X_COORD, PlotConfig.POI_E3L_YLABEL_Y_COORD)
+        left_axes[1].yaxis.set_label_coords(PlotConfig.POI_E3L_YLABEL_X_COORD, PlotConfig.POI_E3L_YLABEL_Y_COORD)
         
         if save:
             metric_abbr = metric_type.lower()
@@ -414,48 +379,46 @@ class POI_E3LPlotter(BasePlotter):
         colors = [color_map.get(group, default_color) for group in groups]
         
         error_kw = {
-            'ecolor': 'black', 
-            'capsize': self.CLS_ERROR_BAR_CAPSIZE, 
-            'capthick': self.CLS_ERROR_BAR_THICKNESS, 
-            'alpha': self.CLS_ERROR_BAR_ALPHA
+            'ecolor': PlotConfig.ERROR_BAR_COLOR, 
+            'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 
+            'capthick': PlotConfig.ERROR_BAR_THICKNESS, 
+            'alpha': PlotConfig.ERROR_BAR_ALPHA
         }
 
         if orientation == 'horizontal':
             ax.barh(positions, means, bar_width, xerr=stds, 
-                    color=colors, alpha=self.CLS_BAR_ALPHA, 
-                    edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
+                    color=colors, alpha=PlotConfig.POI_E3L_BAR_ALPHA, 
+                    edgecolor=PlotConfig.BAR_EDGE_COLOR, linewidth=PlotConfig.BAR_EDGE_WIDTH,
                     error_kw=error_kw)
             
             if add_threshold and threshold_value is not None:
-                ax.axvline(x=threshold_value, color='gray', linestyle='--', 
-                           alpha=self.CLS_THRESHOLD_LINE_ALPHA, linewidth=self.CLS_THRESHOLD_LINE_WIDTH, label='Threshold')
+                ax.axvline(x=threshold_value, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, 
+                           alpha=PlotConfig.THRESHOLD_LINE_ALPHA, linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold')
             
             ax.set_yticks(positions)
-            ax.set_yticklabels(names, fontsize=self.CLS_TICK_FONTSIZE_GRID)
-            ax.grid(axis='x', linestyle='--', alpha=self.CLS_GRID_ALPHA)
+            ax.set_yticklabels(names, fontsize=PlotConfig.TICK_LABEL_SIZE)
+            ax.grid(axis='x', linestyle='--', alpha=PlotConfig.GRID_ALPHA)
             
-            y_margin = 0.6
-            ax.set_ylim(positions[0] - y_margin, positions[-1] + y_margin)
+            ax.set_ylim(positions[0] - PlotConfig.MARGIN_Y, positions[-1] + PlotConfig.MARGIN_Y)
 
         else: # Vertical
             ax.bar(positions, means, bar_width, yerr=stds, 
-                   color=colors, alpha=self.CLS_BAR_ALPHA, 
-                   edgecolor=self.CLS_BAR_EDGE_COLOR, linewidth=self.CLS_BAR_LINEWIDTH,
+                   color=colors, alpha=PlotConfig.POI_E3L_BAR_ALPHA, 
+                   edgecolor=PlotConfig.BAR_EDGE_COLOR, linewidth=PlotConfig.BAR_EDGE_WIDTH,
                    error_kw=error_kw)
             
             if add_threshold and threshold_value is not None:
                 ax.axhline(y=threshold_value, color='gray', linestyle='--', 
-                           alpha=self.CLS_THRESHOLD_LINE_ALPHA, linewidth=self.CLS_THRESHOLD_LINE_WIDTH, label='Threshold')
+                           alpha=PlotConfig.THRESHOLD_LINE_ALPHA, linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold')
             
             ax.set_xticks(positions)
-            ax.set_xticklabels(names, fontsize=self.CLS_TICK_FONTSIZE_GRID, rotation=90)
-            ax.grid(axis='y', linestyle='--', alpha=self.CLS_GRID_ALPHA)
+            ax.set_xticklabels(names, fontsize=PlotConfig.TICK_LABEL_SIZE, rotation=90)
+            ax.grid(axis='y', linestyle='--', alpha=PlotConfig.GRID_ALPHA)
             
-            x_margin = 0.6
-            ax.set_xlim(positions[0] - x_margin, positions[-1] + x_margin)
+            ax.set_xlim(positions[0] - PlotConfig.MARGIN_X, positions[-1] + PlotConfig.MARGIN_X)
 
         if title:
-            ax.set_title(title, fontsize=self.CLS_PLOT_TITLE_FONTSIZE)
+            ax.set_title(title, fontsize=PlotConfig.TITLE_SIZE)
 
     def plot_single_model_grid(
         self,
@@ -464,9 +427,9 @@ class POI_E3LPlotter(BasePlotter):
         metric_type='RMSD',
         add_threshold=True,
         threshold_value=4.0,
-        width=CLS_SINGLE_MODEL_GRID_WIDTH,
+        width=PlotConfig.POI_E3L_SINGLE_MODEL_WIDTH,
         height=None,
-        bar_width=CLS_DEFAULT_BAR_WIDTH,
+        bar_width=PlotConfig.POI_E3L_BAR_WIDTH,
         save=False,
         legend_position='lower right',
         molecule_type="PROTAC",
@@ -516,11 +479,11 @@ class POI_E3LPlotter(BasePlotter):
             height_ratio = [poi_count, e3l_count]
             if height is None:
                 total_data_points = poi_count + e3l_count
-                height = total_data_points * self.CLS_GRID_HEIGHT_CALC_FACTOR + self.CLS_GRID_HEIGHT_CALC_PADDING
+                height = total_data_points * PlotConfig.POI_E3L_GRID_HEIGHT_FACTOR + PlotConfig.POI_E3L_GRID_HEIGHT_PADDING
         else:
             height_ratio = [1, 1]
             if height is None:
-                height = self.CLS_GRID_DEFAULT_OVERALL_HEIGHT
+                height = PlotConfig.POI_E3L_GRID_DEFAULT_HEIGHT
         
         # --- X-axis Limit Calculation ---
         if x_lim is None:
@@ -528,7 +491,7 @@ class POI_E3LPlotter(BasePlotter):
             x_lim = self._calculate_global_axis_lims([all_model_data])
         
         fig = plt.figure(figsize=(width, height), constrained_layout=True)
-        gs = fig.add_gridspec(2, 1, height_ratios=height_ratio, hspace=self.CLS_GRID_HSPACE)
+        gs = fig.add_gridspec(2, 1, height_ratios=height_ratio, hspace=PlotConfig.POI_E3L_HSPACE)
         
         # --- TOP ROW: POI PLOT ---
         ax_poi = fig.add_subplot(gs[0, 0])
@@ -548,9 +511,9 @@ class POI_E3LPlotter(BasePlotter):
         )
         
         ax_poi.set_xlim(x_lim)
-        ax_poi.set_ylabel('Protein of Interest', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold',
-                          labelpad=self.CLS_GRID_YLABEL_PAD)
-        ax_poi.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        ax_poi.set_ylabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold',
+                          labelpad=PlotConfig.POI_E3L_YLABEL_PAD)
+        ax_poi.yaxis.set_label_coords(PlotConfig.POI_E3L_YLABEL_X_COORD, PlotConfig.POI_E3L_YLABEL_Y_COORD)
         ax_poi.set_xlabel('')
         
         # --- BOTTOM ROW: E3L PLOT ---
@@ -571,14 +534,14 @@ class POI_E3LPlotter(BasePlotter):
         )
         
         ax_e3l.set_xlim(x_lim)
-        ax_e3l.set_ylabel('E3 Ligase', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold',
-                          labelpad=self.CLS_GRID_YLABEL_PAD)
-        ax_e3l.yaxis.set_label_coords(self.CLS_GRID_YLABEL_X_COORD, self.CLS_GRID_YLABEL_Y_COORD)
+        ax_e3l.set_ylabel('E3 Ligase', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold',
+                          labelpad=PlotConfig.POI_E3L_YLABEL_PAD)
+        ax_e3l.yaxis.set_label_coords(PlotConfig.POI_E3L_YLABEL_X_COORD, PlotConfig.POI_E3L_YLABEL_Y_COORD)
         
         if metric_type == 'RMSD':
-            ax_e3l.set_xlabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+            ax_e3l.set_xlabel('RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         else:
-            ax_e3l.set_xlabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+            ax_e3l.set_xlabel('DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         if save:
             metric_abbr = metric_type.lower()
@@ -597,7 +560,7 @@ class POI_E3LPlotter(BasePlotter):
         threshold_value=4.0,
         width=None,
         height=None,
-        bar_width=CLS_DEFAULT_BAR_WIDTH,
+        bar_width=PlotConfig.POI_E3L_BAR_WIDTH,
         save=False,
         legend_position='lower right',
         molecule_type="PROTAC",
@@ -631,10 +594,10 @@ class POI_E3LPlotter(BasePlotter):
         else:
             width_ratio = [1, 1]
             if width is None:
-                width = self.CLS_VERTICAL_PLOT_WIDTH
+                width = PlotConfig.POI_E3L_VERTICAL_WIDTH
         
         if height is None:
-            height = self.CLS_VERTICAL_PLOT_HEIGHT
+            height = PlotConfig.POI_E3L_VERTICAL_HEIGHT
         
         if y_lim is None:
             all_model_data = poi_data[model_type] + e3l_data[model_type]
@@ -661,12 +624,12 @@ class POI_E3LPlotter(BasePlotter):
         )
         
         ax_poi.set_ylim(y_lim)
-        ax_poi.set_xlabel('Protein of Interest', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', labelpad=10)
+        ax_poi.set_xlabel('Protein of Interest', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold', labelpad=10)
         
         if metric_type == 'RMSD':
-            ax_poi.set_ylabel('RMSD (Å)', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+            ax_poi.set_ylabel('RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         else:
-            ax_poi.set_ylabel('DockQ Score', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold')
+            ax_poi.set_ylabel('DockQ Score', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         # --- RIGHT COLUMN: E3L PLOT ---
         ax_e3l = fig.add_subplot(gs[0, 1])
@@ -686,7 +649,7 @@ class POI_E3LPlotter(BasePlotter):
         )
         
         ax_e3l.set_ylim(y_lim)
-        ax_e3l.set_xlabel('E3 Ligase', fontsize=self.CLS_AXIS_LABEL_FONTSIZE, fontweight='bold', labelpad=10)
+        ax_e3l.set_xlabel('E3 Ligase', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold', labelpad=10)
         ax_e3l.set_ylabel('')
         
         ax_poi.xaxis.set_label_coords(0.5, -0.40)
@@ -837,8 +800,8 @@ class POI_E3LPlotter(BasePlotter):
         
         legend_handles = [
             Patch(facecolor=color_map.get(group, PlotConfig.GRAY), 
-                  edgecolor=self.CLS_BAR_EDGE_COLOR, 
-                  linewidth=self.CLS_BAR_LINEWIDTH,
+                  edgecolor=PlotConfig.BAR_EDGE_COLOR, 
+                  linewidth=PlotConfig.BAR_EDGE_WIDTH,
                   label=group.replace('_', ' '))
             for group in legend_order
         ]
@@ -846,7 +809,7 @@ class POI_E3LPlotter(BasePlotter):
         if add_threshold:
             legend_handles.append(
                 plt.Line2D([0], [0], color='gray', linestyle='--', 
-                           linewidth=self.CLS_THRESHOLD_LINE_WIDTH, label='Threshold')
+                           linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold')
             )
         
         if orientation == 'vertical':
@@ -865,7 +828,7 @@ class POI_E3LPlotter(BasePlotter):
             loc='center',
             ncol=ncol,
             frameon=False,
-            fontsize=self.CLS_LEGEND_FONTSIZE_GRID,
+            fontsize=PlotConfig.LEGEND_TEXT_SIZE,
             handlelength=1.5,
             handletextpad=0.5,
             columnspacing=1.0

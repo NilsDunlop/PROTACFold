@@ -12,24 +12,7 @@ from typing import List, Tuple, Dict, Optional, Any, Union
 class PTMPlotter(BasePlotter):
     """Class for creating pTM and ipTM comparison plots."""
     
-    # Plot dimensions
-    FIG_WIDTH = 8.0
-    INITIAL_MAX_HEIGHT = 14.0
-    PAGE_MAX_HEIGHT = 8.0
-    PAGE_HEIGHT_PER_STRUCTURE = 0.6
-    
-    # Bar styling
-    BAR_HEIGHT = 0.30
-    BAR_SPACING = 0.02
-    
-    # Font sizes
-    AXIS_LABEL_FONTSIZE = 12
-    TICK_LABEL_FONTSIZE = 10
-    LEGEND_FONTSIZE = 10
-    
-    # Default thresholds
-    DEFAULT_PTM_THRESHOLD = 0.8
-    DEFAULT_IPTM_THRESHOLD = 0.6
+    # Constants now imported from PlotConfig
     
     def __init__(self):
         """Initialize the PTM plotter."""
@@ -108,7 +91,7 @@ class PTMPlotter(BasePlotter):
             bars = ax.barh(
                 y_positions + offset, df[col_name].fillna(0).values, height=bar_height,
                 color=color, edgecolor='black', linewidth=PlotConfig.EDGE_WIDTH,
-                xerr=xerr, error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1}, 
+                xerr=xerr, error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}, 
                 label=label
             )
             legend_handles.append(bars)
@@ -122,15 +105,15 @@ class PTMPlotter(BasePlotter):
         if add_threshold:
             if ptm_threshold is not None:
                 threshold_line_ptm = ax_ptm.axvline(
-                    x=ptm_threshold, color='gray', linestyle='--', alpha=0.7, 
-                    linewidth=1.0, label='Threshold'
+                    x=ptm_threshold, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, alpha=PlotConfig.THRESHOLD_LINE_ALPHA, 
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold'
                 )
                 legend_handles.append(threshold_line_ptm)
             
             if iptm_threshold is not None:
                 threshold_line_iptm = ax_iptm.axvline(
-                    x=iptm_threshold, color='gray', linestyle='--', alpha=0.7, 
-                    linewidth=1.0, label='Threshold'
+                    x=iptm_threshold, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, alpha=PlotConfig.THRESHOLD_LINE_ALPHA, 
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold'
                 )
                 legend_handles.append(threshold_line_iptm)
         
@@ -138,9 +121,9 @@ class PTMPlotter(BasePlotter):
 
     def _setup_axes(self, ax_ptm, ax_iptm, y_positions, pdb_labels, show_y_labels_on_all):
         """Configure axis labels, ticks, and limits."""
-        ax_ptm.set_xlabel('pTM', fontsize=self.AXIS_LABEL_FONTSIZE, fontweight='bold')
-        ax_iptm.set_xlabel('ipTM', fontsize=self.AXIS_LABEL_FONTSIZE, fontweight='bold')
-        ax_ptm.set_ylabel('PDB Identifier', fontsize=self.AXIS_LABEL_FONTSIZE, fontweight='bold')
+        ax_ptm.set_xlabel('pTM', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax_iptm.set_xlabel('ipTM', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax_ptm.set_ylabel('PDB Identifier', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         if not show_y_labels_on_all:
             ax_iptm.set_ylabel('')
@@ -149,17 +132,17 @@ class PTMPlotter(BasePlotter):
         ax_iptm.invert_yaxis()
         
         ax_ptm.set_yticks(y_positions)
-        ax_ptm.set_yticklabels(pdb_labels, fontsize=self.TICK_LABEL_FONTSIZE)
-        ax_ptm.tick_params(axis='x', labelsize=self.TICK_LABEL_FONTSIZE)
+        ax_ptm.set_yticklabels(pdb_labels, fontsize=PlotConfig.TICK_LABEL_SIZE)
+        ax_ptm.tick_params(axis='x', labelsize=PlotConfig.TICK_LABEL_SIZE)
         
         if show_y_labels_on_all:
             ax_iptm.set_yticks(y_positions)
-            ax_iptm.set_yticklabels(pdb_labels, fontsize=self.TICK_LABEL_FONTSIZE)
+            ax_iptm.set_yticklabels(pdb_labels, fontsize=PlotConfig.TICK_LABEL_SIZE)
             plt.setp(ax_iptm.get_yticklabels(), visible=True)
             ax_iptm.tick_params(labelleft=True)
         
-        ax_iptm.tick_params(axis='x', labelsize=self.TICK_LABEL_FONTSIZE)
-        ax_iptm.tick_params(axis='y', labelsize=self.TICK_LABEL_FONTSIZE)
+        ax_iptm.tick_params(axis='x', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        ax_iptm.tick_params(axis='y', labelsize=PlotConfig.TICK_LABEL_SIZE)
         
         # Set axis limits
         ax_ptm.set_xlim(0, 1.0)
@@ -184,7 +167,7 @@ class PTMPlotter(BasePlotter):
         if handles:
             ax_iptm.legend(
                 handles, labels, loc='center left', bbox_to_anchor=(1.02, 0.5), 
-                framealpha=0, edgecolor='none', fontsize=self.LEGEND_FONTSIZE
+                framealpha=0, edgecolor='none', fontsize=PlotConfig.LEGEND_TEXT_SIZE
             )
 
     def _generate_save_filename(self, filename_base, filename_with_page=None):
@@ -206,7 +189,7 @@ class PTMPlotter(BasePlotter):
                      add_threshold=False, ptm_threshold_value=0.5, iptm_threshold_value=0.6,
                      show_y_labels_on_all=True, width=None, height=None, 
                      bar_height=None, bar_spacing=None, save=False, 
-                     max_structures_per_plot=17):
+                     max_structures_per_plot=PlotConfig.PTM_MAX_STRUCTURES_PER_PAGE):
         """
         Create horizontal bar plots comparing pTM and ipTM metrics for SMILES and CCD.
         
@@ -227,10 +210,10 @@ class PTMPlotter(BasePlotter):
             Lists of created figures and axes
         """
         # Use defaults if not provided
-        width = width or self.FIG_WIDTH
-        height = height or self.INITIAL_MAX_HEIGHT
-        bar_height = bar_height or self.BAR_HEIGHT
-        bar_spacing = bar_spacing or self.BAR_SPACING
+        width = width or PlotConfig.PTM_WIDTH
+        height = height or PlotConfig.PTM_INITIAL_MAX_HEIGHT
+        bar_height = bar_height or PlotConfig.PTM_BAR_HEIGHT
+        bar_spacing = bar_spacing or PlotConfig.PTM_BAR_SPACING
         
         df_filtered = self._filter_and_prepare_data(df_agg, molecule_type)
         df_filtered = self._sort_data(df_filtered)
@@ -355,8 +338,8 @@ class PTMPlotter(BasePlotter):
         Returns:
             Lists of generated figures and axes
         """
-        ptm_threshold_value = ptm_threshold_value or self.DEFAULT_PTM_THRESHOLD
-        iptm_threshold_value = iptm_threshold_value or self.DEFAULT_IPTM_THRESHOLD
+        ptm_threshold_value = ptm_threshold_value or PlotConfig.DEFAULT_PTM_THRESHOLD
+        iptm_threshold_value = iptm_threshold_value or PlotConfig.DEFAULT_IPTM_THRESHOLD
         
         all_figures = []
         all_axes = []
@@ -383,20 +366,20 @@ class PTMPlotter(BasePlotter):
             if len(category_df) == 0:
                 continue
             
-            max_structures = getattr(PlotConfig, 'MAX_STRUCTURES_PER_PTM_PLOT', 12)
+            max_structures = PlotConfig.PTM_MAX_STRUCTURES_PER_PAGE
             pages, structures_per_page = distribute_structures_evenly(category_df, max_structures)
             
             for i, page_df in enumerate(pages):
                 page_title = f"{category['title']} (Page {i+1} of {len(pages)})"
                 page_height = min(
-                    self.PAGE_MAX_HEIGHT, 
-                    max(self.PAGE_HEIGHT_PER_STRUCTURE, self.PAGE_HEIGHT_PER_STRUCTURE * len(page_df))
+                    PlotConfig.PTM_PAGE_MAX_HEIGHT, 
+                    max(PlotConfig.PTM_PAGE_HEIGHT_PER_STRUCTURE, PlotConfig.PTM_PAGE_HEIGHT_PER_STRUCTURE * len(page_df))
                 )
                 
                 self._create_single_ptm_plot(
                     page_df, category['title'], "af3",
                     add_threshold, ptm_threshold_value, iptm_threshold_value,
-                    self.FIG_WIDTH, page_height, self.BAR_HEIGHT, self.BAR_SPACING,
+                    PlotConfig.PTM_WIDTH, page_height, PlotConfig.PTM_BAR_HEIGHT, PlotConfig.PTM_BAR_SPACING,
                     show_y_labels_on_all=True, save=save,
                     all_figures=all_figures, all_axes=all_axes,
                     filename_with_page=page_title

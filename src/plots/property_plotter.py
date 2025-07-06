@@ -10,44 +10,10 @@ from matplotlib.gridspec import GridSpec
 class PropertyPlotter(BasePlotter):
     """Class for plotting LRMSD vs molecular properties."""
     
-    # Styling parameters
-    # Figure dimensions for combined property grid (2×3 layout)
-    DEFAULT_COMBINED_WIDTH = 15
-    DEFAULT_COMBINED_HEIGHT = 7
-    
-    # Font size settings
-    AXIS_LABEL_SIZE = 14
-    TICK_LABEL_SIZE = 13
-    LEGEND_FONT_SIZE = 15
-    
-    # Y-axis limits for different molecule types
-    Y_AXIS_LIMITS = {
-        "MOLECULAR GLUE": (0, 55),
-        "PROTAC": (0, 50),
-        "DEFAULT": (0, 50)
-    }
-    
-    # Error region transparency
-    ERROR_ALPHA = 0.2
-    
-    # Bar width and spacing settings
-    BAR_ALPHA = 1
-    BAR_EDGE_COLOR = 'black'
-    BAR_EDGE_WIDTH = 0.5
-    NORMALIZED_WIDTH_FACTOR = 0.05  # 5% of axis width
-    
-    # Grid settings (matching comparison_plotter.py for consistent design)
-    GRID_STYLE = '--'
-    GRID_ALPHA = 0.2
+    # Constants now imported from PlotConfig
     
     # Legend settings
     LEGEND_FRAME = False  # No border for legend
-    
-    # Subplot layout settings
-    SUBPLOT_SPACING = 0.25
-    SUBPLOT_WSPACE = 0.15  # Reduced from 0.35 to reduce horizontal spacing
-    SUBPLOT_HSPACE = 0.3
-    SUBPLOT_ROW_OFFSET = 0.05
     
     # Constants for models and colors
     MODEL_TYPES = ['AlphaFold3', 'Boltz1']
@@ -69,15 +35,7 @@ class PropertyPlotter(BasePlotter):
         'HBA_Count': 'H-Bond Acceptors'
     }
     
-    # Default bin sizes for different properties
-    DEFAULT_BIN_SIZES = {
-        "Molecular_Weight": 50,
-        "Heavy_Atom_Count": 10,
-        "Rotatable_Bond_Count": 10,
-        "LogP": 1,
-        "HBD_Count": 1,
-        "HBA_Count": 2
-    }
+    # Default bin sizes now in PlotConfig
     
     # Properties to display in combined plot
     COMBINED_PROPERTIES = [
@@ -94,7 +52,7 @@ class PropertyPlotter(BasePlotter):
         if hasattr(self, '_cached_bin_settings'):
             delattr(self, '_cached_bin_settings')
         plt.rcParams['axes.linewidth'] = 1.0
-        plt.rcParams['grid.alpha'] = self.GRID_ALPHA
+        plt.rcParams['grid.alpha'] = PlotConfig.GRID_ALPHA
 
     def _prepare_data_and_bins(self, df, molecule_type, bin_settings):
         if molecule_type in self.MOLECULE_TYPES:
@@ -102,7 +60,7 @@ class PropertyPlotter(BasePlotter):
         else:
             df_filtered = df[df['TYPE'].isin(self.MOLECULE_TYPES)].copy()
 
-        final_bin_settings = self.DEFAULT_BIN_SIZES.copy()
+        final_bin_settings = PlotConfig.DEFAULT_BIN_SIZES.copy()
         if bin_settings:
             final_bin_settings.update({k: v for k, v in bin_settings.items() if v is not None})
         
@@ -176,16 +134,16 @@ class PropertyPlotter(BasePlotter):
         means = model_stats['means']
         errors = model_stats['errors']
         ax.plot(x_values, means, 'o-', color=color, linewidth=2.0, markersize=6, label=model)
-        ax.fill_between(x_values, means - errors, means + errors, color=color, alpha=self.ERROR_ALPHA, where=~np.isnan(means))
+        ax.fill_between(x_values, means - errors, means + errors, color=color, alpha=PlotConfig.ERROR_REGION_ALPHA, where=~np.isnan(means))
 
     def _configure_axes(self, ax, prop, col_index, molecule_type, x_values, bin_size):
-        ax.set_xlabel(self.PROPERTY_LABELS.get(prop, prop), fontsize=self.AXIS_LABEL_SIZE, fontweight='bold')
+        ax.set_xlabel(self.PROPERTY_LABELS.get(prop, prop), fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         if col_index == 0:
-            ax.set_ylabel('LRMSD (Å)', fontsize=self.AXIS_LABEL_SIZE, fontweight='bold')
+            ax.set_ylabel('LRMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
-        ax.set_ylim(self.Y_AXIS_LIMITS.get(molecule_type, self.Y_AXIS_LIMITS["DEFAULT"]))
-        ax.tick_params(axis='both', which='major', labelsize=self.TICK_LABEL_SIZE)
-        ax.grid(axis='y', linestyle=self.GRID_STYLE, alpha=self.GRID_ALPHA)
+        ax.set_ylim(PlotConfig.Y_AXIS_LIMITS.get(molecule_type, PlotConfig.Y_AXIS_LIMITS["DEFAULT"]))
+        ax.tick_params(axis='both', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
 
         if len(x_values) > 0:
             padding = bin_size * 0.5
@@ -206,10 +164,10 @@ class PropertyPlotter(BasePlotter):
         dummy_lines = [plt.Line2D([0], [0], color=self.MODEL_COLORS[model], linewidth=2, marker='o', markersize=6) for model in self.MODEL_TYPES]
         labels = ['AlphaFold3', 'Boltz-1']
         fig.legend(handles=dummy_lines, labels=labels, loc='upper center', bbox_to_anchor=(0.5, 0.98),
-                   ncol=2, fontsize=self.LEGEND_FONT_SIZE, frameon=self.LEGEND_FRAME)
+                   ncol=2, fontsize=PlotConfig.LEGEND_TEXT_SIZE, frameon=self.LEGEND_FRAME)
     
     def plot_combined_properties(self, df, molecule_type="PROTAC", 
-                               width=DEFAULT_COMBINED_WIDTH, height=None, save=False, 
+                               width=PlotConfig.PROPERTY_COMBINED_WIDTH, height=None, save=False, 
                                output_path=None, bin_settings=None):
         """
         Plot six properties with standard error shown as shaded regions around each line.
@@ -233,10 +191,10 @@ class PropertyPlotter(BasePlotter):
         df_filtered, final_bin_settings = self._prepare_data_and_bins(df, molecule_type, bin_settings)
         
         if height is None:
-            height = self.DEFAULT_COMBINED_HEIGHT
+            height = PlotConfig.PROPERTY_COMBINED_HEIGHT
         
         fig = plt.figure(figsize=(width, height))
-        gs = fig.add_gridspec(nrows=2, ncols=3, hspace=self.SUBPLOT_HSPACE, wspace=self.SUBPLOT_WSPACE)
+        gs = fig.add_gridspec(nrows=2, ncols=3, hspace=PlotConfig.PROPERTY_SUBPLOT_HSPACE, wspace=PlotConfig.PROPERTY_SUBPLOT_WSPACE)
         plt.rcParams['figure.constrained_layout.use'] = True
         
         all_axes = []
@@ -250,7 +208,7 @@ class PropertyPlotter(BasePlotter):
                 ax.text(0.5, 0.5, f"{prop} not found", ha='center', va='center', transform=ax.transAxes)
                 continue
             
-            bin_size = final_bin_settings.get(prop, self.DEFAULT_BIN_SIZES[prop])
+            bin_size = final_bin_settings.get(prop, PlotConfig.DEFAULT_BIN_SIZES[prop])
             bin_edges, bin_centers = self._get_bin_edges_and_centers(df_filtered, prop, bin_size)
             property_bins = self._bin_data(df_filtered, prop, bin_edges, bin_centers)
             stats = self._calculate_stats(property_bins, bin_centers)
