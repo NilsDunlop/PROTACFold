@@ -1,37 +1,33 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import math
-from matplotlib.lines import Line2D
-from matplotlib.ticker import MultipleLocator
 from base_plotter import BasePlotter
 from config import PlotConfig
 from data_loader import DataLoader
-from utils import save_figure, distribute_structures_evenly, distribute_pdb_ids
+from utils import save_figure, distribute_pdb_ids
 
 class ComparisonPlotter(BasePlotter):
     """Class for creating comparison plots between different model types."""
     
-    # Plot dimensions - REDUCED for compact Nature-style plots
-    PLOT_WIDTH = 2    # Reduced from 4 to 3.5
-    PLOT_HEIGHT = 3   # Reduced from 4 to 3.5
+    # Plot dimensions for compact Nature-style plots
+    PLOT_WIDTH = 3
+    PLOT_HEIGHT = 3
     
-    # Font sizes - INCREASED for better readability in smaller plots
-    TITLE_FONT_SIZE = 15      # Increased from 14 to 15
-    AXIS_LABEL_FONT_SIZE = 13 # Increased from 12 to 13
-    TICK_LABEL_FONT_SIZE = 12 # Increased from 11 to 12
-    VALUE_LABEL_FONT_SIZE = 12 # Kept the same
-    LEGEND_FONT_SIZE = 11   # Increased from 9.5 to 11
+    # Font sizes for better readability in smaller plots
+    TITLE_FONT_SIZE = 15
+    AXIS_LABEL_FONT_SIZE = 14
+    TICK_LABEL_FONT_SIZE = 13
+    LEGEND_FONT_SIZE = 11
     
-    # Bar appearance - REFINED for cleaner look
-    BAR_WIDTH = 0.08          # Increased from 0.05 to 0.08 for better visibility
-    BAR_EDGE_LINE_WIDTH = 0.5 # Kept the same
-    BAR_SPACING_FACTOR = 1.8  # Reduced from 2 to 1.8 for tighter spacing
+    # Bar appearance
+    BAR_WIDTH = 0.08
+    BAR_EDGE_LINE_WIDTH = 0.5
+    BAR_SPACING_FACTOR = 1.8
     
-    # Error bar appearance - REFINED for cleaner look
-    ERROR_BAR_CAPSIZE = 3     # Reduced from 4 to 3
-    ERROR_BAR_THICKNESS = 0.8 # Reduced from 1 to 0.8
-    ERROR_BAR_ALPHA = 0.7     # Kept the same
+    # Error bar appearance
+    ERROR_BAR_CAPSIZE = 3
+    ERROR_BAR_THICKNESS = 0.8
+    ERROR_BAR_ALPHA = 0.7
     
     # Grid properties
     GRID_ALPHA = 0.2
@@ -47,7 +43,6 @@ class ComparisonPlotter(BasePlotter):
     DEFAULT_LRMSD_THRESHOLD = 4.0
     DEFAULT_PTM_THRESHOLD = 0.7
     
-    # Maximum structures per page
     MAX_STRUCTURES_PER_PAGE = 20
     
     def __init__(self):
@@ -90,12 +85,10 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             tuple: (figures, axes)
         """
-        # Use class constants if parameters are not provided
         width = width if width is not None else self.PLOT_WIDTH
         height = height if height is not None else self.PLOT_HEIGHT
         max_structures = max_structures if max_structures is not None else self.MAX_STRUCTURES_PER_PAGE
         
-        # Set default threshold values based on metric type if not provided
         if threshold_value is None:
             if metric_type.upper() == 'RMSD':
                 threshold_value = self.DEFAULT_RMSD_THRESHOLD
@@ -108,7 +101,6 @@ class ComparisonPlotter(BasePlotter):
             else:
                 threshold_value = self.DEFAULT_RMSD_THRESHOLD
         
-        # Get filtered dataframe
         df_filtered = DataLoader.filter_comparison_data(
             df, 
             molecule_type, 
@@ -120,12 +112,10 @@ class ComparisonPlotter(BasePlotter):
         if df_filtered is None or df_filtered.empty:
             return None, None
         
-        # Create title suffix based on molecule type if not provided
         if not title_suffix and molecule_type:
             title_suffix = f" ({molecule_type})"
         
         try:
-            # Get the appropriate metric columns based on metric_type
             metric_columns = self._get_metric_columns(metric_type)
             if not metric_columns:
                 print(f"ERROR: Metric type '{metric_type}' not supported.")
@@ -133,19 +123,15 @@ class ComparisonPlotter(BasePlotter):
                 
             smiles_col, ccd_col, axis_label = metric_columns
             
-            # Verify metric columns exist
             if smiles_col not in df_filtered.columns or ccd_col not in df_filtered.columns:
                 print(f"ERROR: Required metric columns not found in dataframe")
                 return None, None
             
-            # Get all PDB IDs
             pdb_ids = df_filtered['PDB_ID'].unique()
             
-            # If too many structures, paginate them
             max_pdb_per_page = max_structures
             
             if len(pdb_ids) > max_pdb_per_page:
-                # Use the utility function from utils.py
                 paginated_pdb_ids = distribute_pdb_ids(pdb_ids, max_pdb_per_page)
                 
                 all_figures = []
@@ -168,7 +154,6 @@ class ComparisonPlotter(BasePlotter):
                     
                 return all_figures, all_axes
             else:
-                # Create a single plot with all PDB IDs
                 fig, ax = self._create_comparison_plot(
                     df_filtered, model_types, metric_type,
                     add_threshold, threshold_value,
@@ -220,11 +205,9 @@ class ComparisonPlotter(BasePlotter):
             fig, ax: The created figure and axis
         """
         try:
-            # Use class constants if parameters are not provided
             width = width if width is not None else self.PLOT_WIDTH
             height = height if height is not None else self.PLOT_HEIGHT
             
-            # Set default threshold values based on metric type if not provided
             if threshold_value is None:
                 if metric_type.upper() == 'RMSD':
                     threshold_value = self.DEFAULT_RMSD_THRESHOLD
@@ -237,14 +220,11 @@ class ComparisonPlotter(BasePlotter):
                 else:
                     threshold_value = self.DEFAULT_RMSD_THRESHOLD
             
-            # Check if we're filtering by a specific seed
             is_seed_specific = specific_seed is not None
             
-            # If we have a specific seed, override the seeds parameter
             if is_seed_specific:
                 seeds = [specific_seed]
             
-            # Get filtered dataframe
             df_filtered = DataLoader.filter_comparison_data(
                 df, 
                 molecule_type, 
@@ -259,7 +239,6 @@ class ComparisonPlotter(BasePlotter):
                     print(f"No data found with seed {specific_seed}")
                 return None, None
             
-            # Get the appropriate metric columns based on metric_type
             metric_columns = self._get_metric_columns(metric_type)
             if not metric_columns:
                 print(f"Error: Metric type '{metric_type}' not supported.")
@@ -267,12 +246,10 @@ class ComparisonPlotter(BasePlotter):
                 
             smiles_col, ccd_col, y_label = metric_columns
             
-            # Verify metric columns exist
             if smiles_col not in df_filtered.columns or ccd_col not in df_filtered.columns:
                 print(f"Error: Required metric columns ({smiles_col}, {ccd_col}) not found in dataframe. Available columns: {', '.join(df_filtered.columns)}")
                 return None, None
             
-            # Create figure
             fig, ax = plt.subplots(figsize=(width, height))
             
             try:
@@ -288,17 +265,14 @@ class ComparisonPlotter(BasePlotter):
                 traceback.print_exc()
                 return None, None
             
-            # Unpack the data
             means = metrics['means']
             errors = metrics['errors']
             counts = metrics['counts']
             
-            # Set up bar positions and width
             bar_width = self.BAR_WIDTH
             spacing_factor = self.BAR_SPACING_FACTOR
             bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
             
-            # Define colors for each bar
             colors = [
                 PlotConfig.AF3_CCD_COLOR,      # AF3 CCD
                 PlotConfig.AF3_SMILES_COLOR,   # AF3 SMILES
@@ -306,7 +280,6 @@ class ComparisonPlotter(BasePlotter):
                 PlotConfig.BOLTZ1_SMILES_COLOR # Boltz1 SMILES
             ]
             
-            # Define bar labels
             bar_labels = [
                 "AF3 CCD",
                 "AF3 SMILES",
@@ -314,7 +287,6 @@ class ComparisonPlotter(BasePlotter):
                 "B1 SMILES"
             ]
             
-            # Get the mean values in the correct order
             values = [
                 means.get("AlphaFold3_CCD", 0),
                 means.get("AlphaFold3_SMILES", 0),
@@ -322,7 +294,6 @@ class ComparisonPlotter(BasePlotter):
                 means.get("Boltz1_SMILES", 0)
             ]
             
-            # Get the error values in the correct order
             error_values = [
                 errors.get("AlphaFold3_CCD", 0),
                 errors.get("AlphaFold3_SMILES", 0),
@@ -330,7 +301,6 @@ class ComparisonPlotter(BasePlotter):
                 errors.get("Boltz1_SMILES", 0)
             ]
             
-            # Plot the bars
             bars = ax.bar(
                 bar_positions,
                 values,
@@ -343,17 +313,15 @@ class ComparisonPlotter(BasePlotter):
                            'capthick': self.ERROR_BAR_THICKNESS, 'alpha': self.ERROR_BAR_ALPHA}
             )
             
-            # Add threshold line if requested and not PTM
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = ax.axhline(
                     y=threshold_value,
-                    color='grey',  # Changed from 'gray' to 'grey' for consistency
+                    color='grey',  # Using 'grey' for consistency
                     linestyle='--',
                     alpha=self.THRESHOLD_LINE_ALPHA,
                     linewidth=self.THRESHOLD_LINE_WIDTH
                 )
             
-            # Create custom legend patches
             legend_handles = []
             
             for i, (label, color) in enumerate(zip(bar_labels, colors)):
@@ -366,11 +334,10 @@ class ComparisonPlotter(BasePlotter):
                 )
                 legend_handles.append(patch)
             
-            # Add threshold line to legend if requested and not PTM
             if add_threshold and metric_type.upper() != 'PTM':
                 threshold_line = plt.Line2D(
                     [0, 1], [0, 0],
-                    color='grey',  # Changed from 'gray' to 'grey' for consistency
+                    color='grey',  # Using 'grey' for consistency
                     linestyle='--',
                     linewidth=1.0, 
                     label='Threshold'
@@ -386,37 +353,26 @@ class ComparisonPlotter(BasePlotter):
             #     # No background needed
             #     ax.legend(handles=legend_handles, loc='best', frameon=False, fontsize=self.LEGEND_FONT_SIZE, labelspacing=0.2)
             
-            # Remove x-ticks and labels since we have the legend
+            # Remove x-ticks and labels as legend is used instead
             ax.set_xticks([])
             ax.set_xticklabels([])
             
-            # Add subtle grid lines
             ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
             
-            # Set axis labels
-            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE)
+            ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
             
-            # Create appropriate title based on whether we're filtering by seed
             if is_seed_specific:
-                # Use proper capitalization for specific metrics
-                if metric_type.upper() == 'DOCKQ':
-                    title = f"Seed {specific_seed}"
-                elif metric_type.upper() == 'PTM':
+                if metric_type.upper() in ['DOCKQ', 'PTM']:
                     title = f"Seed {specific_seed}"
                 else:
                     title = f"Seed {specific_seed}"
             else:
-                # No title as requested
                 title = ""
                 
-            # Only set a title if there's actually title text
             if title:
                 fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE, fontweight='bold')
-            # If title is empty, don't set a title at all
             
-            # Adjust y-axis to accommodate value labels
             ymax = max([v + e * 1.5 for v, e in zip(values, error_values)])
-            # Set y-axis limit appropriately based on metric type
             if metric_type.upper() == 'RMSD' and threshold_value >= 4.0:
                 ax.set_ylim(0, max(4.5, ymax * 1.1))
             elif metric_type.upper() == 'DOCKQ':
@@ -431,16 +387,13 @@ class ComparisonPlotter(BasePlotter):
             else:
                 ax.set_ylim(0, ymax * 1.1)
             
-            # Use tight layout for better spacing and reduce space between plot and title
             plt.tight_layout()
             fig.subplots_adjust(top=0.95)
             
-            # Add a subtle border to the plot
             for spine in ax.spines.values():
                 spine.set_linewidth(0.5)
                 spine.set_color('black')
             
-            # Save the plot if requested
             if save:
                 if is_seed_specific:
                     filename = f"af3_vs_boltz1_seed{specific_seed}_{molecule_type.lower()}_{metric_type.lower()}"
@@ -489,7 +442,6 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig, ax: The created figure and axis
         """
-        # Use class constants if parameters are not provided
         width = width if width is not None else self.PLOT_WIDTH
         height = height if height is not None else self.PLOT_HEIGHT
         
@@ -497,7 +449,6 @@ class ComparisonPlotter(BasePlotter):
         if metric_type.upper() == 'PTM':
             add_threshold = False
 
-        # Set default threshold values based on metric type if not provided
         elif threshold_value is None:
             if metric_type.upper() == 'RMSD':
                 threshold_value = self.DEFAULT_RMSD_THRESHOLD
@@ -535,10 +486,8 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig: The created legend figure
         """
-        # Create figure
         fig, ax = plt.subplots(figsize=(width, height))
         
-        # Define colors and labels
         colors = [
             PlotConfig.AF3_CCD_COLOR,      # AF3 CCD
             PlotConfig.AF3_SMILES_COLOR,   # AF3 SMILES
@@ -553,7 +502,6 @@ class ComparisonPlotter(BasePlotter):
             "B1 SMILES"
         ]
         
-        # Create legend patches for bars
         legend_handles = []
         for label, color in zip(labels, colors):
             patch = plt.Rectangle(
@@ -565,7 +513,6 @@ class ComparisonPlotter(BasePlotter):
             )
             legend_handles.append(patch)
         
-        # Add threshold line to legend
         threshold_line = plt.Line2D(
             [0, 1], [0, 0],
             color='grey',
@@ -575,7 +522,6 @@ class ComparisonPlotter(BasePlotter):
         )
         legend_handles.append(threshold_line)
         
-        # Create horizontal legend
         legend = ax.legend(
             handles=legend_handles,
             loc='center',
@@ -587,15 +533,12 @@ class ComparisonPlotter(BasePlotter):
             columnspacing=1.0
         )
         
-        # Remove all axes and spines
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis('off')
         
-        # Adjust layout to center the legend
         plt.tight_layout()
         
-        # Save if requested
         if save:
             save_figure(fig, filename)
             
@@ -639,14 +582,11 @@ class ComparisonPlotter(BasePlotter):
         Returns:
             fig, ax: The created figure and axis
         """
-        # Get metric column names
         metric_columns = self._get_metric_columns(metric_type)
         smiles_col, ccd_col, y_label = metric_columns
         
-        # Create figure
         fig, ax = plt.subplots(figsize=(width, height))
         
-        # Get release dates for PDB IDs
         pdb_ids = df['PDB_ID'].unique()
         pdb_release_dates = {}
         
@@ -656,31 +596,23 @@ class ComparisonPlotter(BasePlotter):
                 release_date = pd.to_datetime(pdb_data['RELEASE_DATE'].iloc[0])
                 pdb_release_dates[pdb_id] = release_date
         
-        # Sort PDB IDs by release date
         sorted_pdb_ids = sorted(pdb_ids, key=lambda x: pdb_release_dates.get(x, pd.Timestamp.min))
         
-        # Create x positions for bars
         x_positions = np.arange(len(sorted_pdb_ids))
         
-        # Set up bar positions and width
         bar_width = self.BAR_WIDTH
         spacing_factor = self.BAR_SPACING_FACTOR
         bar_positions = [0, bar_width*spacing_factor, bar_width*2*spacing_factor, bar_width*3*spacing_factor]
         
-        # Create legend handles
         legend_handles = []
         
-        # Track max value for y-axis scaling
         max_value = 0
         
-        # For each PDB ID, plot the 4 bars
         for i, pdb_id in enumerate(sorted_pdb_ids):
             pdb_df = df[df['PDB_ID'] == pdb_id]
             
-            # Get AF3 data
             af3_df = pdb_df[pdb_df['MODEL_TYPE'] == 'AlphaFold3']
             
-            # Plot AF3 CCD
             if len(af3_df) > 0 and ccd_col in af3_df.columns and not af3_df[ccd_col].isna().all():
                 ccd_value = af3_df[ccd_col].values[0]
                 bar = ax.bar(
@@ -696,7 +628,6 @@ class ComparisonPlotter(BasePlotter):
                     legend_handles.append(bar)
                 max_value = max(max_value, ccd_value)
                 
-            # Plot AF3 SMILES
             if len(af3_df) > 0 and smiles_col in af3_df.columns and not af3_df[smiles_col].isna().all():
                 smiles_value = af3_df[smiles_col].values[0]
                 bar = ax.bar(
@@ -712,10 +643,8 @@ class ComparisonPlotter(BasePlotter):
                     legend_handles.append(bar)
                 max_value = max(max_value, smiles_value)
             
-            # Get Boltz1 data
             boltz1_df = pdb_df[pdb_df['MODEL_TYPE'] == 'Boltz1']
             
-            # Plot Boltz1 CCD
             if len(boltz1_df) > 0 and ccd_col in boltz1_df.columns and not boltz1_df[ccd_col].isna().all():
                 ccd_value = boltz1_df[ccd_col].values[0]
                 bar = ax.bar(
@@ -731,7 +660,6 @@ class ComparisonPlotter(BasePlotter):
                     legend_handles.append(bar)
                 max_value = max(max_value, ccd_value)
                 
-            # Plot Boltz1 SMILES
             if len(boltz1_df) > 0 and smiles_col in boltz1_df.columns and not boltz1_df[smiles_col].isna().all():
                 smiles_value = boltz1_df[smiles_col].values[0]
                 bar = ax.bar(
@@ -747,17 +675,16 @@ class ComparisonPlotter(BasePlotter):
                     legend_handles.append(bar)
                 max_value = max(max_value, smiles_value)
         
-        # Add threshold line if requested
         if add_threshold and metric_type.upper() != 'PTM':
             threshold_line = ax.axhline(
                 y=threshold_value,
-                color='grey',  # Changed from 'black' to 'grey' for consistency
+                color='grey',  # Using 'grey' for consistency
                 linestyle='--',
                 alpha=self.THRESHOLD_LINE_ALPHA,
                 linewidth=self.THRESHOLD_LINE_WIDTH
             )
         
-        # Create PDB labels with asterisk for newer structures
+        # Create PDB labels with an asterisk for structures released after the AF3 training cutoff
         pdb_labels = []
         for pdb_id in sorted_pdb_ids:
             release_date = pdb_release_dates.get(pdb_id)
@@ -765,26 +692,20 @@ class ComparisonPlotter(BasePlotter):
             pdb_label = f"{pdb_id}*" if release_date and release_date > af3_cutoff else pdb_id
             pdb_labels.append(pdb_label)
         
-        # Set x-ticks and labels
         ax.set_xticks(x_positions)
         ax.set_xticklabels(pdb_labels, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
         
-        # Set axis labels and title
-        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE)
+        ax.set_ylabel(y_label, fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
         
-        # Set the title
         title = f"AlphaFold3 vs. Boltz1 - {metric_type}{title_suffix}"
         
-        # Add page information if multiple pages
         if total_pages > 1:
             title += f" (Page {page_num} of {total_pages})"
         
         fig.suptitle(title, fontsize=self.TITLE_FONT_SIZE)
         
-        # Add some padding to the y-axis maximum for better visualization
         ax.set_ylim(0, max_value * 1.1)
         
-        # Add grid lines
         ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
         
         # Add legend - COMMENTED OUT FOR NOW
@@ -797,7 +718,6 @@ class ComparisonPlotter(BasePlotter):
         
         plt.tight_layout()
         
-        # Save the plot if requested
         if save:
             if metric_type.upper() == 'RMSD':
                 filename = f"af3_vs_boltz1_rmsd"
@@ -810,7 +730,6 @@ class ComparisonPlotter(BasePlotter):
             else:
                 filename = f"af3_vs_boltz1_{metric_type.lower()}"
             
-            # Add page number if multiple pages
             if total_pages > 1:
                 filename += f"_page_{page_num}of{total_pages}"
             

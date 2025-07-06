@@ -1,13 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from matplotlib.lines import Line2D
 from base_plotter import BasePlotter
 from config import PlotConfig
-from data_loader import DataLoader
 from utils import save_figure
-import logging
 
 class HALComparisonPlotter(BasePlotter):
     """
@@ -15,50 +11,47 @@ class HALComparisonPlotter(BasePlotter):
     and AlphaFold3/Boltz-1 with CCD and SMILES ligands.
     """
     
-    # --- Plot Configuration Constants (following comparison_plotter.py) ---
-    # Plot dimensions - REDUCED for compact Nature-style plots
-    PLOT_WIDTH = 10    # Same as comparison_plotter.py
-    PLOT_HEIGHT = 3   # Same as comparison_plotter.py
+    # Plot dimensions for compact Nature-style plots
+    PLOT_WIDTH = 10 
+    PLOT_HEIGHT = 3   
 
-    # Font sizes - INCREASED for better readability in smaller plots
-    TITLE_FONT_SIZE = 15      # Same as comparison_plotter.py
-    AXIS_LABEL_FONT_SIZE = 13 # Same as comparison_plotter.py
-    VALUE_LABEL_FONT_SIZE = 12 # Same as comparison_plotter.py
-    LEGEND_FONT_SIZE = 11   # Same as comparison_plotter.py
-    TICK_LABEL_FONT_SIZE = 12 # Same as comparison_plotter.py
+    # Font sizes for better readability in smaller plots
+    TITLE_FONT_SIZE = 15
+    AXIS_LABEL_FONT_SIZE = 14
+    VALUE_LABEL_FONT_SIZE = 12
+    LEGEND_FONT_SIZE = 11
+    TICK_LABEL_FONT_SIZE = 13
 
-    # Bar appearance - REFINED for cleaner look
-    BAR_WIDTH = 0.20          # Increased from 0.08 to 0.25 for thicker bars
+    # Bar appearance
+    BAR_WIDTH = 0.20
     BAR_EDGE_COLOR = 'black'
-    BAR_EDGE_LINE_WIDTH = 0.5 # Same as comparison_plotter.py
-    BAR_SPACING_FACTOR = 1.0  # Reduced from 1.8 to 1.1 for tighter spacing between bars
+    BAR_EDGE_LINE_WIDTH = 0.5
+    BAR_SPACING_FACTOR = 1.0
 
-    # Error bar appearance - REFINED for cleaner look
+    # Error bar appearance
     ERROR_BAR_COLOR = 'black'
-    ERROR_BAR_CAPSIZE = 3     # Same as comparison_plotter.py
-    ERROR_BAR_THICKNESS = 0.8 # Same as comparison_plotter.py
-    ERROR_BAR_ALPHA = 0.7     # Same as comparison_plotter.py
+    ERROR_BAR_CAPSIZE = 3
+    ERROR_BAR_THICKNESS = 0.8
+    ERROR_BAR_ALPHA = 0.7
 
     # Grid properties
     GRID_LINESTYLE = '--'
-    GRID_ALPHA = 0.2          # Same as comparison_plotter.py
+    GRID_ALPHA = 0.2
 
     # Threshold line properties
     THRESHOLD_LINE_COLOR = 'gray'
     THRESHOLD_LEGEND_COLOR = 'gray'
     THRESHOLD_LINE_STYLE = '--'
-    THRESHOLD_LINE_ALPHA = 1  # Same as comparison_plotter.py
-    THRESHOLD_LINE_WIDTH = 1.0 # Same as comparison_plotter.py
+    THRESHOLD_LINE_ALPHA = 1
+    THRESHOLD_LINE_WIDTH = 1.0
 
     # Default threshold value for DockQ
     DEFAULT_DOCKQ_THRESHOLD = 0.23
 
     # Colors for different conditions
-    # AF3 colors (using PlotConfig)
     AF3_CCD_COLOR = getattr(PlotConfig, 'CCD_PRIMARY', '#FF7F50')      # Coral-like for AF3 CCD
     AF3_SMILES_COLOR = getattr(PlotConfig, 'SMILES_PRIMARY', '#1F77B4') # Blue-like for AF3 SMILES
     
-    # Boltz1 colors 
     BOLTZ1_CCD_COLOR = '#A157DB'    # Purple-like for Boltz1 CCD
     BOLTZ1_SMILES_COLOR = '#57DB80' # Green-like for Boltz1 SMILES
     
@@ -94,7 +87,6 @@ class HALComparisonPlotter(BasePlotter):
         self._debug_print(f"Loading HAL data from: {hal_file_path}")
         self._debug_print(f"Loading combined data from: {combined_file_path}")
         
-        # Load HAL results
         try:
             hal_df = pd.read_csv(hal_file_path)
             self._debug_print(f"HAL data loaded, shape: {hal_df.shape}")
@@ -102,7 +94,6 @@ class HALComparisonPlotter(BasePlotter):
             print(f"Error loading HAL data: {e}")
             return None
         
-        # Load combined results
         try:
             combined_df = pd.read_csv(combined_file_path)
             self._debug_print(f"Combined data loaded, shape: {combined_df.shape}")
@@ -114,7 +105,6 @@ class HALComparisonPlotter(BasePlotter):
         combined_df_filtered = combined_df[combined_df['SEED'] == 42].copy()
         self._debug_print(f"After SEED=42 filter, combined data shape: {combined_df_filtered.shape}")
         
-        # Verify required columns exist
         required_hal_cols = ['PDB_ID', 'RELEASE_DATE', 'AF3_DIMERS_DOCKQ_SCORE']
         required_combined_cols = ['PDB_ID', 'MODEL_TYPE', 'CCD_DOCKQ_SCORE', 'SMILES_DOCKQ_SCORE']
         
@@ -128,14 +118,11 @@ class HALComparisonPlotter(BasePlotter):
             print(f"Error: Missing columns in combined data: {missing_combined_cols}")
             return None
         
-        # Convert RELEASE_DATE to datetime for sorting
         hal_df['RELEASE_DATE'] = pd.to_datetime(hal_df['RELEASE_DATE'])
         
-        # Get unique PDB_IDs from HAL data
         hal_pdb_ids = set(hal_df['PDB_ID'].unique())
         combined_pdb_ids = set(combined_df_filtered['PDB_ID'].unique())
         
-        # Find intersection of PDB_IDs
         common_pdb_ids = hal_pdb_ids.intersection(combined_pdb_ids)
         self._debug_print(f"Common PDB_IDs found: {len(common_pdb_ids)}")
         
@@ -143,26 +130,22 @@ class HALComparisonPlotter(BasePlotter):
             print("Error: No common PDB_IDs found between HAL and combined datasets")
             return None
         
-        # Filter both datasets to common PDB_IDs
         hal_df_filtered = hal_df[hal_df['PDB_ID'].isin(common_pdb_ids)].copy()
         combined_df_final = combined_df_filtered[combined_df_filtered['PDB_ID'].isin(common_pdb_ids)].copy()
         
         # Merge HAL data with combined data
-        # First, get AF3 data
         af3_data = combined_df_final[combined_df_final['MODEL_TYPE'] == 'AlphaFold3'][['PDB_ID', 'CCD_DOCKQ_SCORE', 'SMILES_DOCKQ_SCORE']].copy()
         af3_data = af3_data.rename(columns={
             'CCD_DOCKQ_SCORE': 'AF3_CCD_DOCKQ_SCORE',
             'SMILES_DOCKQ_SCORE': 'AF3_SMILES_DOCKQ_SCORE'
         })
         
-        # Get Boltz1 data
         boltz1_data = combined_df_final[combined_df_final['MODEL_TYPE'] == 'Boltz1'][['PDB_ID', 'CCD_DOCKQ_SCORE', 'SMILES_DOCKQ_SCORE']].copy()
         boltz1_data = boltz1_data.rename(columns={
             'CCD_DOCKQ_SCORE': 'BOLTZ1_CCD_DOCKQ_SCORE',
             'SMILES_DOCKQ_SCORE': 'BOLTZ1_SMILES_DOCKQ_SCORE'
         })
         
-        # Merge all data
         merged_df = hal_df_filtered[['PDB_ID', 'RELEASE_DATE', 'AF3_DIMERS_DOCKQ_SCORE']].copy()
         merged_df = merged_df.merge(af3_data, on='PDB_ID', how='inner')
         merged_df = merged_df.merge(boltz1_data, on='PDB_ID', how='inner')
@@ -170,7 +153,6 @@ class HALComparisonPlotter(BasePlotter):
         # Rename HAL column for clarity
         merged_df = merged_df.rename(columns={'AF3_DIMERS_DOCKQ_SCORE': 'HAL_DOCKQ_SCORE'})
         
-        # Sort by RELEASE_DATE (oldest to newest)
         merged_df = merged_df.sort_values('RELEASE_DATE').reset_index(drop=True)
         
         self._debug_print(f"Final merged data shape: {merged_df.shape}")
@@ -207,24 +189,20 @@ class HALComparisonPlotter(BasePlotter):
         """
         self.debug = debug or self.debug
         
-        # Use class constants for width and height if not provided
         plot_width = width if width is not None else self.PLOT_WIDTH
         plot_height = height if height is not None else self.PLOT_HEIGHT
 
         self._debug_print(f"Starting plot_hal_comparison with model_type={model_type}")
         self._debug_print(f"Plot dimensions: width={plot_width}, height={plot_height}")
         
-        # Set default threshold value if not provided
         if threshold_value is None:
             threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
             self._debug_print(f"Using default threshold value: {threshold_value}")
         
-        # Verify dataframe is not empty
         if merged_df.empty:
             print("Error: Merged dataframe is empty")
             return None, None
         
-        # Get the appropriate columns based on model type
         if model_type == 'AlphaFold3':
             ccd_col = 'AF3_CCD_DOCKQ_SCORE'
             smiles_col = 'AF3_SMILES_DOCKQ_SCORE'
@@ -247,17 +225,14 @@ class HALComparisonPlotter(BasePlotter):
         hal_color = self.HAL_COLOR
         hal_label = 'No Ligand'
         
-        # Verify required columns exist
         required_cols = [ccd_col, smiles_col, hal_col, 'PDB_ID']
         missing_cols = [col for col in required_cols if col not in merged_df.columns]
         if missing_cols:
             print(f"Error: Missing columns in dataframe: {missing_cols}")
             return None, None
         
-        # Create figure
         fig, ax = plt.subplots(figsize=(plot_width, plot_height))
         
-        # Get data
         n_structures = len(merged_df)
         
         # Create PDB ID labels with asterisks for post-2021-09-30 structures
@@ -280,7 +255,6 @@ class HALComparisonPlotter(BasePlotter):
         self._debug_print(f"SMILES values range: {np.min(smiles_values):.3f} - {np.max(smiles_values):.3f}")
         self._debug_print(f"HAL values range: {np.min(hal_values):.3f} - {np.max(hal_values):.3f}")
         
-        # Set up bar positions
         bar_width = self.BAR_WIDTH
         spacing_factor = self.BAR_SPACING_FACTOR
         
@@ -290,7 +264,6 @@ class HALComparisonPlotter(BasePlotter):
         smiles_positions = x_positions
         hal_positions = x_positions + bar_width * spacing_factor
         
-        # Plot bars
         bars_ccd = ax.bar(
             ccd_positions, ccd_values, bar_width,
             color=ccd_color, edgecolor=self.BAR_EDGE_COLOR,
@@ -309,7 +282,6 @@ class HALComparisonPlotter(BasePlotter):
             linewidth=self.BAR_EDGE_LINE_WIDTH, label=hal_label
         )
         
-        # Add threshold line if requested
         if add_threshold:
             ax.axhline(
                 y=threshold_value,
@@ -320,18 +292,18 @@ class HALComparisonPlotter(BasePlotter):
             )
             self._debug_print(f"Added threshold line at y={threshold_value}")
         
-        # Customize plot
-        ax.set_xlabel('PDB ID', fontsize=self.AXIS_LABEL_FONT_SIZE)
-        ax.set_ylabel('DockQ Score', fontsize=self.AXIS_LABEL_FONT_SIZE)
+        ax.set_xlabel('PDB ID', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
+        ax.set_ylabel('DockQ Score', fontsize=self.AXIS_LABEL_FONT_SIZE, fontweight='bold')
         
-        # Set x-axis labels and ticks
         ax.set_xticks(x_positions)
         ax.set_xticklabels(pdb_ids, rotation=90, ha='center', fontsize=self.TICK_LABEL_FONT_SIZE)
         
-        # Set y-axis ticks
+        # Set y-axis ticks with single digit precision
+        y_ticks = np.arange(0, 1.1, 0.2)  # 0.0, 0.2, 0.4, 0.6, 0.8, 1.0
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels([f"{tick:.1f}" for tick in y_ticks])
         ax.tick_params(axis='y', which='major', labelsize=self.TICK_LABEL_FONT_SIZE)
         
-        # Add grid
         ax.grid(axis='y', linestyle=self.GRID_LINESTYLE, alpha=self.GRID_ALPHA)
         
         # Set y-axis limits to fixed range 0-1 for consistent comparison
@@ -343,15 +315,12 @@ class HALComparisonPlotter(BasePlotter):
         
         # No legend in the main plot as requested
         
-        # Use tight layout for better spacing
         plt.tight_layout()
         
-        # Add subtle border
         for spine in ax.spines.values():
             spine.set_linewidth(0.5)
             spine.set_color('black')
         
-        # Save the plot if requested
         if save:
             filename = f"hal_comparison_{model_type.lower()}_dockq"
             if self.debug:
@@ -376,10 +345,8 @@ class HALComparisonPlotter(BasePlotter):
         Returns:
             fig: The created legend figure
         """
-        # Create figure
         fig, ax = plt.subplots(figsize=(width, height))
         
-        # Define colors and labels based on model type
         if model_type == 'AlphaFold3':
             colors = [self.AF3_CCD_COLOR, self.AF3_SMILES_COLOR, self.HAL_COLOR]
             labels = ['AF3 CCD', 'AF3 SMILES', 'No Ligand']
@@ -391,7 +358,6 @@ class HALComparisonPlotter(BasePlotter):
             colors = [self.AF3_CCD_COLOR, self.AF3_SMILES_COLOR, self.HAL_COLOR]
             labels = ['AF3 CCD', 'AF3 SMILES', 'No Ligand']
         
-        # Create legend patches for bars
         legend_handles = []
         for label, color in zip(labels, colors):
             patch = plt.Rectangle(
@@ -403,7 +369,6 @@ class HALComparisonPlotter(BasePlotter):
             )
             legend_handles.append(patch)
         
-        # Add threshold line to legend
         threshold_line = plt.Line2D(
             [0, 1], [0, 0],
             color=self.THRESHOLD_LEGEND_COLOR,
@@ -413,7 +378,6 @@ class HALComparisonPlotter(BasePlotter):
         )
         legend_handles.append(threshold_line)
         
-        # Create horizontal legend
         legend = ax.legend(
             handles=legend_handles,
             loc='center',
@@ -425,15 +389,12 @@ class HALComparisonPlotter(BasePlotter):
             columnspacing=1.0
         )
         
-        # Remove all axes and spines
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis('off')
         
-        # Adjust layout to center the legend
         plt.tight_layout()
         
-        # Save if requested
         if save:
             save_figure(fig, filename)
             
@@ -464,13 +425,11 @@ class HALComparisonPlotter(BasePlotter):
         """
         self.debug = debug or self.debug
         
-        # Load and merge data
         merged_df = self.load_and_merge_data(hal_file_path, combined_file_path)
         if merged_df is None:
             print("Error: Could not load and merge data")
             return None, None, None, None
         
-        # Plot AF3 comparison
         print("Generating AlphaFold3 vs HAL comparison...")
         af3_fig, _ = self.plot_hal_comparison(
             merged_df=merged_df,
@@ -481,7 +440,6 @@ class HALComparisonPlotter(BasePlotter):
             debug=debug
         )
         
-        # Plot Boltz1 comparison
         print("Generating Boltz1 vs HAL comparison...")
         boltz1_fig, _ = self.plot_hal_comparison(
             merged_df=merged_df,
@@ -492,7 +450,6 @@ class HALComparisonPlotter(BasePlotter):
             debug=debug
         )
         
-        # Generate legends
         print("Generating legends...")
         af3_legend_fig = self.create_horizontal_legend(
             model_type='AlphaFold3',

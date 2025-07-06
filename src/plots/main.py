@@ -801,6 +801,37 @@ class PlottingApp:
                     filename = f"poi_e3l_single_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
                     self.save_plots([fig], filename)
         
+        # Generate individual vertical model plots with consistent y-axis limits
+        print(f"Generating individual vertical plots for POI and E3L {metric_type} ({molecule_type})...")
+        
+        try:
+            vertical_figs = self.poi_e3l_plotter.plot_all_model_grids_vertical(
+                df=self.df_combined,
+                model_types=['AlphaFold3', 'Boltz-1'],
+                metric_type=metric_type,
+                add_threshold=add_threshold,
+                threshold_value=threshold_value,
+                save=False,
+                legend_position='lower right',
+                molecule_type=molecule_type
+            )
+            
+            # Save vertical plots with consistent y-axis scaling
+            if vertical_figs:
+                model_names = ['alphafold3', 'boltz_1']
+                for i, fig in enumerate(vertical_figs):
+                    if fig is not None:
+                        model_name = model_names[i]
+                        filename = f"poi_e3l_single_vertical_{metric_type.lower()}_{model_name}_{molecule_type.lower().replace(' ', '_')}"
+                        self.save_plots([fig], filename)
+                        print(f"✓ Vertical plot generated for {['AlphaFold3', 'Boltz-1'][i]} with consistent y-axis scaling")
+                    else:
+                        print(f"Warning: Failed to generate vertical plot for {['AlphaFold3', 'Boltz-1'][i]}")
+            else:
+                print("Warning: No vertical plots were generated")
+        except Exception as e:
+            print(f"Error generating vertical plots: {e}")
+        
         # Generate both horizontal and vertical legends
         try:
             print("\nGenerating horizontal and vertical legends for POI and E3L plots...")
@@ -1105,6 +1136,36 @@ class PlottingApp:
                     self.save_plots(perpdb_figs, filename_perpdb_base)
                 else:
                     print(f"    Failed to generate per-PDB plots for {model_type} {input_type}.")
+
+        # Generate vertical legends for all model/input combinations
+        try:
+            print("\nGenerating vertical legends for RMSD Complex/Isolated plots...")
+            
+            for model_type in model_types_to_plot:
+                if model_type not in self.df_combined['MODEL_TYPE'].unique():
+                    continue
+                    
+                for input_type in ['CCD', 'SMILES']:
+                    print(f"  Generating legend for {model_type} {input_type}...")
+                    legend_fig = self.rmsd_complex_isolated_plotter.create_vertical_legend(
+                        model_type=model_type,
+                        input_type=input_type,
+                        add_threshold=add_threshold,
+                        width=2, 
+                        height=4, 
+                        save=False,
+                        filename=None
+                    )
+                    if legend_fig is not None:
+                        filename = f"rmsd_complex_isolated_vertical_legend_{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}"
+                        self.save_plots([legend_fig], filename)
+                        print(f"    ✓ Legend generated for {model_type} {input_type}")
+                    else:
+                        print(f"    Warning: Failed to generate legend for {model_type} {input_type}")
+                        
+        except Exception as legend_error:
+            print(f"Error generating vertical legends for RMSD Complex/Isolated plots: {legend_error}")
+
         print("\nRMSD Complex/Isolated plots generation complete.")
 
     def display_menu(self):
@@ -1117,11 +1178,11 @@ class PlottingApp:
         print("2. Training Cutoff Comparison")
         print("3. HAL vs Model Comparison")
         print("4. POI and E3L Analysis")
-        print("5. Horizontal Bars (Mean & Std Dev)")
-        print("6. pTM and ipTM Plots")
-        print("7. Property vs LRMSD Analysis")
-        print("8. Generate All Plot Types")
-        print("9. RMSD Complex/Isolated")
+        print("5. RMSD Complex/Isolated")
+        print("6. Horizontal Bars (Mean & Std Dev)")
+        print("7. pTM and ipTM Plots")
+        print("8. Property vs LRMSD Analysis")
+        print("9. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
         
@@ -1147,16 +1208,16 @@ class PlottingApp:
                 self.open_output_folder()
                 continue
                 
-            if choice == '8':
+            if choice == '9':
                 # Generate all plot types
                 self.plot_comparison("boltz1")
                 self.plot_training_cutoff()
                 self.plot_hal_comparison()
                 self.plot_poi_e3l_rmsd()
+                self.plot_rmsd_complex_isolated()
                 self.plot_horizontal_bars()
                 self.plot_ptm_bars()
                 self.plot_property_vs_lrmsd()
-                self.plot_rmsd_complex_isolated()
                 continue
             
             # Process comma-separated choices
@@ -1174,13 +1235,13 @@ class PlottingApp:
                 elif plot_choice == '4':
                     self.plot_poi_e3l_rmsd()
                 elif plot_choice == '5':
-                    self.plot_horizontal_bars()
-                elif plot_choice == '6':
-                    self.plot_ptm_bars()
-                elif plot_choice == '7':
-                    self.plot_property_vs_lrmsd()
-                elif plot_choice == '9':
                     self.plot_rmsd_complex_isolated()
+                elif plot_choice == '6':
+                    self.plot_horizontal_bars()
+                elif plot_choice == '7':
+                    self.plot_ptm_bars()
+                elif plot_choice == '8':
+                    self.plot_property_vs_lrmsd()
                 elif not plot_choice:
                     continue
                 else:
