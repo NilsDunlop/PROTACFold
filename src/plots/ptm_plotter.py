@@ -4,10 +4,8 @@ import pandas as pd
 import math
 from base_plotter import BasePlotter
 from config import PlotConfig
-from data_loader import DataLoader
-from utils import categorize_by_cutoffs, save_figure, distribute_structures_evenly
+from utils import save_figure, distribute_structures_evenly, create_plot_filename
 import logging
-from typing import List, Tuple, Dict, Optional, Any, Union
 
 class PTMPlotter(BasePlotter):
     """Class for creating pTM and ipTM comparison plots."""
@@ -170,20 +168,7 @@ class PTMPlotter(BasePlotter):
                 framealpha=0, edgecolor='none', fontsize=PlotConfig.LEGEND_TEXT_SIZE
             )
 
-    def _generate_save_filename(self, filename_base, filename_with_page=None):
-        """Generate appropriate filename for saving."""
-        if filename_with_page:
-            if "Page" in filename_with_page:
-                base_part = filename_base.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to')
-                page_info = filename_with_page.split("(Page ")[-1].split(")")[0].replace(" ", "_")
-                return f"ptm_plot_{base_part}_page_{page_info}.png"
-            else:
-                save_title = filename_with_page
-        else:
-            save_title = filename_base
-        
-        sanitized = save_title.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to')
-        return f"ptm_plot_{sanitized}.png"
+    
 
     def plot_ptm_bars(self, df_agg, molecule_type="PROTAC", data_source="af3",
                      add_threshold=False, ptm_threshold_value=0.5, iptm_threshold_value=0.6,
@@ -243,17 +228,18 @@ class PTMPlotter(BasePlotter):
                          show_y_labels_on_all, save, max_structures_per_plot, 
                          all_figures, all_axes):
         """Create pTM and ipTM plots, paginating if necessary."""
-        if len(df) <= max_structures_per_plot:
-            plot_width, plot_height = self.calculate_plot_dimensions(len(df), width)
+        pages, _ = distribute_structures_evenly(df, max_structures_per_plot)
+
+        if len(pages) == 1:
+            plot_width, plot_height = self.calculate_plot_dimensions(len(pages[0]), width)
             self._create_single_ptm_plot(
-                df, plot_title_base, data_source, 
+                pages[0], plot_title_base, data_source, 
                 add_threshold, ptm_threshold_value, iptm_threshold_value, 
                 plot_width, plot_height, bar_height, bar_spacing,
                 show_y_labels_on_all, save, all_figures, all_axes
             )
             return
-        
-        pages, structures_per_page = distribute_structures_evenly(df, max_structures_per_plot)
+
         for i, page_df in enumerate(pages):
             plot_width, plot_height = self.calculate_plot_dimensions(len(page_df), width)
             page_filename = f"{plot_title_base} (Page {i+1} of {len(pages)})"
@@ -308,7 +294,16 @@ class PTMPlotter(BasePlotter):
         plt.tight_layout()
         
         if save:
-            filename = self._generate_save_filename(filename_base, filename_with_page)
+            page_info = None
+            if filename_with_page and "Page" in filename_with_page:
+                page_info = filename_with_page.split("(Page")[1].split(")")[0].strip().replace(" ", "_")
+
+            filename = create_plot_filename(
+                'ptm_plot',
+                data_source=data_source,
+                category=filename_base.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to'),
+                page=page_info
+            )
             save_figure(fig, filename)
         
         all_figures.append(fig)

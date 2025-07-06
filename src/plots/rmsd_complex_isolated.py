@@ -5,7 +5,7 @@ from matplotlib.lines import Line2D
 
 from base_plotter import BasePlotter
 from config import PlotConfig
-from utils import save_figure, distribute_pdb_ids
+from utils import save_figure, distribute_pdb_ids, categorize_by_cutoffs, create_plot_filename
 
 class RMSDComplexIsolatedPlotter(BasePlotter):
     """Generates plots for RMSD of complex, POI, and E3 ligase components."""
@@ -126,50 +126,15 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         plt.tight_layout()
 
         if save:
-            filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_agg_rmsd.png"
+            filename = create_plot_filename(
+                'rmsd_agg', model_type=model_type, 
+                input_type=input_type, molecule_type=molecule_type
+            )
             save_figure(fig, filename)
             
         return fig, ax
 
-    def _categorize_data(self, df, classification_cutoff):
-        """Categorize data based on classification cutoffs."""
-        if classification_cutoff is None:
-            classification_cutoff = [2.0, 4.0, 6.0, 8.0]
-            print("Warning: No classification cutoffs provided. Using default cutoffs.")
-        else:
-            print(f"✓ Received cutoffs: {[f'{c:.3f}' for c in classification_cutoff]}")
-        
-        category_labels = self._generate_category_labels(classification_cutoff)
-        categorization_col = 'CCD_RMSD'
-        
-        if categorization_col not in df.columns:
-            print(f"Warning: Column '{categorization_col}' not found. Using 'Uncategorized'.")
-            df['RMSD_Category_Label'] = 'Uncategorized'
-            return ['Uncategorized'], df
-        
-        pdb_means = df.groupby('PDB_ID', observed=True)[categorization_col].mean().reset_index()
-        pdb_means = pdb_means.rename(columns={categorization_col: '__categorization_metric_mean'})
-        
-        df = pd.merge(df, pdb_means, on='PDB_ID', how='left')
-        
-        df['RMSD_Category_Label'] = pd.cut(
-            df['__categorization_metric_mean'],
-            bins=[-np.inf] + classification_cutoff + [np.inf],
-            labels=category_labels,
-            right=False
-        ).astype(str).fillna('Undefined')
-        
-        categories = [label for label in category_labels if label in df['RMSD_Category_Label'].unique()]
-        if 'Undefined' in df['RMSD_Category_Label'].unique() and 'Undefined' not in categories:
-            categories.append('Undefined')
-        
-        return categories, df
-
-    def _generate_category_labels(self, cutoffs):
-        """Generate category labels from cutoffs."""
-        return ([f"< {cutoffs[0]:.2f} Å"] + 
-                [f"{cutoffs[i]:.2f} - {cutoffs[i+1]:.2f} Å" for i in range(len(cutoffs)-1)] + 
-                [f"> {cutoffs[-1]:.2f} Å"])
+    
 
     def _sort_data_within_category(self, df, sorting_col):
         """Sort data within category by sorting column."""
@@ -345,7 +310,8 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
             df_model['RELEASE_DATE'] = pd.to_datetime(df_model['RELEASE_DATE'])
         
         component_cols, component_colors, component_labels = self._get_rmsd_component_columns_and_colors(model_type, input_type)
-        categories, df_model = self._categorize_data(df_model, classification_cutoff)
+        df_model = categorize_by_cutoffs(df_model, component_cols[0], classification_cutoff, 'RMSD_Category_Label')
+        categories = df_model['RMSD_Category_Label'].unique().tolist()
         
         all_figs, all_axes = [], []
 
@@ -421,7 +387,12 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
                 if save:
                     page_suffix = f"_page{page_num}" if len(paginated_pdb_ids) > 1 else ""
                     category_part = f"_cat_{category_label.replace(' ', '_').replace('<', 'lt').replace('>', 'gt').replace('-', 'to').replace('.', 'p').replace('Å','A')}" if category_label != 'Uncategorized' else ""
-                    filename = f"{model_type.lower()}_{input_type.lower()}_{molecule_type.lower().replace(' ', '_')}_perpdb_rmsd_{category_part}{page_suffix}.png"
+                    
+                    filename = create_plot_filename(
+                        'rmsd_perpdb', model_type=model_type,
+                        input_type=input_type, molecule_type=molecule_type,
+                        category=category_part, page=page_suffix
+                    )
                     save_figure(fig, filename)
 
                 all_figs.append(fig)
@@ -474,8 +445,10 @@ class RMSDComplexIsolatedPlotter(BasePlotter):
         plt.tight_layout()
         
         if filename is None:
-            threshold_suffix = "_with_threshold" if add_threshold else ""
-            filename = f"rmsd_complex_isolated_vertical_legend_{model_type.lower()}_{input_type.lower()}{threshold_suffix}"
+            filename = create_plot_filename(
+                'rmsd_legend_vertical', model_type=model_type,
+                input_type=input_type, threshold=add_threshold
+            )
         
         if save:
             save_figure(fig, filename)

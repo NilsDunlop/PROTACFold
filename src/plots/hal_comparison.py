@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from base_plotter import BasePlotter
 from config import PlotConfig
-from utils import save_figure
+from utils import save_figure, create_plot_filename
 
 class HALComparisonPlotter(BasePlotter):
     """
@@ -281,7 +281,9 @@ class HALComparisonPlotter(BasePlotter):
             spine.set_color('black')
         
         if save:
-            filename = f"hal_comparison_{model_type.lower()}_dockq"
+            filename = create_plot_filename(
+                'hal_comparison', model_type=model_type, metric_type='dockq'
+            )
             if self.debug:
                 filename += "_debug"
             save_figure(fig, filename)
@@ -290,7 +292,7 @@ class HALComparisonPlotter(BasePlotter):
         self._debug_print("Successfully completed plot_hal_comparison")
         return fig, ax
 
-    def create_horizontal_legend(self, model_type='AlphaFold3', width=6, height=1, save=True, filename="hal_comparison_legend"):
+    def create_horizontal_legend(self, model_type='AlphaFold3', width=6, height=1, save=True, filename=None):
         """
         Create a standalone horizontal legend figure for HAL comparison plots.
         
@@ -412,14 +414,12 @@ class HALComparisonPlotter(BasePlotter):
         print("Generating legends...")
         af3_legend_fig = self.create_horizontal_legend(
             model_type='AlphaFold3',
-            save=save,
-            filename="hal_comparison_legend_alphafold3"
+            save=save
         )
         
         boltz1_legend_fig = self.create_horizontal_legend(
             model_type='Boltz1',
-            save=save,
-            filename="hal_comparison_legend_boltz1"
+            save=save
         )
         
         return af3_fig, boltz1_fig, af3_legend_fig, boltz1_legend_fig 

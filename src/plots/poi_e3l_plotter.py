@@ -1,11 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from matplotlib.patches import Patch
 
 from base_plotter import BasePlotter
 from config import PlotConfig
-from utils import save_figure
 
 class POI_E3LPlotter(BasePlotter):
     """

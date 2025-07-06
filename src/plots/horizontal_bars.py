@@ -5,7 +5,7 @@ import math
 from base_plotter import BasePlotter
 from config import PlotConfig
 from data_loader import DataLoader
-from utils import categorize_by_cutoffs, save_figure
+from utils import categorize_by_cutoffs, save_figure, distribute_structures_evenly, create_plot_filename
 
 # All constants now imported from PlotConfig for centralized configuration
 
@@ -292,9 +292,10 @@ class HorizontalBarPlotter(BasePlotter):
         plt.tight_layout()
         
         if save:
-            sanitized_title = category_title.replace(' ', '_')
-            sanitized_label = axis_label.replace(' (Å)', '_A').replace(' ', '_')
-            filename = f"plot_{sanitized_title}_{sanitized_label}_all.png"
+            filename = create_plot_filename(
+                'binary_structures', 
+                metric_type='rmsd'
+            )
             save_figure(fig, filename)
         
         all_figures.append(fig)
@@ -327,10 +328,13 @@ class HorizontalBarPlotter(BasePlotter):
             smiles_color: Optional color for SMILES bars.
             ccd_color: Optional color for CCD bars.
         """
-        # If the number of structures is small, create a single plot
-        if len(df) <= max_structures_per_plot:
+        # Use the utility function to distribute structures into pages
+        pages, _ = distribute_structures_evenly(df, max_structures_per_plot)
+        
+        # If only one page, create a single plot
+        if len(pages) == 1:
             self._create_category_plot(
-                df, category_title, metrics, 
+                pages[0], category_title, metrics, 
                 add_threshold, threshold_values, 
                 width, height, show_y_labels_on_all, save,
                 all_figures, all_axes,
@@ -339,18 +343,10 @@ class HorizontalBarPlotter(BasePlotter):
                 ccd_color=ccd_color
             )
             return
-        
-        # Split the dataframe into chunks
-        num_plots = math.ceil(len(df) / max_structures_per_plot)
-        
-        # Create a plot for each chunk
-        for i in range(num_plots):
-            start_idx = i * max_structures_per_plot
-            end_idx = min((i + 1) * max_structures_per_plot, len(df))
-            
-            page_df = df.iloc[start_idx:end_idx].copy()
-            
-            page_title_with_info = f"{category_title} (Page {i+1} of {num_plots})"
+
+        # Create a plot for each page
+        for i, page_df in enumerate(pages):
+            page_title_with_info = f"{category_title} (Page {i+1} of {len(pages)})"
             
             self._create_category_plot(
                 page_df, category_title, metrics, 
@@ -580,11 +576,15 @@ class HorizontalBarPlotter(BasePlotter):
         
         # Save if requested
         if save:
-            sanitized_category = category_title.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to')
+            page_info = None
             if filename_with_page and "Page" in filename_with_page:
                 page_info = filename_with_page.split("(Page")[1].split(")")[0].strip().replace(" ", "_")
-                sanitized_category = f"{sanitized_category}_page_{page_info}"
-            filename = f"plot_category_{sanitized_category}"
+
+            filename = create_plot_filename(
+                'category_plot', 
+                category=category_title.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to'),
+                page=page_info
+            )
             save_figure(fig, filename)
         
         all_figures.append(fig)
