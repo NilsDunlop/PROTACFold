@@ -1,0 +1,26 @@
+{
+    "name": "6HAX_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SMAEKLSPNPPKLTKQMNAIIDTVINYKDSSGRQLSEVFIQLPSRKELPEYYELIRKPVDFKKIKERIRNHKYRSLGDLEKDVMLLCHNAQTFNLEGSQIYEDSIVLQSVFKSARQKIAKEEE"
+        }
+      },
+      {
+        "protein": {
+          "id": "B",
+          "sequence": "GSMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "ligand": {
+          "id": "K",
+          "ccdCodes": ["FWZ"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

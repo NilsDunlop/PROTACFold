@@ -1,0 +1,22 @@
+{
+  "name": "6QDS_ternary_smiles",
+  "sequences": [
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "XVISSNTLRGRS"
+      }
+    },
+    {
+      "ligand": {
+        "id": "C",
+        "smiles": "C[C@@H]1[C@@H]\\2CC[C@@H](/C2=C/[C@]3([C@H](CC(=C3[C@H]([C@@H]1O)O[C@@H]4[C@@H]([C@H]([C@@H]([C@H](O4)COC(C)(C)C=C)O)O)O)[C@H](C)CNC(=O)C5CC5)O)C)COC"
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

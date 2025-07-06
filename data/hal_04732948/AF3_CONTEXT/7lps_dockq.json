@@ -1,0 +1,64 @@
+{
+    "GlobalDockQ": 0.38681175472587803,
+    "best_dockq": 0.7736235094517561,
+    "best_mapping": {
+        "J": "A",
+        "K": "B",
+        "L": "C"
+    },
+    "best_mapping_str": "ABC:JKL",
+    "best_result": {
+        "JK": {
+            "DockQ": 0.6030086314788891,
+            "F1": 0.7388535031847133,
+            "LRMSD": 3.3403117705087455,
+            "chain1": "A",
+            "chain2": "B",
+            "chain_map": {
+                "J": "A",
+                "K": "B",
+                "L": "C"
+            },
+            "clashes": 2,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0.7532467532467533,
+            "fnonnat": 0.275,
+            "iRMSD": 3.101627762345695,
+            "is_het": false,
+            "len1": 779,
+            "len2": 381,
+            "model_total": 160,
+            "nat_correct": 116,
+            "nat_total": 154,
+            "nonnat_count": 44
+        },
+        "KL": {
+            "DockQ": 0.170614877972867,
+            "F1": 0.08108108108108109,
+            "LRMSD": 11.645368460672312,
+            "chain1": "B",
+            "chain2": "C",
+            "chain_map": {
+                "J": "A",
+                "K": "B",
+                "L": "C"
+            },
+            "clashes": 1,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0.10714285714285714,
+            "fnonnat": 0.9347826086956522,
+            "iRMSD": 6.094335448112626,
+            "is_het": false,
+            "len1": 381,
+            "len2": 28,
+            "model_total": 46,
+            "nat_correct": 3,
+            "nat_total": 28,
+            "nonnat_count": 43
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models_v3\\AF3\\with_context\\7lps_ranked_0.pdb",
+    "native": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\PDB\\7lps.pdb"
+}

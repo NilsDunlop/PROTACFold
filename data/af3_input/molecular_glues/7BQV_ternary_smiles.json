@@ -1,0 +1,28 @@
+{
+  "name": "7BQV_ternary_smiles",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "CTSLCCKQCQETEITTKNEIFSLSLCGPMAAYVNPHGYVHETLTVYKASNLNLIGRPSTEHSWFPGYAWTVAQCKICASHIGWKFTATKKDMSPQKFWGLTRSALLPTI"
+      }
+    },
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "SFVCSVCGHRFTTKGNLKVHFHRH"
+      }
+    },
+    {
+      "ligand": {
+        "id": "C",
+        "smiles": "c1cc2c(cc1O)C(=O)N(C2=O)[C@H]3CCC(=O)NC3=O"
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

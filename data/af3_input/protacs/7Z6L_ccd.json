@@ -1,0 +1,26 @@
+{
+    "name": "7Z6L_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SMAEKLSPNPPKLTKQMNAIIDTVINYKDSSGRQLSEVFIQLPSRKELPEYYELIRKPVDFKKIKERIRNHKYRSLGDLEKDVMLLCHNAQTFNLEGSQIYEDSIVLQSVFKSARQKIAKEEE"
+        }
+      },
+      {
+        "protein": {
+          "id": "B",
+          "sequence": "GSMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+        }
+      },
+      {
+        "ligand": {
+          "id": "E",
+          "ccdCodes": ["IEI"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

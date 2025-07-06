@@ -1,0 +1,24 @@
+{
+  "name": "7M2K_ccd",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "GSPSSQKALLLELKGLQEEPVEGFRVTLVDEGDLYNWEVAIFGPPNTYYEGGYFKARLKFPIDYPYSPPAFRFLTKMWHPNIYETGDVCISILHPPVDDPQSGELPSERWNPTQNVRTILLSVISLLNEPNTFSPANVDASVMYRKWKESKGKDREYTDIIRKQVLGTKVDAERDGVKVP"
+      }
+    },
+    {
+      "ligand": {
+        "id": "I",
+        "ccdCodes": [
+          "GZM"
+        ]
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

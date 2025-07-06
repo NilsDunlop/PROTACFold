@@ -1,0 +1,30 @@
+{
+  "name": "8VLB_ternary_ccd",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "GPMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+      }
+    },
+    {
+      "protein": {
+        "id": "D",
+        "sequence": "GMEQTEVLKPRTLADLIRILHQLFAGDEVNVEEVQAIMEAYESDPTEWAMYAKFDQYRYTRNLVDQGNGKFNLMILCWGEGHGSSIHDHTNSHCFLKMLQGNLKETLFAWPDKKSNEMVKKSERVLRENQCAYINDSIGLHRVENISHTEPAVSLHLYSPPFDTCHAFDQRTGHKNKVTMTFHSKFGIRTPNATSGSLENN"
+      }
+    },
+    {
+      "ligand": {
+        "id": "E",
+        "ccdCodes": [
+          "3JF"
+        ]
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

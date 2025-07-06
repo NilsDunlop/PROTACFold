@@ -1,0 +1,20 @@
+{
+    "name": "7KHL_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "MHHHHHHSSGVDLGTENLYFQSNANPPPPETSNPNKPKRQTNQLQYLLRVVLKTLWKHQFAWPFQQPVDAVKLNLPDYYKIIKTPMDMGTIKKRLENNYYWNAQECIQDFNTMFTNCYIYNKPGDDIVLMAEALEKLFLQKINELPTEE"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "ccdCodes": ["WEM"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

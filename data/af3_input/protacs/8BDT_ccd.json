@@ -1,0 +1,30 @@
+{
+  "name": "8BDT_ccd",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "GKDVPDSQQHPAPEKSSKVSEQLKCCSGILKEMFAKKHAAYAWPFYKPVDVEALGLHDYCDIIKHPMDMSTIKSKLEAREYRDAQEFGADVRLMFSNCYKYNPPDHEVVAMARKLQDVFEMRFAKMPDE"
+      }
+    },
+    {
+      "protein": {
+        "id": "D",
+        "sequence": "GSMEAGRPRPVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQRMGD"
+      }
+    },
+    {
+      "ligand": {
+        "id": "I",
+        "ccdCodes": [
+          "QLX"
+        ]
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

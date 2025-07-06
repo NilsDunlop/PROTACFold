@@ -1,0 +1,24 @@
+{
+  "name": "6QDS_ternary_ccd",
+  "sequences": [
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "XVISSNTLRGRS"
+      }
+    },
+    {
+      "ligand": {
+        "id": "C",
+        "ccdCodes": [
+          "HY5"
+        ]
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

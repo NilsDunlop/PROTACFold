@@ -1,0 +1,20 @@
+{
+    "name": "6HM0_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "SMLKLSAENESTPIQQLLEHFLRQLQRKDPHGFFAFPVTDAIAPGYSMIIKHPMDFGTMKDKIVANEYKSVTEFKADFKLMCDNAMTYNRPDTVYYKLAKKILHAGFKMMSKERLLALKRSMS"
+        }
+      },
+      {
+        "ligand": {
+          "id": "C",
+          "ccdCodes": ["GBW"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

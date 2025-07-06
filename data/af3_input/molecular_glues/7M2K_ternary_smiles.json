@@ -1,0 +1,22 @@
+{
+  "name": "7M2K_smiles",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "GSPSSQKALLLELKGLQEEPVEGFRVTLVDEGDLYNWEVAIFGPPNTYYEGGYFKARLKFPIDYPYSPPAFRFLTKMWHPNIYETGDVCISILHPPVDDPQSGELPSERWNPTQNVRTILLSVISLLNEPNTFSPANVDASVMYRKWKESKGKDREYTDIIRKQVLGTKVDAERDGVKVP"
+      }
+    },
+    {
+      "ligand": {
+        "id": "I",
+        "smiles": "CCNC(=O)C1(CCN(CC1)C(=O)COC)Cc2ccc(cc2)c3cc(cc(c3)Cl)Cl"
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

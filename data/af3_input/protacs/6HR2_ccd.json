@@ -1,0 +1,26 @@
+{
+    "name": "6HR2_ccd",
+    "sequences": [
+      {
+        "protein": {
+          "id": "A",
+          "sequence": "EKLSPNPPNLTKKMKKIVDAVIKYKDSSSGRQLSEVFIQLPSRKELPEYYELIRKPVDFKKIKERIRNHKYRSLNDLEKDVMLLCQNAQTFNLEGSLIYEDSIVLQSVFTSVRQKIEKED"
+        }
+      },
+      {
+        "protein": {
+          "id": "B",
+          "sequence": "PVLRSVNSREPSQVIFCNRSPRVVLPVWLNFDGEPQPYPTLPPGTGRRIHSYRGHLWLFRDAGTHDGLLVNQTELFVPSLNVDGQPIFANITLPVYTLKERCLQVVRSLVKPENYRRLDIVRSLYEDLEDHPNVQKDLERLTQERIAHQ"
+        }
+      },
+      {
+        "ligand": {
+          "id": "I",
+          "ccdCodes": ["FWZ"]
+        }
+      }
+    ],
+    "modelSeeds": [42],
+    "dialect": "alphafold3",
+    "version": 1
+}

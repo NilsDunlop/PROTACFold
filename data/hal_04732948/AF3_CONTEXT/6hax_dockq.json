@@ -1,0 +1,119 @@
+{
+    "GlobalDockQ": 0.7339042130396765,
+    "best_dockq": 2.935616852158706,
+    "best_mapping": {
+        "B": "B",
+        "C": "C",
+        "D": "D",
+        "E": "A"
+    },
+    "best_mapping_str": "ABCD:EBCD",
+    "best_result": {
+        "BC": {
+            "DockQ": 0.9617688326897148,
+            "F1": 0.935251798561151,
+            "LRMSD": 1.0885102288373303,
+            "chain1": "B",
+            "chain2": "C",
+            "chain_map": {
+                "B": "B",
+                "C": "C",
+                "E": "A",
+                "H": "D"
+            },
+            "clashes": 0,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0.9558823529411765,
+            "fnonnat": 0.08450704225352113,
+            "iRMSD": 0.35992361815010626,
+            "is_het": false,
+            "len1": 149,
+            "len2": 88,
+            "model_total": 71,
+            "nat_correct": 65,
+            "nat_total": 68,
+            "nonnat_count": 6
+        },
+        "BD": {
+            "DockQ": 0.9462824562325901,
+            "F1": 0.8571428571428571,
+            "LRMSD": 1.3049272785167387,
+            "chain1": "B",
+            "chain2": "D",
+            "chain_map": {
+                "B": "B",
+                "C": "C",
+                "D": "D",
+                "E": "A"
+            },
+            "clashes": 0,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0.9,
+            "fnonnat": 0.18181818181818182,
+            "iRMSD": 0.2986391554583593,
+            "is_het": false,
+            "len1": 149,
+            "len2": 104,
+            "model_total": 11,
+            "nat_correct": 9,
+            "nat_total": 10,
+            "nonnat_count": 2
+        },
+        "CD": {
+            "DockQ": 0.9776136420599606,
+            "F1": 0.9806451612903225,
+            "LRMSD": 0.7279841552859806,
+            "chain1": "C",
+            "chain2": "D",
+            "chain_map": {
+                "B": "B",
+                "C": "C",
+                "D": "D",
+                "E": "A"
+            },
+            "clashes": 0,
+            "class1": "ligand",
+            "class2": "receptor",
+            "fnat": 0.987012987012987,
+            "fnonnat": 0.02564102564102564,
+            "iRMSD": 0.3327067993362188,
+            "is_het": false,
+            "len1": 88,
+            "len2": 104,
+            "model_total": 78,
+            "nat_correct": 76,
+            "nat_total": 77,
+            "nonnat_count": 2
+        },
+        "EC": {
+            "DockQ": 0.04995192117644034,
+            "F1": 0.0,
+            "LRMSD": 22.505584948424215,
+            "chain1": "A",
+            "chain2": "C",
+            "chain_map": {
+                "B": "B",
+                "C": "C",
+                "E": "A",
+                "H": "D"
+            },
+            "clashes": 0,
+            "class1": "receptor",
+            "class2": "ligand",
+            "fnat": 0,
+            "fnonnat": 1.0,
+            "iRMSD": 9.364031902497029,
+            "is_het": false,
+            "len1": 121,
+            "len2": 88,
+            "model_total": 7,
+            "nat_correct": 0,
+            "nat_total": 1,
+            "nonnat_count": 7
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models_v3\\AF3\\with_context\\6hax_ranked_0.pdb",
+    "native": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\PDB\\6hax.pdb"
+}

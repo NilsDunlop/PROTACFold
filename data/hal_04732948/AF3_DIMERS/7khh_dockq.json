@@ -1,0 +1,37 @@
+{
+    "GlobalDockQ": 0.6276054417464884,
+    "best_dockq": 0.6276054417464884,
+    "best_mapping": {
+        "C": "B",
+        "D": "A"
+    },
+    "best_mapping_str": "AB:DC",
+    "best_result": {
+        "DC": {
+            "DockQ": 0.6276054417464884,
+            "F1": 0.7037037037037037,
+            "LRMSD": 7.500168544147044,
+            "chain1": "A",
+            "chain2": "B",
+            "chain_map": {
+                "C": "B",
+                "D": "A"
+            },
+            "clashes": 0,
+            "class1": "ligand",
+            "class2": "receptor",
+            "fnat": 0.8260869565217391,
+            "fnonnat": 0.3870967741935484,
+            "iRMSD": 1.5166414428441939,
+            "is_het": false,
+            "len1": 128,
+            "len2": 148,
+            "model_total": 31,
+            "nat_correct": 19,
+            "nat_total": 23,
+            "nonnat_count": 12
+        }
+    },
+    "model": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models_v3\\AF3\\fold_7khh_model_0.pdb",
+    "native": "C:\\Users\\nilsd\\Desktop\\Python\\Alphafold\\RelatedPaper\\all_models\\PDB\\7khh.pdb"
+}
