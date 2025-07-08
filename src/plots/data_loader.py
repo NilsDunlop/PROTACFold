@@ -56,18 +56,67 @@ class DataLoader:
         return df_agg
     
     @staticmethod
-    def calculate_percentiles(df, column, percentiles=[20, 40, 60, 80], filter_column=None, filter_value=None):
-        """Calculate percentile cutoffs for a column, optionally filtering by another column."""
-        if filter_column and filter_value:
-            filtered_df = df[df[filter_column] == filter_value]
-        else:
-            filtered_df = df
+    def calculate_classification_cutoffs_from_af3_aggregated_data(df_agg, molecule_type=None, percentiles=[20, 40, 60, 80]):
+        """
+        Calculate classification cutoffs from AlphaFold3 CCD RMSD aggregated data.
+        
+        This is the centralized method for calculating cutoffs that should be used across all plotting modules
+        to ensure consistency. Always uses AlphaFold3 CCD_RMSD_mean values from aggregated data.
+        
+        Args:
+            df_agg: Aggregated DataFrame containing AlphaFold3 data
+            molecule_type: Optional molecule type filter (e.g., "PROTAC", "Molecular Glue")
+            percentiles: List of percentiles to use for cutoffs [20, 40, 60, 80]
             
-        sorted_values = filtered_df[column].dropna().sort_values()
-        if len(sorted_values) > 0:
-            cutoffs = [np.percentile(sorted_values, p) for p in percentiles]
-            return cutoffs
-        return None
+        Returns:
+            List of cutoff values or None if insufficient data
+        """
+        if df_agg is None or df_agg.empty:
+            return None
+            
+        # Look for AlphaFold3 data - check various possible identifiers
+        af3_data = pd.DataFrame()
+        if 'MODEL_TYPE' in df_agg.columns:
+            unique_model_types = df_agg['MODEL_TYPE'].unique()
+            af3_identifiers = ["AlphaFold3", "alphafold3", "ALPHAFOLD3", "AF3"]
+            
+            # Find which AlphaFold3 identifier is present in the data
+            af3_model_type_found = None
+            for af3_id in af3_identifiers:
+                if af3_id in unique_model_types:
+                    af3_model_type_found = af3_id
+                    break
+            
+            if af3_model_type_found is not None:
+                af3_data = df_agg[df_agg['MODEL_TYPE'] == af3_model_type_found].copy()
+        else:
+            # If no MODEL_TYPE column, assume all data is AlphaFold3
+            af3_data = df_agg.copy()
+        
+        if af3_data.empty:
+            return None
+            
+        # Filter by molecule type if specified
+        if molecule_type:
+            molecule_type_col = 'MOLECULE_TYPE' if 'MOLECULE_TYPE' in af3_data.columns else 'TYPE'
+            if molecule_type_col in af3_data.columns:
+                af3_data = af3_data[af3_data[molecule_type_col] == molecule_type].copy()
+        
+        # Extract CCD RMSD mean values
+        if 'CCD_RMSD_mean' not in af3_data.columns:
+            return None
+            
+        ccd_rmsd_mean_values = af3_data['CCD_RMSD_mean'].dropna()
+        
+        # Need at least 5 data points for 4 distinct percentile cuts
+        if len(ccd_rmsd_mean_values) < 5:
+            return None
+            
+        # Calculate percentile cutoffs
+        cutoffs = [np.percentile(ccd_rmsd_mean_values, p) for p in percentiles]
+        return cutoffs
+    
+
         
     @staticmethod
     def identify_binary_structures(df):

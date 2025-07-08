@@ -4,503 +4,380 @@ import pandas as pd
 import math
 from base_plotter import BasePlotter
 from config import PlotConfig
-from data_loader import DataLoader
-from utils import categorize_by_cutoffs, save_figure, distribute_structures_evenly
+from utils import save_figure, distribute_structures_evenly, create_plot_filename
 import logging
-from typing import List, Tuple, Dict, Optional, Any, Union
 
 class PTMPlotter(BasePlotter):
     """Class for creating pTM and ipTM comparison plots."""
     
-    def plot_ptm_bars(self, df_agg, molecule_type="PROTAC", classification_cutoff=None,
-                     add_threshold=False, threshold_value=0.5,
-                     show_y_labels_on_all=True, width=12, height=14, 
-                     bar_height=0.18, bar_spacing=0.08, save=False, 
-                     max_structures_per_plot=17):
+    # Constants now imported from PlotConfig
+    
+    def __init__(self):
+        """Initialize the PTM plotter."""
+        super().__init__()
+
+    def _filter_and_prepare_data(self, df_agg, molecule_type):
+        """Filter data by molecule type and prepare numeric columns."""
+        df_filtered = df_agg[df_agg['TYPE'] == molecule_type].copy()
+        
+        # Convert to numeric for all metric columns
+        metric_columns = ['CCD_PTM_mean', 'SMILES_PTM_mean', 'CCD_IPTM_mean', 'SMILES_IPTM_mean']
+        for col in metric_columns:
+            if col in df_filtered.columns:
+                df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+        
+        # Convert std columns
+        for col in df_filtered.columns:
+            if col.endswith('_std'):
+                df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+        
+        return df_filtered
+
+    def _sort_data(self, df_filtered):
+        """Sort data by CCD_PTM_mean or fallback to RELEASE_DATE."""
+        if 'CCD_PTM_mean' in df_filtered.columns:
+            return df_filtered.sort_values('CCD_PTM_mean', ascending=True)
+        else:
+            logging.warning("'CCD_PTM_mean' column not found. Cannot sort by it.")
+            if 'RELEASE_DATE' in df_filtered.columns:
+                df_filtered['RELEASE_DATE'] = pd.to_datetime(df_filtered['RELEASE_DATE'])
+                return df_filtered.sort_values('RELEASE_DATE', ascending=False)
+            return df_filtered
+
+    def _get_plot_title_base(self, data_source, molecule_type, df_filtered):
+        """Generate base title for plot filename."""
+        title_base = f"{data_source}_{molecule_type.replace(' ', '_').lower()}_ptm_iptm"
+        
+        if 'CCD_PTM_mean' in df_filtered.columns:
+            title_base += "_sorted_by_ccd_ptm"
+        elif 'RELEASE_DATE' in df_filtered.columns:
+            title_base += "_sorted_by_date"
+        
+        return title_base
+
+    def _get_colors_for_data_source(self, data_source):
+        """Get appropriate colors based on data source."""
+        if data_source == "boltz1":
+            return PlotConfig.BOLTZ1_CCD_COLOR, PlotConfig.BOLTZ1_SMILES_COLOR
+        else:
+            return PlotConfig.CCD_PRIMARY, PlotConfig.SMILES_PRIMARY
+
+    def _generate_pdb_labels(self, df):
+        """Generate PDB labels with date indicators."""
+        if 'RELEASE_DATE' in df.columns:
+            df['RELEASE_DATE'] = pd.to_datetime(df['RELEASE_DATE'], errors='coerce')
+        
+        if 'RELEASE_DATE' in df.columns and 'PDB_ID' in df.columns:
+            return [f"{pdb}*" if pd.notna(date) and date > PlotConfig.AF3_CUTOFF else pdb 
+                   for pdb, date in zip(df['PDB_ID'], df['RELEASE_DATE'])]
+        elif 'PDB_ID' in df.columns:
+            return df['PDB_ID'].tolist()
+        else:
+            return [f"Struct {i+1}" for i in range(len(df))]
+
+    def _plot_metric_bars(self, ax, df, metric_configs, y_positions, bar_height):
+        """Plot bars for a specific metric (pTM or ipTM)."""
+        legend_handles = []
+        
+        for col_name, color, label, offset in metric_configs:
+            if col_name not in df.columns or df[col_name].isna().all():
+                continue
+                
+            std_col = col_name.replace('_mean', '_std')
+            xerr = df[std_col].fillna(0).values if std_col in df.columns else None
+            
+            bars = ax.barh(
+                y_positions + offset, df[col_name].fillna(0).values, height=bar_height,
+                color=color, edgecolor='black', linewidth=PlotConfig.EDGE_WIDTH,
+                xerr=xerr, error_kw={'ecolor': PlotConfig.ERROR_BAR_COLOR, 'capsize': PlotConfig.ERROR_BAR_CAPSIZE, 'capthick': PlotConfig.ERROR_BAR_THICKNESS}, 
+                label=label
+            )
+            legend_handles.append(bars)
+        
+        return legend_handles
+
+    def _add_threshold_lines(self, ax_ptm, ax_iptm, add_threshold, ptm_threshold, iptm_threshold):
+        """Add threshold lines to plots if requested."""
+        legend_handles = []
+        
+        if add_threshold:
+            if ptm_threshold is not None:
+                threshold_line_ptm = ax_ptm.axvline(
+                    x=ptm_threshold, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, alpha=PlotConfig.THRESHOLD_LINE_ALPHA, 
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold'
+                )
+                legend_handles.append(threshold_line_ptm)
+            
+            if iptm_threshold is not None:
+                threshold_line_iptm = ax_iptm.axvline(
+                    x=iptm_threshold, color=PlotConfig.THRESHOLD_LINE_COLOR, linestyle=PlotConfig.THRESHOLD_LINE_STYLE, alpha=PlotConfig.THRESHOLD_LINE_ALPHA, 
+                    linewidth=PlotConfig.THRESHOLD_LINE_WIDTH, label='Threshold'
+                )
+                legend_handles.append(threshold_line_iptm)
+        
+        return legend_handles
+
+    def _setup_axes(self, ax_ptm, ax_iptm, y_positions, pdb_labels, show_y_labels_on_all):
+        """Configure axis labels, ticks, and limits."""
+        ax_ptm.set_xlabel('pTM', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax_iptm.set_xlabel('ipTM', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        ax_ptm.set_ylabel('PDB Identifier', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+        
+        if not show_y_labels_on_all:
+            ax_iptm.set_ylabel('')
+        
+        ax_ptm.invert_yaxis()
+        ax_iptm.invert_yaxis()
+        
+        ax_ptm.set_yticks(y_positions)
+        ax_ptm.set_yticklabels(pdb_labels, fontsize=PlotConfig.TICK_LABEL_SIZE)
+        ax_ptm.tick_params(axis='x', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        
+        if show_y_labels_on_all:
+            ax_iptm.set_yticks(y_positions)
+            ax_iptm.set_yticklabels(pdb_labels, fontsize=PlotConfig.TICK_LABEL_SIZE)
+            plt.setp(ax_iptm.get_yticklabels(), visible=True)
+            ax_iptm.tick_params(labelleft=True)
+        
+        ax_iptm.tick_params(axis='x', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        ax_iptm.tick_params(axis='y', labelsize=PlotConfig.TICK_LABEL_SIZE)
+        
+        # Set axis limits
+        ax_ptm.set_xlim(0, 1.0)
+        ax_iptm.set_xlim(0, 1.0)
+        ax_ptm.set_ylim(-0.5, len(y_positions) - 0.5)
+        ax_iptm.set_ylim(-0.5, len(y_positions) - 0.5)
+
+    def _create_combined_legend(self, ax_iptm, ptm_handles, iptm_handles, threshold_handles):
+        """Create combined legend for both plots."""
+        all_handles = ptm_handles + iptm_handles + threshold_handles
+        
+        # Remove duplicates while preserving order
+        legend_dict = {}
+        for handle in all_handles:
+            label = handle.get_label()
+            if label not in legend_dict:
+                legend_dict[label] = handle
+        
+        handles = list(legend_dict.values())
+        labels = list(legend_dict.keys())
+        
+        if handles:
+            ax_iptm.legend(
+                handles, labels, loc='center left', bbox_to_anchor=(1.02, 0.5), 
+                framealpha=0, edgecolor='none', fontsize=PlotConfig.LEGEND_TEXT_SIZE
+            )
+
+    
+
+    def plot_ptm_bars(self, df_agg, molecule_type="PROTAC", data_source="af3",
+                     add_threshold=False, ptm_threshold_value=0.5, iptm_threshold_value=0.6,
+                     show_y_labels_on_all=True, width=None, height=None, 
+                     bar_height=None, bar_spacing=None, save=False, 
+                     max_structures_per_plot=PlotConfig.PTM_MAX_STRUCTURES_PER_PAGE):
         """
         Create horizontal bar plots comparing pTM and ipTM metrics for SMILES and CCD.
-        Only plots for categories below 0.8 and above 0.92.
         
         Args:
             df_agg: Aggregated DataFrame with mean and std values
-            molecule_type: Type of molecule to filter by (e.g., "PROTAC")
-            classification_cutoff: List of cutoff values for categories
-            add_threshold: Whether to add a threshold line
-            threshold_value: Value for the threshold line
+            molecule_type: Type of molecule to filter by
+            data_source: Source of the data for color and filename selection
+            add_threshold: Whether to add threshold lines
+            ptm_threshold_value: Value for the pTM threshold line
+            iptm_threshold_value: Value for the ipTM threshold line
             show_y_labels_on_all: Whether to show y-labels on all subplots
-            width, height: Figure dimensions
-            bar_height, bar_spacing: Bar dimensions and spacing
+            width, height: Figure dimensions (uses defaults if None)
+            bar_height, bar_spacing: Bar dimensions (uses defaults if None)
             save: Whether to save the figure
-            max_structures_per_plot: Maximum number of structures per plot
+            max_structures_per_plot: Maximum number of structures per plot page
             
         Returns:
             Lists of created figures and axes
         """
-        # Filter by molecule type
-        df_filtered = df_agg[df_agg['TYPE'] == molecule_type].copy()
+        # Use defaults if not provided
+        width = width or PlotConfig.PTM_WIDTH
+        height = height or PlotConfig.PTM_INITIAL_MAX_HEIGHT
+        bar_height = bar_height or PlotConfig.PTM_BAR_HEIGHT
+        bar_spacing = bar_spacing or PlotConfig.PTM_BAR_SPACING
         
-        # Convert non-numeric values to NaN for all numeric columns
-        for col in df_filtered.columns:
-            if col.endswith('_mean') or col.endswith('_std'):
-                df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+        df_filtered = self._filter_and_prepare_data(df_agg, molecule_type)
+        df_filtered = self._sort_data(df_filtered)
         
-        # Sort by release date (ascending)
-        if 'RELEASE_DATE' in df_filtered.columns:
-            df_filtered['RELEASE_DATE'] = pd.to_datetime(df_filtered['RELEASE_DATE'])
-            df_filtered = df_filtered.sort_values('RELEASE_DATE', ascending=False)  # Sort descending for most recent at top
+        if len(df_filtered) == 0:
+            logging.warning(f"No data to plot for {data_source} {molecule_type}")
+            return [], []
         
-        # Default cutoffs based on pTM values if not provided
-        if classification_cutoff is None:
-            # Use fixed cutoffs rather than percentiles to isolate specific ranges
-            classification_cutoff = [0.8, 0.85, 0.9, 0.92]
+        plot_title_base = self._get_plot_title_base(data_source, molecule_type, df_filtered)
         
-        # Categorize data based on pTM score
-        df_filtered = categorize_by_cutoffs(
-            df_filtered, 'CCD_PTM_mean', classification_cutoff, 'Category'
-        )
-        
-        # Get category labels
-        category_labels = [
-            f"< {classification_cutoff[0]:.2f}",
-            f"{classification_cutoff[0]:.2f} - {classification_cutoff[1]:.2f}",
-            f"{classification_cutoff[1]:.2f} - {classification_cutoff[2]:.2f}",
-            f"{classification_cutoff[2]:.2f} - {classification_cutoff[3]:.2f}",
-            f"> {classification_cutoff[3]:.2f}"
-        ]
-        
-        # Only select the first category (below 0.8) and the last category (above 0.92)
-        selected_categories = [category_labels[0], category_labels[-1]]
-        
-        # Store all created figures and axes
         all_figures = []
         all_axes = []
         
-        # Create plots for selected categories only
-        for category in selected_categories:
-            category_df = df_filtered[df_filtered['Category'] == category]
-            
-            if len(category_df) == 0:
-                continue
-                
-            # Simple category title
-            category_title = f"pTM: {category}"
-            
-            # Create paginated plots for this category
-            self._create_ptm_plots(
-                category_df, category_title, 
-                add_threshold, threshold_value, 
-                width, height, bar_height, bar_spacing,
-                show_y_labels_on_all, save,
-                max_structures_per_plot, all_figures, all_axes
-            )
+        self._create_ptm_plots(
+            df_filtered, plot_title_base, data_source, 
+            add_threshold, ptm_threshold_value, iptm_threshold_value, 
+            width, height, bar_height, bar_spacing,
+            show_y_labels_on_all, save, max_structures_per_plot, 
+            all_figures, all_axes
+        )
         
         return all_figures, all_axes
-    
-    def _create_ptm_plots(self, df, category_title, 
-                        add_threshold, threshold_value, 
-                        width, height, bar_height, bar_spacing,
-                        show_y_labels_on_all, save,
-                        max_structures_per_plot, all_figures, all_axes):
-        """
-        Create pTM and ipTM plots for a category of structures.
-        Paginate the plots if there are too many structures.
-        
-        Args:
-            df: DataFrame containing structures in this category
-            category_title: Title for the plot
-            add_threshold: Whether to add threshold lines
-            threshold_value: Value for threshold line
-            width, height: Figure dimensions
-            bar_height, bar_spacing: Bar dimensions and spacing
-            show_y_labels_on_all: Whether to show y-labels on all subplots
-            save: Whether to save the figure
-            max_structures_per_plot: Maximum number of structures per plot
-            all_figures, all_axes: Lists to append the created figures and axes to
-        """
-        # Clean up category title
-        display_title = category_title
-        if display_title.startswith("pTM Category: "):
-            display_title = "pTM: " + display_title.replace("pTM Category:", "").strip()
-            
-        # If the number of structures is relatively small, create a single plot with dynamic height
-        if len(df) <= max_structures_per_plot:
-            # Use the BasePlotter utility to calculate appropriate dimensions
-            plot_width, plot_height = self.calculate_plot_dimensions(len(df), width)
-            
+
+    def _create_ptm_plots(self, df, plot_title_base, data_source,
+                         add_threshold, ptm_threshold_value, iptm_threshold_value, 
+                         width, height, bar_height, bar_spacing,
+                         show_y_labels_on_all, save, max_structures_per_plot, 
+                         all_figures, all_axes):
+        """Create pTM and ipTM plots, paginating if necessary."""
+        pages, _ = distribute_structures_evenly(df, max_structures_per_plot)
+
+        if len(pages) == 1:
+            plot_width, plot_height = self.calculate_plot_dimensions(len(pages[0]), width)
             self._create_single_ptm_plot(
-                df, display_title, 
-                add_threshold, threshold_value, 
+                pages[0], plot_title_base, data_source, 
+                add_threshold, ptm_threshold_value, iptm_threshold_value, 
                 plot_width, plot_height, bar_height, bar_spacing,
-                show_y_labels_on_all, save,
-                all_figures, all_axes
+                show_y_labels_on_all, save, all_figures, all_axes
             )
             return
-        
-        # For larger datasets, use even distribution for consistent plots
-        pages, structures_per_page = distribute_structures_evenly(df, max_structures_per_plot)
-        
-        # Create a plot for each page with consistent structure counts
+
         for i, page_df in enumerate(pages):
-            # Calculate plot dimensions based on number of structures
             plot_width, plot_height = self.calculate_plot_dimensions(len(page_df), width)
-            
-            # Create page filename info that includes pagination info
-            page_filename = f"{category_title} (Page {i+1} of {len(pages)})"
-            
-            # Create the plot - don't include page numbers in the displayed title
+            page_filename = f"{plot_title_base} (Page {i+1} of {len(pages)})"
             self._create_single_ptm_plot(
-                page_df, display_title,
-                add_threshold, threshold_value, 
+                page_df, plot_title_base, data_source, 
+                add_threshold, ptm_threshold_value, iptm_threshold_value, 
                 plot_width, plot_height, bar_height, bar_spacing,
-                show_y_labels_on_all, save,
-                all_figures, all_axes,
-                filename_with_page=page_filename  # Only used for filename, not display
+                show_y_labels_on_all, save, all_figures, all_axes,
+                filename_with_page=page_filename
             )
-    
-    def _create_single_ptm_plot(self, df, category_title, 
-                              add_threshold, threshold_value, 
-                              width, height, bar_height, bar_spacing,
-                              show_y_labels_on_all, save,
-                              all_figures, all_axes,
-                              filename_with_page=None):
-        """
-        Create a single plot with two panels (pTM and ipTM) comparing SMILES and CCD metrics.
-        
-        Args:
-            df: DataFrame containing structures
-            category_title: Title for the plot
-            add_threshold: Whether to add threshold lines
-            threshold_value: Value for threshold line
-            width, height: Figure dimensions
-            bar_height, bar_spacing: Bar dimensions and spacing
-            show_y_labels_on_all: Whether to show y-labels on all subplots
-            save: Whether to save the figure
-            all_figures, all_axes: Lists to append the created figure and axes to
-            filename_with_page: If provided, use this for generating filenames with page info
-        """
+
+    def _create_single_ptm_plot(self, df, filename_base, data_source, 
+                               add_threshold, ptm_threshold_value, iptm_threshold_value, 
+                               width, height, bar_height, bar_spacing,
+                               show_y_labels_on_all, save, all_figures, all_axes,
+                               filename_with_page=None):
+        """Create a single plot with two panels (pTM and ipTM)."""
         if len(df) == 0:
             return
         
-        # Sort by release date (ascending)
-        if 'RELEASE_DATE' in df.columns:
-            df['RELEASE_DATE'] = pd.to_datetime(df['RELEASE_DATE'])
-            df = df.sort_values('RELEASE_DATE', ascending=False)  # Sort descending for most recent at top
-        
-        # Create PDB ID labels with asterisk for newer structures
-        pdb_labels = [
-            f"{pdb}*" if date > PlotConfig.AF3_CUTOFF else pdb 
-            for pdb, date in zip(df['PDB_ID'], df['RELEASE_DATE'])
-        ]
-        
-        # Create figure with two subplots (pTM on left, ipTM on right)
+        pdb_labels = self._generate_pdb_labels(df)
         fig, (ax_ptm, ax_iptm) = plt.subplots(1, 2, figsize=(width, height), sharey=True)
-        
-        # Y-axis positions (one position per PDB)
         y_positions = np.arange(len(df))
         
-        # Define metrics to plot
+        ccd_color, smiles_color = self._get_colors_for_data_source(data_source)
+        
+        # Define metric configurations
         ptm_metrics = [
-            # Column name, color, label, position offset
-            ('CCD_PTM_mean', PlotConfig.CCD_PRIMARY, 'Ligand CCD', 0.5 * (bar_height + bar_spacing)),
-            ('SMILES_PTM_mean', PlotConfig.SMILES_PRIMARY, 'Ligand SMILES', -0.5 * (bar_height + bar_spacing))
+            ('CCD_PTM_mean', ccd_color, 'Ligand CCD', 0.5 * (bar_height + bar_spacing)),
+            ('SMILES_PTM_mean', smiles_color, 'Ligand SMILES', -0.5 * (bar_height + bar_spacing))
         ]
-        
         iptm_metrics = [
-            ('CCD_IPTM_mean', PlotConfig.CCD_PRIMARY, 'Ligand CCD', 0.5 * (bar_height + bar_spacing)),
-            ('SMILES_IPTM_mean', PlotConfig.SMILES_PRIMARY, 'Ligand SMILES', -0.5 * (bar_height + bar_spacing))
+            ('CCD_IPTM_mean', ccd_color, 'Ligand CCD', 0.5 * (bar_height + bar_spacing)),
+            ('SMILES_IPTM_mean', smiles_color, 'Ligand SMILES', -0.5 * (bar_height + bar_spacing))
         ]
         
-        # Create legend handles for each subplot
-        legend_handles_ptm = []
-        legend_handles_iptm = []
+        # Plot bars
+        ptm_handles = self._plot_metric_bars(ax_ptm, df, ptm_metrics, y_positions, bar_height)
+        iptm_handles = self._plot_metric_bars(ax_iptm, df, iptm_metrics, y_positions, bar_height)
         
-        # Plot pTM metrics
-        for col_name, color, label, offset in ptm_metrics:
-            # Skip if column doesn't exist or has no data
-            if col_name not in df.columns or df[col_name].isna().all():
-                continue
-            
-            # Get corresponding std column if it exists
-            std_col = col_name.replace('_mean', '_std')
-            has_std = std_col in df.columns
-            
-            # For error bars, replace NaN with 0
-            xerr = df[std_col].fillna(0).values if has_std else None
-            
-            # Plot the horizontal bar
-            bars = ax_ptm.barh(
-                y_positions + offset, 
-                df[col_name].fillna(0).values, 
-                height=bar_height,
-                color=color, 
-                edgecolor='black', 
-                linewidth=PlotConfig.EDGE_WIDTH,
-                xerr=xerr,
-                error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1},
-                label=label
-            )
-            
-            # Add to legend handles
-            legend_handles_ptm.append(bars)
+        # Add threshold lines
+        threshold_handles = self._add_threshold_lines(
+            ax_ptm, ax_iptm, add_threshold, ptm_threshold_value, iptm_threshold_value
+        )
         
-        # Plot ipTM metrics
-        for col_name, color, label, offset in iptm_metrics:
-            # Skip if column doesn't exist or has no data
-            if col_name not in df.columns or df[col_name].isna().all():
-                continue
-            
-            # Get corresponding std column if it exists
-            std_col = col_name.replace('_mean', '_std')
-            has_std = std_col in df.columns
-            
-            # For error bars, replace NaN with 0
-            xerr = df[std_col].fillna(0).values if has_std else None
-            
-            # Plot the horizontal bar
-            bars = ax_iptm.barh(
-                y_positions + offset, 
-                df[col_name].fillna(0).values, 
-                height=bar_height,
-                color=color, 
-                edgecolor='black', 
-                linewidth=PlotConfig.EDGE_WIDTH,
-                xerr=xerr,
-                error_kw={'ecolor': 'black', 'capsize': 3, 'capthick': 1},
-                label=label
-            )
-            
-            # Add to legend handles
-            legend_handles_iptm.append(bars)
+        # Setup axes
+        self._setup_axes(ax_ptm, ax_iptm, y_positions, pdb_labels, show_y_labels_on_all)
         
-        # Add threshold if requested
-        if add_threshold:
-            # Add threshold line to pTM plot
-            threshold_line_ptm = ax_ptm.axvline(
-                x=threshold_value, color='black', linestyle='--', 
-                alpha=0.7, linewidth=1.0, label='Threshold'
-            )
-            
-            # Add threshold line to ipTM plot
-            threshold_line_iptm = ax_iptm.axvline(
-                x=threshold_value, color='black', linestyle='--', 
-                alpha=0.7, linewidth=1.0, label='Threshold'
-            )
-            
-            # Add threshold lines to legend handles
-            legend_handles_ptm.append(threshold_line_ptm)
-            legend_handles_iptm.append(threshold_line_iptm)
-        
-        # Set axis labels and titles
-        ax_ptm.set_xlabel('pTM')
-        ax_iptm.set_xlabel('ipTM')
-        ax_ptm.set_title('pTM')  # Simplified title
-        ax_iptm.set_title('ipTM')  # Simplified title
-        
-        # Reverse y-axis so earliest structures are at the top
-        ax_ptm.invert_yaxis()
-        ax_iptm.invert_yaxis()
-        
-        if not show_y_labels_on_all:
-            ax_iptm.set_ylabel('')
-        ax_ptm.set_ylabel('PDB Identifier')
-        
-        # Set y-ticks and labels
-        ax_ptm.set_yticks(y_positions)
-        ax_ptm.set_yticklabels(pdb_labels)
-        if show_y_labels_on_all:
-            ax_iptm.set_yticks(y_positions)
-            ax_iptm.set_yticklabels(pdb_labels)
-            # Ensure y-tick labels are visible on the right subplot
-            plt.setp(ax_iptm.get_yticklabels(), visible=True)
-            ax_iptm.tick_params(labelleft=True)
-        
-        # Set x-axis limits from 0 to 1 (for confidence scores)
-        ax_ptm.set_xlim(0, 1.0)
-        ax_iptm.set_xlim(0, 1.0)
-        
-        # Set y-axis limits
-        ax_ptm.set_ylim(-0.5, len(df) - 0.5)
-        ax_iptm.set_ylim(-0.5, len(df) - 0.5)
-        
-        # Add legends
-        if legend_handles_ptm:
-            ax_ptm.legend(
-                handles=legend_handles_ptm,
-                loc='lower right',
-                framealpha=0,
-                edgecolor='none'
-            )
-        
-        if legend_handles_iptm:
-            ax_iptm.legend(
-                handles=legend_handles_iptm,
-                loc='lower right',
-                framealpha=0,
-                edgecolor='none'
-            )
-        
-        # Add overall title without any page information
-        fig.suptitle(category_title, fontsize=PlotConfig.TITLE_SIZE)
+        # Create legend
+        self._create_combined_legend(ax_iptm, ptm_handles, iptm_handles, threshold_handles)
         
         plt.tight_layout()
         
-        # Save the plot if requested
         if save:
-            # Use the filename_with_page for the filename if provided
-            save_title = filename_with_page if filename_with_page else category_title
-            sanitized_category = save_title.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to')
-            
-            # Handle pagination info in the filename
+            page_info = None
             if filename_with_page and "Page" in filename_with_page:
-                base_category = filename_with_page.split(" (Page")[0]
-                page_info = filename_with_page.split("(Page ")[1].split(")")[0].replace(" ", "_")
-                sanitized_category = f"{base_category.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to')}_page_{page_info}"
-            
-            filename = f"ptm_plot_{sanitized_category}"
+                page_info = filename_with_page.split("(Page")[1].split(")")[0].strip().replace(" ", "_")
+
+            filename = create_plot_filename(
+                'ptm_plot',
+                data_source=data_source,
+                category=filename_base.replace('<', 'lt').replace('>', 'gt').replace(' ', '_').replace('-', 'to'),
+                page=page_info
+            )
             save_figure(fig, filename)
         
         all_figures.append(fig)
         all_axes.append((ax_ptm, ax_iptm))
-        
         return fig, (ax_ptm, ax_iptm)
 
-    def plot_ptm_comparison(self, df, show_individual=True, save=True, add_threshold=False, threshold_value=0.8):
+    def _categorize_ptm_values(self, df):
+        """Categorize PTM values for comparison plots."""
+        # This is a placeholder - implement based on your categorization logic
+        if 'CCD_PTM_mean' in df.columns:
+            return df['CCD_PTM_mean'].fillna(0)
+        return pd.Series([0] * len(df))
+
+    def plot_ptm_comparison(self, df, show_individual=True, save=True, 
+                           add_threshold=False, ptm_threshold_value=None, iptm_threshold_value=None):
         """
-        Create PTM (pTM and ipTM) comparison plots for different confidence level categories.
-        Generates both individual structure plots and summary plots.
+        Create PTM comparison plots for different confidence level categories.
         
         Args:
             df: DataFrame containing the structures to plot
-            show_individual: Whether to create plots for each individual category or just the summary
+            show_individual: Whether to create plots for each individual category
             save: Whether to save the figures
             add_threshold: Whether to add threshold lines
-            threshold_value: Value for threshold line
+            ptm_threshold_value: Value for threshold line on pTM plot
+            iptm_threshold_value: Value for threshold line on ipTM plot
         
         Returns:
-            all_figures: List of generated figure objects
-            all_axes: List of generated axes objects
+            Lists of generated figures and axes
         """
+        ptm_threshold_value = ptm_threshold_value or PlotConfig.DEFAULT_PTM_THRESHOLD
+        iptm_threshold_value = iptm_threshold_value or PlotConfig.DEFAULT_IPTM_THRESHOLD
+        
         all_figures = []
         all_axes = []
         
-        # Create a copy of the dataframe to avoid modifying the original
-        df = df.copy()
+        if not show_individual:
+            return all_figures, all_axes
         
-        # Get categories based on pTM values (SMILES or CCD)
+        df = df.copy()
         df['PTM_CATEGORY'] = self._categorize_ptm_values(df)
         
-        # Define categories to plot (only plot below 0.8 and above 0.92)
-        categories_to_plot = [
+        categories = [
             {'range': (0, 0.8), 'title': 'PTM < 0.8', 'column': 'PTM_CATEGORY'},
             {'range': (0.92, 1.0), 'title': 'PTM > 0.92', 'column': 'PTM_CATEGORY'}
         ]
         
-        # Dictionary to keep track of the number of plots in each category
-        plot_counts = {cat['title']: 0 for cat in categories_to_plot}
+        logging.info("Creating individual PTM comparison plots by category")
         
-        # Generate individual plots and count structures in each category
-        if show_individual:
-            logging.info("Creating individual PTM comparison plots by category")
+        for category in categories:
+            category_df = df[
+                (df[category['column']] >= category['range'][0]) & 
+                (df[category['column']] < category['range'][1])
+            ]
             
-            for category in categories_to_plot:
-                # Filter structures based on the category
-                category_df = df[(df[category['column']] >= category['range'][0]) & 
-                                (df[category['column']] < category['range'][1])]
-                
-                # Only proceed if there are structures in this category
-                if len(category_df) == 0:
-                    continue
-                
-                plot_counts[category['title']] = len(category_df)
-                
-                # Use the utility function for even distribution across pages
-                pages, structures_per_page = distribute_structures_evenly(
-                    category_df, 
-                    PlotConfig.MAX_STRUCTURES_PER_PTM_PLOT if hasattr(PlotConfig, 'MAX_STRUCTURES_PER_PTM_PLOT') else 12
+            if len(category_df) == 0:
+                continue
+            
+            max_structures = PlotConfig.PTM_MAX_STRUCTURES_PER_PAGE
+            pages, structures_per_page = distribute_structures_evenly(category_df, max_structures)
+            
+            for i, page_df in enumerate(pages):
+                page_title = f"{category['title']} (Page {i+1} of {len(pages)})"
+                page_height = min(
+                    PlotConfig.PTM_PAGE_MAX_HEIGHT, 
+                    max(PlotConfig.PTM_PAGE_HEIGHT_PER_STRUCTURE, PlotConfig.PTM_PAGE_HEIGHT_PER_STRUCTURE * len(page_df))
                 )
                 
-                # Create a plot for each page with consistent structure counts
-                for i, page_df in enumerate(pages):
-                    # Create title with page info
-                    page_title = f"{category['title']} (Page {i+1} of {len(pages)})"
-                    
-                    # Create plot for this page
-                    fig, ax = self._create_single_ptm_plot(
-                        page_df, 
-                        category['title'],  # Use original title for saving
-                        add_threshold, 
-                        threshold_value,
-                        PlotConfig.PTM_PLOT_WIDTH if hasattr(PlotConfig, 'PTM_PLOT_WIDTH') else 14, 
-                        min(PlotConfig.PTM_PLOT_HEIGHT if hasattr(PlotConfig, 'PTM_PLOT_HEIGHT') else 12, 
-                            (PlotConfig.PTM_PLOT_HEIGHT_PER_STRUCTURE if hasattr(PlotConfig, 'PTM_PLOT_HEIGHT_PER_STRUCTURE') else 0.6) * len(page_df)),
-                        PlotConfig.PTM_BAR_HEIGHT if hasattr(PlotConfig, 'PTM_BAR_HEIGHT') else 0.18,
-                        PlotConfig.PTM_BAR_SPACING if hasattr(PlotConfig, 'PTM_BAR_SPACING') else 0.08,
-                        show_y_labels_on_all=True,
-                        save=save,
-                        all_figures=all_figures,
-                        all_axes=all_axes,
-                        filename_with_page=page_title
-                    )
-                    
-                    # Add plot title with page info
-                    if fig is not None:
-                        fig.suptitle(page_title, fontsize=PlotConfig.TITLE_SIZE)
-                    
-        # Create a summary plot with all categories
-        logging.info("Creating summary PTM comparison plot across categories")
-        
-        # Create summary DataFrame with category counts
-        summary_data = {
-            'Category': [cat['title'] for cat in categories_to_plot],
-            'Count': [plot_counts.get(cat['title'], 0) for cat in categories_to_plot]
-        }
-        summary_df = pd.DataFrame(summary_data)
-        
-        # Create summary figure if there's data to plot
-        if summary_df['Count'].sum() > 0:
-            # Create figure with one subplot
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Plot horizontal bars for counts
-            bars = ax.barh(
-                summary_df['Category'],
-                summary_df['Count'],
-                color=PlotConfig.SUMMARY_BAR_COLOR,
-                edgecolor='black',
-                linewidth=PlotConfig.EDGE_WIDTH
-            )
-            
-            # Add count labels at the end of each bar
-            for bar in bars:
-                width = bar.get_width()
-                if width > 0:  # Only add label if count > 0
-                    ax.text(
-                        width + 1,  # Offset from end of bar
-                        bar.get_y() + bar.get_height()/2,
-                        f'{int(width)}',
-                        va='center',
-                        fontsize=10
-                    )
-            
-            # Set plot title and labels
-            ax.set_title('Number of Structures by PTM Category', fontsize=PlotConfig.TITLE_SIZE)
-            ax.set_xlabel('Number of Structures', fontsize=PlotConfig.AXIS_LABEL_SIZE)
-            ax.set_ylabel('PTM Category', fontsize=PlotConfig.AXIS_LABEL_SIZE)
-            
-            # Set y-axis limits to accommodate all categories
-            ax.set_ylim(-0.5, len(summary_df) - 0.5)
-            
-            # Add grid lines for x-axis only
-            ax.grid(axis='x', linestyle='--', alpha=0.7)
-            
-            # Tight layout
-            plt.tight_layout()
-            
-            # Save figure if requested
-            if save:
-                save_figure(fig, 'ptm_category_summary')
-            
-            all_figures.append(fig)
-            all_axes.append(ax)
+                self._create_single_ptm_plot(
+                    page_df, category['title'], "af3",
+                    add_threshold, ptm_threshold_value, iptm_threshold_value,
+                    PlotConfig.PTM_WIDTH, page_height, PlotConfig.PTM_BAR_HEIGHT, PlotConfig.PTM_BAR_SPACING,
+                    show_y_labels_on_all=True, save=save,
+                    all_figures=all_figures, all_axes=all_axes,
+                    filename_with_page=page_title
+                )
         
         return all_figures, all_axes 

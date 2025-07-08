@@ -1,8 +1,6 @@
 import os
 import numpy as np
-import pandas as pd
 from datetime import datetime
-import matplotlib.pyplot as plt
 import math
 
 def categorize_by_cutoffs(df, value_column, cutoffs, category_column='Category'):
@@ -129,3 +127,69 @@ def distribute_pdb_ids(pdb_ids, max_per_page):
         batches.append(batch)
         
     return batches
+
+def create_plot_filename(plot_type, molecule_type=None, metric_type=None, model_type=None, 
+                        seed=None, comparison_type=None, **kwargs):
+    """
+    Create standardized, concise plot filenames.
+    
+    Args:
+        plot_type (str): Type of plot (e.g., 'comparison', 'training', 'hal', 'poi_e3l')
+        molecule_type (str, optional): PROTAC, Molecular_Glue -> protac, molglue
+        metric_type (str, optional): RMSD, DOCKQ, LRMSD, PTM -> rmsd, dockq, lrmsd, ptm
+        model_type (str, optional): AlphaFold3, Boltz1 -> af3, b1
+        seed (int, optional): Specific seed number
+        comparison_type (str, optional): mean, seed, individual
+        **kwargs: Additional parameters for specific plot types
+        
+    Returns:
+        str: Standardized filename without timestamp
+    """
+    parts = [plot_type]
+    
+    # Add model type abbreviation
+    if model_type:
+        model_abbrev = {
+            'AlphaFold3': 'af3',
+            'Boltz1': 'b1', 
+            'Boltz-1': 'b1',
+            'HAL': 'hal'
+        }.get(model_type, model_type.lower())
+        parts.append(model_abbrev)
+    
+    # Add comparison type
+    if comparison_type:
+        parts.append(comparison_type)
+    
+    # Add seed if specified
+    if seed is not None:
+        parts.append(f"s{seed}")
+    
+    # Add molecule type abbreviation
+    if molecule_type:
+        mol_abbrev = {
+            'PROTAC': 'protac',
+            'Molecular Glue': 'molglue',
+            'MOLECULAR GLUE': 'molglue'
+        }.get(molecule_type, molecule_type.lower().replace(' ', ''))
+        parts.append(mol_abbrev)
+    
+    # Add metric type abbreviation  
+    if metric_type:
+        metric_abbrev = {
+            'RMSD': 'rmsd',
+            'DOCKQ': 'dockq', 
+            'LRMSD': 'lrmsd',
+            'PTM': 'ptm'
+        }.get(metric_type.upper(), metric_type.lower())
+        parts.append(metric_abbrev)
+    
+    # Add any additional parameters
+    for key, value in kwargs.items():
+        if value is not None:
+            if isinstance(value, str):
+                parts.append(value.lower())
+            else:
+                parts.append(str(value))
+    
+    return '_'.join(parts)
