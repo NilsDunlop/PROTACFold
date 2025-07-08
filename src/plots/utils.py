@@ -136,7 +136,7 @@ def create_plot_filename(plot_type, molecule_type=None, metric_type=None, model_
     Args:
         plot_type (str): Type of plot (e.g., 'comparison', 'training', 'hal', 'poi_e3l')
         molecule_type (str, optional): PROTAC, Molecular_Glue -> protac, molglue
-        metric_type (str, optional): RMSD, DOCKQ, LRMSD, PTM -> rmsd, dockq, lrmsd, ptm
+        metric_type (str, optional): RMSD, DOCKQ, PROTAC_RMSD, PTM -> rmsd, dockq, protac_rmsd, ptm
         model_type (str, optional): AlphaFold3, Boltz1 -> af3, b1
         seed (int, optional): Specific seed number
         comparison_type (str, optional): mean, seed, individual
@@ -179,7 +179,7 @@ def create_plot_filename(plot_type, molecule_type=None, metric_type=None, model_
         metric_abbrev = {
             'RMSD': 'rmsd',
             'DOCKQ': 'dockq', 
-            'LRMSD': 'lrmsd',
+            'PROTAC_RMSD': 'protac_rmsd',
             'PTM': 'ptm'
         }.get(metric_type.upper(), metric_type.lower())
         parts.append(metric_abbrev)
