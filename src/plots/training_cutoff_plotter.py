@@ -324,8 +324,8 @@ class TrainingCutoffPlotter(BasePlotter):
                     # DockQ scores range from 0 to 1
                     current_ylim = (0, min(1.05, max(self.DEFAULT_DOCKQ_THRESHOLD + 0.1, ymax * 1.1)))
                 elif metric_type.upper() == 'PROTAC_RMSD':
-                    # Use a larger y-axis limit for PROTAC RMSD
-                    current_ylim = (0, 45)
+                    # Use dynamic y-axis limit for PROTAC RMSD, ensuring enough space for both AF3 and Boltz1 data
+                    current_ylim = (0, max(10.0, threshold_value + 1.0, ymax * 1.1))
                 elif metric_type.upper() == 'PTM':
                     # PTM scores range from 0 to 1
                     current_ylim = (0, 1.0)
