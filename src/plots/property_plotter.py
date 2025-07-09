@@ -8,7 +8,7 @@ from data_loader import DataLoader
 from matplotlib.gridspec import GridSpec
 
 class PropertyPlotter(BasePlotter):
-    """Class for plotting LRMSD vs molecular properties."""
+    """Class for plotting PROTAC RMSD vs molecular properties."""
     
     # Constants now imported from PlotConfig
     
@@ -31,8 +31,8 @@ class PropertyPlotter(BasePlotter):
         'Heavy_Atom_Count': 'Heavy Atom Count',
         'Molecular_Weight': 'Molecular Weight',
         'LogP': 'LogP',
-        'HBD_Count': 'H-Bond Donors',
-        'HBA_Count': 'H-Bond Acceptors'
+        'HBD_Count': 'Hydrogen Bond Donors',
+        'HBA_Count': 'Hydrogen Bond Acceptors'
     }
     
     # Default bin sizes now in PlotConfig
@@ -91,10 +91,10 @@ class PropertyPlotter(BasePlotter):
             
             for i, center in enumerate(bin_centers):
                 if bin_edges[i] <= prop_val < bin_edges[i+1]:
-                    if pd.notna(row_data.get('SMILES_DOCKQ_LRMSD')):
-                        property_bins[center][model_type]['smiles'].append(row_data['SMILES_DOCKQ_LRMSD'])
-                    if pd.notna(row_data.get('CCD_DOCKQ_LRMSD')):
-                        property_bins[center][model_type]['ccd'].append(row_data['CCD_DOCKQ_LRMSD'])
+                    if pd.notna(row_data.get('SMILES_PROTAC_RMSD')):
+                        property_bins[center][model_type]['smiles'].append(row_data['SMILES_PROTAC_RMSD'])
+                    if pd.notna(row_data.get('CCD_PROTAC_RMSD')):
+                        property_bins[center][model_type]['ccd'].append(row_data['CCD_PROTAC_RMSD'])
                     break
         return property_bins
 
@@ -139,11 +139,16 @@ class PropertyPlotter(BasePlotter):
     def _configure_axes(self, ax, prop, col_index, molecule_type, x_values, bin_size):
         ax.set_xlabel(self.PROPERTY_LABELS.get(prop, prop), fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         if col_index == 0:
-            ax.set_ylabel('LRMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
+            ax.set_ylabel('PROTAC RMSD (Å)', fontsize=PlotConfig.AXIS_LABEL_SIZE, fontweight='bold')
         
         ax.set_ylim(PlotConfig.Y_AXIS_LIMITS.get(molecule_type, PlotConfig.Y_AXIS_LIMITS["DEFAULT"]))
         ax.tick_params(axis='both', which='major', labelsize=PlotConfig.TICK_LABEL_SIZE)
         ax.grid(axis='y', linestyle=PlotConfig.GRID_LINESTYLE, alpha=PlotConfig.GRID_ALPHA)
+
+        # Set y-axis ticks to integer values from 0 to 14
+        y_min, y_max = PlotConfig.Y_AXIS_LIMITS.get(molecule_type, PlotConfig.Y_AXIS_LIMITS["DEFAULT"])
+        ax.set_yticks(np.arange(y_min, y_max + 1, 2)) 
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f"{int(y)}"))
 
         if len(x_values) > 0:
             padding = bin_size * 0.5
@@ -164,13 +169,13 @@ class PropertyPlotter(BasePlotter):
         dummy_lines = [plt.Line2D([0], [0], color=self.MODEL_COLORS[model], linewidth=2, marker='o', markersize=6) for model in self.MODEL_TYPES]
         labels = ['AlphaFold3', 'Boltz-1']
         fig.legend(handles=dummy_lines, labels=labels, loc='upper center', bbox_to_anchor=(0.5, 0.98),
-                   ncol=2, fontsize=PlotConfig.LEGEND_TEXT_SIZE, frameon=self.LEGEND_FRAME)
+                   ncol=2, fontsize=PlotConfig.LEGEND_TITLE_SIZE, frameon=self.LEGEND_FRAME)
     
     def plot_combined_properties(self, df, molecule_type="PROTAC", 
                                width=PlotConfig.PROPERTY_COMBINED_WIDTH, height=None, save=False, 
                                output_path=None, bin_settings=None):
         """
-        Plot six properties with standard error shown as shaded regions around each line.
+        Plot six properties vs PROTAC RMSD with standard error shown as shaded regions around each line.
         Arranged in a 2×3 grid (2 rows, 3 columns).
         
         Args:
@@ -224,7 +229,7 @@ class PropertyPlotter(BasePlotter):
         
         if save:
             bin_suffix = "".join([f"_{key.split('_')[0][0]}{val}" for key, val in final_bin_settings.items()])
-            filename = f'{molecule_type.lower()}_lrmsd_combined_properties{bin_suffix}'.lower()
+            filename = f'{molecule_type.lower()}_protac_rmsd_combined_properties{bin_suffix}'.lower()
             self.save_plot(fig, filename, save_path=output_path)
         
         return fig, all_axes

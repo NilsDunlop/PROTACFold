@@ -201,9 +201,9 @@ class PlotConfig:
     
     # Y-axis limits for different plot types
     Y_AXIS_LIMITS = {
-        "MOLECULAR GLUE": (0, 55),
-        "PROTAC": (0, 50),
-        "DEFAULT": (0, 50)
+        "MOLECULAR GLUE": (0, 14),
+        "PROTAC": (0, 14),
+        "DEFAULT": (0, 14)
     }
     
     # Default bin sizes for property plots
