@@ -9,8 +9,11 @@
 <a href="https://github.com/google-deepmind/alphafold3" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/AlphaFold-3-brightgreen.svg" alt="AlphaFold 3">
 </a>
-<a href="https://zenodo.org/records/14961640" target="_blank" rel="noopener noreferrer">
-  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14961640.svg" alt="DOI">
+<a href="https://github.com/jwohlwend/boltz" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Boltz-1-blueviolet.svg" alt="Boltz-1">
+</a>
+<a href="https://zenodo.org/records/15848838" target="_blank" rel="noopener noreferrer">
+  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.15848838.svg" alt="DOI">
 </a>
 
 
@@ -20,21 +23,23 @@
 
 ## Overview
 
-PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis Targeting Chimera (PROTAC) structures using AlphaFold 3. PROTACs are heterobifunctional molecules that induce targeted protein degradation by forming ternary complexes between a protein of interest (POI) and an E3 ubiquitin ligase. This toolkit provides methods for accurate prediction, evaluation, and analysis of these complex structures to advance PROTAC drug discovery.
+PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis Targeting Chimera (PROTAC) structures using AlphaFold 3 and Boltz-1. PROTACs are heterobifunctional molecules that induce targeted protein degradation by forming ternary complexes between a protein of interest (POI) and an E3 ubiquitin ligase. This toolkit provides methods for accurate prediction, evaluation, and analysis of these complex structures and models to advance PROTAC drug discovery.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Website](#website)
 - [Features](#features)
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
-  - [Using Docker (Recommended)](#using-docker-recommended)
+  - [AlphaFold 3 Setup (Docker Recommended)](#alphafold-3-setup-docker-recommended)
+  - [Using Boltz-1](#using-boltz-1)
   - [Manual Installation](#manual-installation)
 - [Directory Structure](#directory-structure)
 - [Usage](#usage)
   - [PROTAC Structure Prediction](#protac-structure-prediction)
-  - [Analyzing Prediction Results](#analyzing-prediction-results)
-  - [Visualization and Analysis](#visualization-and-analysis)
+  - [Comprehensive Structure Evaluation](#comprehensive-structure-evaluation)
+  - [Visualization and Plotting](#visualization-and-plotting)
 - [Key Metrics](#key-metrics)
 - [Predicted Structures](#predicted-structures)
 - [Tools](#tools)
@@ -43,15 +48,24 @@ PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis T
 - [Acknowledgments](#acknowledgments)
 - [Citation](#citation)
 
+## Website
+
+To make PROTAC analysis more accessible, we have launched **[protacfold.xyz](https://protacfold.xyz)**, our web platform that automates PDB extraction, identifies PROTAC POI and E3 ligase components, and prepares input files for both AlphaFold 3 and Boltz-1.
+
+<div align="center">
+  <a href="https://protacfold.xyz" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/🔗-PROTACFold.xyz-blue?style=for-the-badge" alt="Try PROTACFold.xyz">
+  </a>
+</div>
+
 ## Features
 
-- **AlphaFold 3 Integration**: Streamlined setup and usage of AlphaFold 3 for PROTAC ternary complex prediction
+- **AF3 & B1 Integration**: Streamlined setup and usage of both AlphaFold 3 and Boltz-1 for comparative PROTAC ternary complex prediction.
 - **Multiple Ligand Representation Methods**: Support for both Chemical Component Dictionary (CCD) and SMILES formats
 - **Comprehensive Structure Analysis**: Calculate RMSD, DockQ scores, pTM, ipTM, and TM-scores for evaluating model quality
 - **Molecular Property Analysis**: Calculate and analyze physicochemical properties of PROTACs using RDKit
 - **Advanced Visualization**: Interactive plots and statistical analysis of prediction metrics
 - **Benchmark Capabilities**: Compare predictions with experimental structures and other computational methods
-- **Format Conversion**: Tools for converting between different molecular structure formats (PDB, CIF)
 
 ## Installation
 
@@ -61,11 +75,20 @@ PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis T
 - CUDA-compatible GPU (for AlphaFold 3)
 - Docker (recommended for AlphaFold 3 setup)
 
-### Using Docker (Recommended)
+### AlphaFold 3 Setup (Docker Recommended)
 
 We use AlphaFold 3 inference code available from [Google DeepMind](https://github.com/google-deepmind/alphafold3).
 
 Our detailed instructions for setting up AlphaFold 3 using Docker can be found in the [installation guide](docs/installation_docker.md). For reference, you can also consult the official [AlphaFold 3 documentation](https://github.com/google-deepmind/alphafold3/blob/main/docs/docker.md), though our guide provides comprehensive step-by-step instructions tailored more for PROTACFold users.
+
+### Boltz-1 Setup
+
+Install Boltz using pip:
+```bash
+pip install boltz -U
+```
+
+To run predictions with Boltz YAML input files, please refer to the detailed instructions in the official [Boltz Prediction Guide](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md).
 
 ### Manual Installation
 
@@ -85,51 +108,50 @@ pip install -r requirements.txt
 - `data/`: Contains datasets and analysis results
   - `af3_input/`: Input files for AlphaFold 3 (SMILES and CCD formats)
   - `af3_results/`: Consolidated results from AlphaFold 3 predictions
+  - `boltz_results/`: Consolidated results from Boltz-1 predictions
   - `plots/`: Generated visualizations
   - `hal_04732948/`: Data from [Pereira et al., 2024](https://www.biorxiv.org/content/10.1101/2024.03.19.585735v2) for comparison
 - `utils/`: Utility scripts for structure analysis and property calculation
-- `notebooks/`: Jupyter notebooks for analysis and visualization
+- `src/`:
+  - `plots/`: Scripts for generating all figures and data for our research.
+  - `website/`: Local deployment of `protacfold.xyz` for private analysis using Ollama.
 - `docs/`: Documentation including installation guides and images
 
 ## Usage
 
 ### PROTAC Structure Prediction
 
-Use AlphaFold 3 to predict the structure of PROTAC-mediated ternary complexes:
+Proposed workflow for predicting PROTAC ternary complexes using AlphaFold 3 and Boltz-1:
 
-1. Prepare your input JSON files in either CCD or SMILES format (see examples in `data/af3_input/`)
-2. Run AlphaFold 3 using Docker (see installation guide)
-3. Analyze results using the provided utility scripts
+1. Determine PDB structures to analyze and automate JSON and YAML input files with [`protacfold.xyz`](https://protacfold.xyz).
+2. Run AlphaFold 3 and Boltz predictions.
+3. Analyze results using the provided utility scripts.
 
-### Analyzing Prediction Results
+### Structure Prediction Evaluation
 
-```bash
-# Calculate RMSD between predicted and reference structures
-python utils/rmsd_calculator.py --pred path/to/prediction.pdb --ref path/to/reference.pdb
+The `utils/evaluation.py` script automates the extraction of all quantitative metrics from our study (see [Key Metrics](#key-metrics)). It uses the `(PDBID)_analysis.txt` files (generated by `protacfold.xyz`) to identify POI and E3 ligase chains, enabling fully automated, component-wise RMSD calculations with PyMOL.
 
-# Calculate DockQ score for protein-protein interface quality assessment
-python utils/compute_dockq.py --pred path/to/prediction.pdb --ref path/to/reference.pdb
+**Note**: Script requires a local installation of [PyMOL](https://pymol.org/) for structural alignments.
 
-# Calculate molecular properties from SMILES
-python utils/molecular_properties.py --input data/smiles_file.csv --output results.csv
-
-# Compare prediction metrics across multiple models
-python utils/compare_predictions.py --input_dir path/to/predictions --output results.csv
-```
-
-### Visualization and Analysis
-
-Explore the Jupyter notebooks for comprehensive analysis workflows:
+To run a complete analysis on a directory of PROTAC predictions:
 
 ```bash
-jupyter notebook notebooks/af3_analysis.ipynb
+# Analyze all AlphaFold 3 predictions in a given directory
+python utils/evaluation.py --protac path/to/predictions --model_type AlphaFold3
+
+# Analyze all Boltz-1 predictions in a given directory
+python utils/evaluation.py --boltz path/to/predictions --model_type Boltz1
 ```
 
-The notebooks demonstrate:
-- Comparative analysis of CCD vs. SMILES-based predictions
-- Correlation between confidence metrics (pTM/ipTM) and structural quality
-- Component-wise analysis (POI vs E3 ligase interfaces)
-- Molecular property distribution of successful PROTACs
+This will generate an `evaluation_results.csv` file in the `data/af3_results/` directory.
+
+### Visualization and Plotting
+
+The `src/plots/` directory contains all the scripts used to generate the figures and perform the data analysis for our research. These scripts produce a variety of visualizations and can be ran by:
+
+```bash
+python src/plots/main.py
+```
 
 ## Key Metrics
 
@@ -141,16 +163,27 @@ PROTACFold evaluates predictions using multiple metrics:
 
 ## Predicted Structures
 
-All predicted structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/14961640). See below an example of the predicted structure of complex 7PI4, with the ground truth in grey and the AF3 prediction in gold.
+All 124 predicted PROTAC structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/15848838). An example of a high-quality prediction, the structure for complex [7PI4](https://www.rcsb.org/structure/7PI4) is shown below. The ground truth is in grey, with the AlphaFold 3 prediction in gold and the Boltz-1 prediction in cyan.
 
 <div align="center">
-  <img src="docs/images/7PI4.png" alt="PDB ID 7PI4" width="80%">
+<table>
+  <tr>
+    <td align="center"><b><font color="#cda61a">AlphaFold3</font></b></td>
+    <td align="center"><b><font color="#008080">Boltz-1</font></b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/7PI4_af3.png" alt="PDB ID 7PI4 AlphaFold3 Prediction" width="100%"></td>
+    <td><img src="docs/images/7PI4_boltz1.png" alt="PDB ID 7PI4 Boltz-1 Prediction" width="100%"></td>
+  </tr>
+</table>
 </div>
 
 ## Tools
 
 ### Protein Structure Prediction
 - **[AlphaFold 3](https://github.com/google-deepmind/alphafold3)** - DeepMind's state-of-the-art protein structure prediction model
+
+- **[Boltz-1](https://github.com/jwohlwend/boltz)** - MIT researchers open source biomolecular interaction model
 
 ### Structure Analysis and Comparison
 - **[DockQ](https://github.com/bjornwallner/DockQ)** - Quality measure for protein-protein docking models
@@ -171,10 +204,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - The AlphaFold team at Google DeepMind
+- The Boltz researchers at MIT
 - Developers of open-source tools used in this project (RDKit, DockQ)
 - PyMOL for visualization
 - Contributors to PROTAC databases and experimental data
 
 ## Citation
 
-If you use PROTACFold in your research, please cite the preprint: [Enhancing PROTAC Ternary Complex Prediction with Ligand Information in AlphaFold 3](https://chemrxiv.org/engage/chemrxiv/article-details/67c68d98fa469535b9d93fe9)
+If you use PROTACFold in your research, please cite the paper: [Predicting PROTAC-Mediated Ternary Complexes with AlphaFold3 and Boltz-1](https://chemrxiv.org/engage/chemrxiv/article-details/686ee8f943bc52e4ec1fbec2)
