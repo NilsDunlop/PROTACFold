@@ -50,7 +50,7 @@ PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis T
 
 ## Website
 
-To make PROTAC analysis more accessible, we have launched **[protacfold.xyz](https://protacfold.xyz)**, our web platform that automates PDB extraction, identifies PROTAC POI and E3 ligase components, and prepares input files for both AlphaFold 3 and Boltz-1.
+To make PROTAC analysis more accessible, we launched **[protacfold.xyz](https://protacfold.xyz)**, our web platform that automates PDB extraction, identifies PROTAC POI and E3 ligase components, and prepares input files for both AlphaFold3 and Boltz-1.
 
 <div align="center">
   <a href="https://protacfold.xyz" target="_blank" rel="noopener noreferrer">
@@ -163,13 +163,13 @@ PROTACFold evaluates predictions using multiple metrics:
 
 ## Predicted Structures
 
-All 124 predicted PROTAC structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/15848838). An example of a high-quality prediction, the structure for complex [7PI4](https://www.rcsb.org/structure/7PI4) is shown below. The ground truth is in grey, with the AlphaFold 3 prediction in gold and the Boltz-1 prediction in cyan.
+All 124 predicted PROTAC structures, as well as two replicas of a 300 ns MD simulation of complex 9B9W, are available on [Zenodo](https://zenodo.org/records/15848838). An example of a high-quality prediction, the structure for complex [7PI4](https://www.rcsb.org/structure/7PI4) is shown below. The experimental structure in gray, with the AlphaFold 3 prediction in gold and the Boltz-1 prediction in cyan.
 
 <div align="center">
 <table>
   <tr>
-    <td align="center"><b><font color="#cda61a">AlphaFold3</font></b></td>
-    <td align="center"><b><font color="#008080">Boltz-1</font></b></td>
+    <td align="center"><b>AlphaFold3</b></td>
+    <td align="center"><b>Boltz-1</b></td>
   </tr>
   <tr>
     <td><img src="docs/images/7PI4_af3.png" alt="PDB ID 7PI4 AlphaFold3 Prediction" width="100%"></td>
