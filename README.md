@@ -50,7 +50,7 @@ PROTACFold is a comprehensive toolkit for analyzing and predicting Proteolysis T
 
 ## Website
 
-To make PROTAC analysis more accessible, we launched **[protacfold.xyz](https://protacfold.xyz)**, our web platform that automates PDB extraction, identifies PROTAC POI and E3 ligase components, and prepares input files for both AlphaFold3 and Boltz-1.
+To make PROTAC analysis more accessible, we launched **[protacfold.xyz](https://protacfold.xyz)**, our web platform that automates PDB extraction, identifies PROTAC POI & E3 ligase components, and prepares input files for both AlphaFold3 and Boltz-1.
 
 <div align="center">
   <a href="https://protacfold.xyz" target="_blank" rel="noopener noreferrer">
