@@ -59,7 +59,7 @@ class TrainingCutoffPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Data frame containing results
-            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'PROTAC_RMSD')
             model_type (str): Model type to analyze ('AlphaFold3' or 'Boltz1')
             add_threshold (bool): Whether to add a threshold line
             threshold_value (float): Value for the threshold line, if None will use default based on metric_type
@@ -108,8 +108,8 @@ class TrainingCutoffPlotter(BasePlotter):
                     threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
                     threshold_value = self.DEFAULT_DOCKQ_THRESHOLD
-                elif metric_type.upper() == 'LRMSD':
-                    threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
+                elif metric_type.upper() == 'PROTAC_RMSD':
+                    threshold_value = PlotConfig.DEFAULT_PROTAC_RMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
                     add_threshold = False
                 else:
@@ -323,9 +323,9 @@ class TrainingCutoffPlotter(BasePlotter):
                 elif metric_type.upper() == 'DOCKQ':
                     # DockQ scores range from 0 to 1
                     current_ylim = (0, min(1.05, max(self.DEFAULT_DOCKQ_THRESHOLD + 0.1, ymax * 1.1)))
-                elif metric_type.upper() == 'LRMSD':
-                    # Use a larger y-axis limit for LRMSD
-                    current_ylim = (0, 45)
+                elif metric_type.upper() == 'PROTAC_RMSD':
+                    # Use dynamic y-axis limit for PROTAC RMSD, ensuring enough space for both AF3 and Boltz1 data
+                    current_ylim = (0, max(10.0, threshold_value + 1.0, ymax * 1.1))
                 elif metric_type.upper() == 'PTM':
                     # PTM scores range from 0 to 1
                     current_ylim = (0, 1.0)
@@ -470,8 +470,8 @@ class TrainingCutoffPlotter(BasePlotter):
             return ('SMILES_RMSD', 'CCD_RMSD', 'RMSD (Å)')
         elif metric_type.upper() == 'DOCKQ':
             return ('SMILES_DOCKQ_SCORE', 'CCD_DOCKQ_SCORE', 'DockQ Score')
-        elif metric_type.upper() == 'LRMSD':
-            return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'LRMSD (Å)')
+        elif metric_type.upper() == 'PROTAC_RMSD':
+            return ('SMILES_PROTAC_RMSD', 'CCD_PROTAC_RMSD', 'PROTAC RMSD (Å)')
         elif metric_type.upper() == 'PTM':
             return ('SMILES_PTM', 'CCD_PTM', 'pTM Score')
         else:

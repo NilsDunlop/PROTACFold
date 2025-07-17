@@ -540,6 +540,112 @@ def fetch_smile_strings(pdb_id):
         logging.error(f"Error in fetch_smile_strings for {pdb_id}: {e}")
         return {}
 
+def get_primary_ligand_ccd(pdb_id):
+    """Get the primary ligand CCD identifier for a PDB structure (enhanced version)."""
+    try:
+        ligand_ccd = extract_ligand_ccd_from_pdb(pdb_id)
+        comp_ids = extract_comp_ids(ligand_ccd)
+        
+        if not comp_ids:
+            logging.debug(f"No component IDs found for {pdb_id}")
+            return "N/A"
+        
+        # Common non-drug components to filter out (expanded list)
+        common_components = {
+            'HOH', 'WAT', 'H2O',  # Water
+            'GOL', 'EDO', 'PEG',  # Glycerol, ethylene glycol, polyethylene glycol
+            'SO4', 'PO4', 'CIT',  # Common ions/buffers
+            'CL', 'NA', 'MG', 'CA', 'ZN', 'FE', 'FE2',  # Common ions
+            'EPE', 'MES', 'TRIS', 'HEPES',  # Common buffers
+            'ACT', 'IMD', 'BME', 'IPA', 'HED', 'MPD',  # Other common additives
+            'SCN', 'CN', 'BR', 'I', 'F',  # Small ions that can slip through
+            'DMS', 'ACE', 'MTL'  # Small organic molecules
+        }
+        
+        # Get detailed information about each component to make smarter selection
+        component_details = {}
+        for comp_id in comp_ids:
+            if comp_id not in common_components:
+                try:
+                    ligand_data = fetch_ligand_data(pdb_id, comp_id)
+                    
+                    # Extract chemical data
+                    chem_data = ligand_data.get("chemical_data", {})
+                    data = chem_data.get("data", {})
+                    chem_comp = data.get("chem_comp", {})
+                    
+                    if chem_comp:
+                        # Get basic info
+                        comp_info = chem_comp.get("chem_comp", {})
+                        formula = comp_info.get("formula", "")
+                        formula_weight = comp_info.get("formula_weight", 0)
+                        
+                        # Get SMILES for complexity estimation
+                        descriptors = chem_comp.get("rcsb_chem_comp_descriptor", {})
+                        smiles = descriptors.get("SMILES_stereo", "")
+                        
+                        # Calculate complexity score based on multiple factors
+                        complexity_score = 0
+                        if formula_weight:
+                            complexity_score += min(formula_weight / 100, 10)  # Weight contribution (max 10)
+                        if smiles:
+                            complexity_score += min(len(smiles) / 10, 10)  # SMILES length contribution (max 10)
+                        
+                        component_details[comp_id] = {
+                            'formula': formula,
+                            'weight': formula_weight,
+                            'smiles': smiles,
+                            'complexity_score': complexity_score
+                        }
+                        
+                        logging.debug(f"{pdb_id} component {comp_id}: weight={formula_weight}, smiles_len={len(smiles)}, score={complexity_score}")
+                        
+                except Exception as e:
+                    logging.debug(f"Error fetching detailed data for component {comp_id} in {pdb_id}: {e}")
+                    # Fallback: assign low complexity score
+                    component_details[comp_id] = {
+                        'formula': '',
+                        'weight': 0,
+                        'smiles': '',
+                        'complexity_score': 1
+                    }
+        
+        if component_details:
+            # Sort by complexity score (highest first) to get the most drug-like ligand
+            sorted_components = sorted(component_details.items(), 
+                                     key=lambda x: x[1]['complexity_score'], 
+                                     reverse=True)
+            
+            primary_comp_id = sorted_components[0][0]
+            primary_details = sorted_components[0][1]
+            
+            logging.debug(f"Selected {primary_comp_id} as primary ligand for {pdb_id} "
+                         f"(weight: {primary_details['weight']}, "
+                         f"SMILES length: {len(primary_details['smiles'])}, "
+                         f"complexity: {primary_details['complexity_score']:.2f})")
+            
+            return primary_comp_id
+        else:
+            # Fallback: filter out known small components and take the first remaining
+            drug_like_components = [comp_id for comp_id in comp_ids if comp_id not in common_components]
+            
+            if drug_like_components:
+                primary_ligand = drug_like_components[0]
+                logging.debug(f"Fallback: Selected {primary_ligand} as primary ligand for {pdb_id}")
+                return primary_ligand
+            else:
+                # Last resort: return the first component
+                if comp_ids:
+                    primary_ligand = comp_ids[0]
+                    logging.debug(f"Last resort: Using {primary_ligand} for {pdb_id}")
+                    return primary_ligand
+                else:
+                    return "N/A"
+        
+    except Exception as e:
+        logging.error(f"Error getting ligand CCD for {pdb_id}: {e}")
+        return "N/A"
+
 def extract_dockq_values(output):
     """Extract DockQ, iRMSD, and LRMSD values from DockQ output."""
     dockq_score = None
@@ -593,6 +699,160 @@ def compute_rmsd_with_pymol(model_path, ref_path, pdb_id, model_type):
     
     return rmsd
 
+def compute_ligand_rmsd_with_pymol(model_path, ref_path, pdb_id, model_type, ligand_ccd):
+    """Compute ligand RMSD using PyMol by aligning organic molecules with specific ligand fallback."""
+    try:
+        # Load structures
+        model_name = f"{pdb_id}_{model_type}_ligand_model"
+        ref_name = f"{pdb_id}_ligand_ref"
+        cmd.load(model_path, model_name)
+        cmd.load(ref_path, ref_name)
+        
+        # Select organic molecules (ligands) from both structures
+        cmd.select("lig_ref", f"{ref_name} and (organic)")
+        cmd.select("lig_model", f"{model_name} and (organic)")
+        
+        # Check if ligands exist in both structures
+        ref_ligand_count = cmd.count_atoms("lig_ref")
+        model_ligand_count = cmd.count_atoms("lig_model")
+        
+        if ref_ligand_count == 0:
+            logging.debug(f"No organic ligands found in reference structure for {pdb_id}")
+            cmd.delete("all")
+            return "N/A"
+            
+        if model_ligand_count == 0:
+            logging.debug(f"No organic ligands found in model structure for {pdb_id} ({model_type})")
+            cmd.delete("all")
+            return "N/A"
+        
+        ligand_rmsd = "N/A"
+        method_used = "none"
+        
+        # Try align with organic selection first
+        try:
+            alignment_result = cmd.align("lig_model", "lig_ref", quiet=1)
+            if alignment_result and alignment_result[0] is not None and alignment_result[0] > 0:
+                ligand_rmsd = alignment_result[0]
+                method_used = "align_organic"
+                logging.debug(f"Successfully used align with organic selection for {pdb_id} ({model_type}): RMSD = {ligand_rmsd}")
+        except Exception as align_error:
+            logging.debug(f"Align with organic selection failed for {pdb_id} ({model_type}): {align_error}")
+        
+        # If organic align failed, try specific ligand selection with align first
+        if ligand_rmsd == "N/A" and ligand_ccd != "N/A":
+            try:
+                logging.debug(f"Trying specific ligand selection with align for {pdb_id} ({model_type}) with ligand CCD: {ligand_ccd}")
+                
+                # Select reference ligand by CCD
+                cmd.select("lig_ref_specific", f"{ref_name} and resn {ligand_ccd}")
+                ref_specific_count = cmd.count_atoms("lig_ref_specific")
+                
+                if ref_specific_count == 0:
+                    logging.debug(f"No ligand found with CCD {ligand_ccd} in reference structure for {pdb_id}")
+                else:
+                    # Select model ligand based on model type
+                    model_ligand_found = False
+                    lig_resn_used = None
+                    
+                    if "smiles" in model_type.lower():
+                        # For SMILES models, look for residues starting with LIG_
+                        # Get all residue names in the model
+                        try:
+                            # Get list of residue names in the model
+                            model_residues = []
+                            cmd.iterate(f"{model_name}", "model_residues.append(resn)", space=locals())
+                            lig_residues = [resn for resn in set(model_residues) if resn.startswith("LIG")]
+                            
+                            if lig_residues:
+                                lig_resn_used = lig_residues[0]  # Take the first LIG_ residue found
+                                cmd.select("lig_model_specific", f"{model_name} and resn {lig_resn_used}")
+                                model_specific_count = cmd.count_atoms("lig_model_specific")
+                                if model_specific_count > 0:
+                                    model_ligand_found = True
+                                    logging.debug(f"Found SMILES ligand {lig_resn_used} in model for {pdb_id}")
+                        except Exception as e:
+                            logging.debug(f"Error finding LIG_ residue in SMILES model for {pdb_id}: {e}")
+                    
+                    else:
+                        # For CCD models, use the same CCD as reference
+                        lig_resn_used = ligand_ccd
+                        cmd.select("lig_model_specific", f"{model_name} and resn {ligand_ccd}")
+                        model_specific_count = cmd.count_atoms("lig_model_specific")
+                        if model_specific_count > 0:
+                            model_ligand_found = True
+                            logging.debug(f"Found CCD ligand {ligand_ccd} in model for {pdb_id}")
+                    
+                    # If both specific ligands found, try align first
+                    if model_ligand_found:
+                        # Try align with specific selections first
+                        try:
+                            alignment_result = cmd.align("lig_model_specific", "lig_ref_specific", quiet=1)
+                            if alignment_result and alignment_result[0] is not None and alignment_result[0] > 0:
+                                ligand_rmsd = alignment_result[0]
+                                method_used = "align_specific"
+                                logging.debug(f"Successfully used specific ligand align for {pdb_id} ({model_type}): RMSD = {ligand_rmsd}")
+                        except Exception as align_specific_error:
+                            logging.debug(f"Specific ligand align failed for {pdb_id} ({model_type}): {align_specific_error}")
+                        
+                        # If align with specific selections failed, try pair_fit as last resort
+                        if ligand_rmsd == "N/A":
+                            try:
+                                logging.debug(f"Trying pair_fit as last resort for {pdb_id} ({model_type})")
+                                pair_fit_result = cmd.pair_fit("lig_model_specific", "lig_ref_specific", quiet=1)
+                                if pair_fit_result is not None and pair_fit_result > 0:
+                                    ligand_rmsd = pair_fit_result  # pair_fit returns RMSD directly as float
+                                    method_used = "pair_fit_specific"
+                                    logging.debug(f"Successfully used specific ligand pair fit for {pdb_id} ({model_type}): RMSD = {ligand_rmsd}")
+                            except Exception as pair_fit_error:
+                                logging.debug(f"Pair_fit also failed for {pdb_id} ({model_type}): {pair_fit_error}")
+                        
+                        # Final fallback: try pair_fit without hydrogen atoms
+                        if ligand_rmsd == "N/A":
+                            try:
+                                logging.debug(f"Trying pair_fit without hydrogens as final fallback for {pdb_id} ({model_type})")
+                                
+                                # Create selections without hydrogen atoms
+                                cmd.select("lig_ref_no_h", f"lig_ref_specific and not hydro")
+                                cmd.select("lig_model_no_h", f"lig_model_specific and not hydro")
+                                
+                                # Check if we still have atoms after removing hydrogens
+                                ref_no_h_count = cmd.count_atoms("lig_ref_no_h")
+                                model_no_h_count = cmd.count_atoms("lig_model_no_h")
+                                
+                                if ref_no_h_count > 0 and model_no_h_count > 0:
+                                    pair_fit_no_h_result = cmd.pair_fit("lig_model_no_h", "lig_ref_no_h", quiet=1)
+                                    if pair_fit_no_h_result is not None and pair_fit_no_h_result > 0:
+                                        ligand_rmsd = pair_fit_no_h_result
+                                        method_used = "pair_fit_no_hydrogens"
+                                        logging.debug(f"Successfully used pair_fit without hydrogens for {pdb_id} ({model_type}): RMSD = {ligand_rmsd}")
+                                else:
+                                    logging.debug(f"No atoms remaining after hydrogen removal for {pdb_id} ({model_type})")
+                                    
+                            except Exception as no_h_error:
+                                logging.debug(f"Pair_fit without hydrogens also failed for {pdb_id} ({model_type}): {no_h_error}")
+                    else:
+                        logging.debug(f"Could not find matching ligand in model for {pdb_id} ({model_type})")
+                    
+            except Exception as specific_error:
+                logging.debug(f"Specific ligand selection also failed for {pdb_id} ({model_type}): {specific_error}")
+        
+        # Clean up
+        cmd.delete("all")
+        
+        # Log the final result
+        if ligand_rmsd != "N/A":
+            logging.debug(f"Final ligand RMSD for {pdb_id} ({model_type}): {ligand_rmsd} (method: {method_used})")
+        else:
+            logging.debug(f"Both organic and specific ligand alignment failed for {pdb_id} ({model_type})")
+        
+        return ligand_rmsd
+        
+    except Exception as e:
+        logging.error(f"Error computing ligand RMSD for {pdb_id} ({model_type}): {e}")
+        cmd.delete("all")
+        return "N/A"
+
 def run_dockq(model_path, ref_path):
     """Run DockQ and return the output."""
     try:
@@ -626,6 +886,9 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
     if os.path.exists(analysis_file):
         poi_name, poi_sequence, e3_name, e3_sequence = extract_component_info(analysis_file)
     
+    # Get the primary ligand CCD identifier
+    ligand_ccd = get_primary_ligand_ccd(pdb_id)
+    
     # Find and store primary ligand details
     ligand_id = None
     ligand_info = {}
@@ -641,15 +904,15 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
         else:
             logging.info(f"No suitable ligands found for {pdb_id}")
             ligand_info = {
-                "LIGAND_CCD": "N/A",
-                "LIGAND_LINK": "N/A",
+                "LIGAND_CCD": ligand_ccd if ligand_ccd != "N/A" else "N/A",
+                "LIGAND_LINK": f"https://www.rcsb.org/ligand/{ligand_ccd}" if ligand_ccd != "N/A" else "N/A",
                 "LIGAND_SMILES": "N/A"
             }
     except Exception as e:
         logging.error(f"Error fetching SMILE strings for {pdb_id}: {e}")
         ligand_info = {
-            "LIGAND_CCD": "N/A",
-            "LIGAND_LINK": "N/A",
+            "LIGAND_CCD": ligand_ccd if ligand_ccd != "N/A" else "N/A",
+            "LIGAND_LINK": f"https://www.rcsb.org/ligand/{ligand_ccd}" if ligand_ccd != "N/A" else "N/A",
             "LIGAND_SMILES": "N/A"
         }
     
@@ -794,6 +1057,11 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
                     result_row["SMILES_DOCKQ_iRMSD"] = irmsd if irmsd is not None else "N/A"
                     result_row["SMILES_DOCKQ_LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} SMILES DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
+                
+                # Compute ligand RMSD
+                smiles_ligand_rmsd = compute_ligand_rmsd_with_pymol(smiles_model_path, ref_path, pdb_id, f"smiles_{seed}", ligand_ccd)
+                result_row["SMILES_PROTAC_RMSD"] = smiles_ligand_rmsd
+                logging.debug(f"{pdb_id} seed {seed} SMILES Ligand RMSD: {smiles_ligand_rmsd}")
                     
             except Exception as e:
                 logging.error(f"Error processing SMILES model for {pdb_id} with seed {seed}: {e}")
@@ -840,6 +1108,11 @@ def process_pdb_folder(folder_path, pdb_id, results, model_adapter):
                     result_row["CCD_DOCKQ_iRMSD"] = irmsd if irmsd is not None else "N/A"
                     result_row["CCD_DOCKQ_LRMSD"] = lrmsd if lrmsd is not None else "N/A"
                     logging.debug(f"{pdb_id} seed {seed} CCD DockQ: {dockq_score}, iRMSD: {irmsd}, LRMSD: {lrmsd}")
+                
+                # Compute ligand RMSD
+                ccd_ligand_rmsd = compute_ligand_rmsd_with_pymol(ccd_model_path, ref_path, pdb_id, f"ccd_{seed}", ligand_ccd)
+                result_row["CCD_PROTAC_RMSD"] = ccd_ligand_rmsd
+                logging.debug(f"{pdb_id} seed {seed} CCD Ligand RMSD: {ccd_ligand_rmsd}")
                     
             except Exception as e:
                 logging.error(f"Error processing CCD model for {pdb_id} with seed {seed}: {e}")
@@ -971,9 +1244,9 @@ def main():
         column_order = [
             'PDB_ID', 'RELEASE_DATE', 'SEED', 'TYPE', 'MODEL_TYPE', 'POI_NAME', 'POI_SEQUENCE', 'E3_NAME', 'E3_SEQUENCE',
             'SMILES_RMSD', 'SMILES_POI_RMSD', 'SMILES_E3_RMSD', 'SMILES_DOCKQ_SCORE', 'SMILES_DOCKQ_iRMSD', 'SMILES_DOCKQ_LRMSD',
-            'SMILES_FRACTION_DISORDERED', 'SMILES_HAS_CLASH', 'SMILES_IPTM', 'SMILES_PTM', 'SMILES_RANKING_SCORE',
+            'SMILES_PROTAC_RMSD', 'SMILES_FRACTION_DISORDERED', 'SMILES_HAS_CLASH', 'SMILES_IPTM', 'SMILES_PTM', 'SMILES_RANKING_SCORE',
             'CCD_RMSD', 'CCD_POI_RMSD', 'CCD_E3_RMSD', 'CCD_DOCKQ_SCORE', 'CCD_DOCKQ_iRMSD', 'CCD_DOCKQ_LRMSD',
-            'CCD_FRACTION_DISORDERED', 'CCD_HAS_CLASH', 'CCD_IPTM', 'CCD_PTM', 'CCD_RANKING_SCORE',
+            'CCD_PROTAC_RMSD', 'CCD_FRACTION_DISORDERED', 'CCD_HAS_CLASH', 'CCD_IPTM', 'CCD_PTM', 'CCD_RANKING_SCORE',
             'LIGAND_CCD', 'LIGAND_LINK', 'LIGAND_SMILES',
             'Molecular_Weight', 'Heavy_Atom_Count', 'Ring_Count', 'Rotatable_Bond_Count',
             'LogP', 'HBA_Count', 'HBD_Count', 'TPSA', 'Aromatic_Rings', 'Aliphatic_Rings'

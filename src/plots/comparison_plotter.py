@@ -34,7 +34,7 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'PROTAC_RMSD')
             model_types (list): List of model types to include (None for all)
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
@@ -58,8 +58,8 @@ class ComparisonPlotter(BasePlotter):
                 threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
                 threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
-            elif metric_type.upper() == 'LRMSD':
-                threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
+            elif metric_type.upper() == 'PROTAC_RMSD':
+                threshold_value = PlotConfig.DEFAULT_PROTAC_RMSD_THRESHOLD
             elif metric_type.upper() == 'PTM':
                 threshold_value = PlotConfig.DEFAULT_PTM_THRESHOLD
             else:
@@ -154,7 +154,7 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'PROTAC_RMSD')
             model_types (list): List of model types to include (None for all)
             seeds (list): List of seeds to include (None for all)
             add_threshold (bool): Whether to add a threshold line
@@ -177,8 +177,8 @@ class ComparisonPlotter(BasePlotter):
                     threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 elif metric_type.upper() == 'DOCKQ':
                     threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
-                elif metric_type.upper() == 'LRMSD':
-                    threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
+                elif metric_type.upper() == 'PROTAC_RMSD':
+                    threshold_value = PlotConfig.DEFAULT_PROTAC_RMSD_THRESHOLD
                 elif metric_type.upper() == 'PTM':
                     threshold_value = PlotConfig.DEFAULT_PTM_THRESHOLD
                 else:
@@ -342,9 +342,9 @@ class ComparisonPlotter(BasePlotter):
             elif metric_type.upper() == 'DOCKQ':
                 # DockQ scores range from 0 to 1
                 ax.set_ylim(0, min(1.05, max(0.5, ymax * 1.1)))
-            elif metric_type.upper() == 'LRMSD':
-                # Use a larger y-axis limit for LRMSD to prevent label overlapping
-                ax.set_ylim(0, 40)
+            elif metric_type.upper() == 'PROTAC_RMSD':
+                # Use a larger y-axis limit for PROTAC RMSD to prevent label overlapping
+                ax.set_ylim(0, 10)
             elif metric_type.upper() == 'PTM':
                 # PTM scores range from 0 to 1
                 ax.set_ylim(0, 1.0)
@@ -396,7 +396,7 @@ class ComparisonPlotter(BasePlotter):
         
         Args:
             df (pd.DataFrame): Combined results dataframe
-            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'LRMSD')
+            metric_type (str): Metric to plot ('RMSD', 'DOCKQ', or 'PROTAC_RMSD')
             model_types (list): List of model types to include (None for all)
             specific_seed (int): The specific seed value to filter by
             add_threshold (bool): Whether to add a threshold line
@@ -421,8 +421,8 @@ class ComparisonPlotter(BasePlotter):
                 threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
             elif metric_type.upper() == 'DOCKQ':
                 threshold_value = PlotConfig.DEFAULT_DOCKQ_THRESHOLD
-            elif metric_type.upper() == 'LRMSD':
-                threshold_value = PlotConfig.DEFAULT_LRMSD_THRESHOLD
+            elif metric_type.upper() == 'PROTAC_RMSD':
+                threshold_value = PlotConfig.DEFAULT_PROTAC_RMSD_THRESHOLD
             else:
                 threshold_value = PlotConfig.DEFAULT_RMSD_THRESHOLD
                 
@@ -519,8 +519,8 @@ class ComparisonPlotter(BasePlotter):
             return ('SMILES_RMSD', 'CCD_RMSD', 'RMSD (Å)')
         elif metric_type.upper() == 'DOCKQ':
             return ('SMILES_DOCKQ_SCORE', 'CCD_DOCKQ_SCORE', 'DockQ Score')
-        elif metric_type.upper() == 'LRMSD':
-            return ('SMILES_DOCKQ_LRMSD', 'CCD_DOCKQ_LRMSD', 'LRMSD (Å)')
+        elif metric_type.upper() == 'PROTAC_RMSD':
+            return ('SMILES_PROTAC_RMSD', 'CCD_PROTAC_RMSD', 'PROTAC RMSD (Å)')
         elif metric_type.upper() == 'PTM':
             return ('SMILES_PTM', 'CCD_PTM', 'pTM Score')
         else:
@@ -692,8 +692,8 @@ class ComparisonPlotter(BasePlotter):
                 filename = f"af3_vs_boltz1_rmsd"
             elif metric_type.upper() == 'DOCKQ':
                 filename = f"af3_vs_boltz1_dockq"
-            elif metric_type.upper() == 'LRMSD':
-                filename = f"af3_vs_boltz1_lrmsd"
+            elif metric_type.upper() == 'PROTAC_RMSD':
+                filename = f"af3_vs_boltz1_protac_rmsd"
             elif metric_type.upper() == 'PTM':
                 filename = f"af3_vs_boltz1_ptm"
             else:

@@ -209,7 +209,7 @@ class PlottingApp:
                 molecule_type=molecule_type,
                 classification_cutoff=final_plot_cutoffs, # Use the final determined cutoffs
                 add_threshold=add_threshold,
-                threshold_values=[4, 0.23, 4], # Default thresholds for RMSD, DockQ, LRMSD
+                threshold_values=[4, 0.23, 4], # Default thresholds for RMSD, DockQ, PROTAC_RMSD
                 show_y_labels_on_all=True,
                 max_structures_per_plot=20,
                 save=False, # Handled by self.save_plots
@@ -245,7 +245,7 @@ class PlottingApp:
             print("\nSkipping Boltz1 horizontal bar plots: Boltz1 aggregated data not loaded.")
     
     def plot_rmsd_horizontal_bars(self):
-        """Generate RMSD, iRMSD, LRMSD horizontal bar plots."""
+        """Generate RMSD, iRMSD, PROTAC_RMSD horizontal bar plots."""
         if self.df_af3_agg is None:
             print("Error: AF3 aggregated data not loaded. Please load data first.")
             return
@@ -387,7 +387,7 @@ class PlottingApp:
         Compare AF3 results with other methods.
         
         This function automatically generates comparison plots between AlphaFold3 and Boltz1 models
-        for ALL metrics (RMSD, DOCKQ, LRMSD, PTM) without user prompts.
+        for ALL metrics (RMSD, DOCKQ, PROTAC_RMSD, PTM) without user prompts.
         
         Args:
             comparison_type: Type of comparison to make ("boltz1" currently supported)
@@ -433,7 +433,7 @@ class PlottingApp:
         all_metrics = [
             {'name': 'RMSD', 'threshold': 4.0, 'add_threshold': True},
             {'name': 'DOCKQ', 'threshold': 0.23, 'add_threshold': True},
-            {'name': 'LRMSD', 'threshold': 4.0, 'add_threshold': True},
+            {'name': 'PROTAC_RMSD', 'threshold': 4.0, 'add_threshold': True},
             {'name': 'PTM', 'threshold': 0.8, 'add_threshold': False}  # No threshold for PTM
         ]
         
@@ -640,14 +640,14 @@ class PlottingApp:
                 model_to_plot = default_model
         
         # Generate plots for all metric types automatically
-        metric_types = ['RMSD', 'DOCKQ', 'LRMSD', 'PTM']
+        metric_types = ['RMSD', 'DOCKQ', 'PROTAC_RMSD', 'PTM']
         print(f"Generating training cutoff plots for all metrics: {', '.join(metric_types)}")
         
         # Define metric configurations
         metric_configs = {
             'RMSD': {'threshold_value': 4.0, 'add_threshold': True},
             'DOCKQ': {'threshold_value': 0.23, 'add_threshold': True},
-            'LRMSD': {'threshold_value': 4.0, 'add_threshold': True},
+            'PROTAC_RMSD': {'threshold_value': 4.0, 'add_threshold': True},
             'PTM': {'threshold_value': 0.8, 'add_threshold': False}  # No threshold for PTM
         }
         
@@ -885,15 +885,15 @@ class PlottingApp:
         except Exception as legend_error:
             print(f"Error generating legends for POI/E3L plots: {legend_error}")
     
-    def plot_property_vs_lrmsd(self):
-        """Generate combined plot of molecular properties vs LRMSD."""
+    def plot_property_vs_protac_rmsd(self):
+        """Generate combined plot of molecular properties vs PROTAC RMSD."""
         if not hasattr(self, 'df_combined') or self.df_combined is None:
             print("\nError: Combined results data not found.")
             print("Please ensure the file exists at: ../../data/af3_results/combined_results.csv")
             print("This file should contain both AlphaFold3 and Boltz1 results with MODEL_TYPE, Rotatable_Bond_Count, Heavy_Atom_Count, and Molecular_Weight columns.")
             return
         
-        print("\nMolecular Property vs LRMSD Plot Settings:")
+        print("\nMolecular Property vs PROTAC RMSD Plot Settings:")
         allowed_types = ["PROTAC", "MOLECULAR GLUE"]
         print(f"Available molecule types: {', '.join(allowed_types)}")
         
@@ -1012,7 +1012,7 @@ class PlottingApp:
             if fig is not None:
                 # Save the plot with appropriate naming
                 filename = create_plot_filename(
-                    'property_lrmsd', molecule_type=molecule_type, 
+                    'property_protac_rmsd', molecule_type=molecule_type, 
                     comparison_type='combined'
                 )
                 self.save_plots([fig], filename)
@@ -1171,7 +1171,7 @@ class PlottingApp:
         print("5. RMSD Complex/Isolated")
         print("6. Horizontal Bars (Mean & Std Dev)")
         print("7. pTM and ipTM Plots")
-        print("8. Property vs LRMSD Analysis")
+        print("8. Property vs PROTAC RMSD Analysis")
         print("9. Generate All Plot Types")
         print("\no. Open Output Folder")
         print("q. Quit")
@@ -1207,7 +1207,7 @@ class PlottingApp:
                 self.plot_rmsd_complex_isolated()
                 self.plot_horizontal_bars()
                 self.plot_ptm_bars()
-                self.plot_property_vs_lrmsd()
+                self.plot_property_vs_protac_rmsd()
                 continue
             
             # Process comma-separated choices
@@ -1231,7 +1231,7 @@ class PlottingApp:
                 elif plot_choice == '7':
                     self.plot_ptm_bars()
                 elif plot_choice == '8':
-                    self.plot_property_vs_lrmsd()
+                    self.plot_property_vs_protac_rmsd()
                 elif not plot_choice:
                     continue
                 else:

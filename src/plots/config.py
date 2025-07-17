@@ -164,6 +164,7 @@ class PlotConfig:
     DEFAULT_RMSD_THRESHOLD = 4.0
     DEFAULT_DOCKQ_THRESHOLD = 0.23
     DEFAULT_LRMSD_THRESHOLD = 4.0
+    DEFAULT_PROTAC_RMSD_THRESHOLD = 4.0
     DEFAULT_PTM_THRESHOLD = 0.8
     DEFAULT_IPTM_THRESHOLD = 0.6
     
@@ -200,9 +201,9 @@ class PlotConfig:
     
     # Y-axis limits for different plot types
     Y_AXIS_LIMITS = {
-        "MOLECULAR GLUE": (0, 55),
-        "PROTAC": (0, 50),
-        "DEFAULT": (0, 50)
+        "MOLECULAR GLUE": (0, 14),
+        "PROTAC": (0, 14),
+        "DEFAULT": (0, 14)
     }
     
     # Default bin sizes for property plots

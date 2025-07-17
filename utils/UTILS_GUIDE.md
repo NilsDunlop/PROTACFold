@@ -1,105 +1,39 @@
 # PROTACFold Utilities
 
-This directory contains utility scripts for working with protein structures, molecular data, and AlphaFold results. These tools help with various tasks such as file format conversion, structure comparison, and property calculation.
+This directory contains utility scripts for preparing inputs, evaluating models, and processing data for PROTAC structure prediction.
 
 ## Script Overview
 
-| Script | Description | PyMOL Required |
-|--------|-------------|----------------|
-| [cif_to_pdb_converter.py](#cif_to_pdb_converterpy) | Converts CIF files to PDB format | Yes |
-| [superpose.py](#superposepy) | Superposes protein structures and calculates RMSD | No |
-| [rmsd_calculator.py](#rmsd_calculatorpy) | Calculates RMSD between protein chains | Yes |
-| [molecular_properties.py](#molecular_propertiespy) | Calculates molecular properties for compounds | No |
-| [compute_dockq.py](#compute_dockqpy) | Computes DockQ scores for structure comparisons | No |
-| [cif_converter.py](#cif_converterpy) | Processes CIF files for compatibility with other tools | No |
-| [compare_predictions.py](#compare_predictionspy) | Compares predicted and experimental structures | No |
-| [summary_confidences_merger.py](#summary_confidences_mergerpy) | Merges AlphaFold confidence information | No |
+| Script                                               | Description                                                                                                | PyMOL Required |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------- |
+| [`pdb_assembly_downloader.py`](#pdb_assembly_downloaderpy) | Downloads biological assembly files from the PDB.                                                          | No             |
+| [`cif_converter.py`](#cif_converterpy)               | Processes CIF files for compatibility with AlphaFold's `userCCD` field.                                    | No             |
+| [`modify_input.py`](#modify_inputpy)                 | Modifies AlphaFold 3 JSON inputs (e.g., updates seeds) and converts them to Boltz-1 YAML format.           | No             |
+| [`evaluation.py`](#evaluationpy)                     | Evaluates prediction models by calculating RMSD, DockQ, and other metrics against reference structures.    | Yes            |
+| [`model_adapters.py`](#model_adapterspy)             | Provides helper classes to handle outputs from different prediction models (AlphaFold 3, Boltz-1).           | No             |
 
 ## Detailed Descriptions
 
-### cif_to_pdb_converter.py
+### pdb_assembly_downloader.py
 
-**Description**: Converts CIF (Crystallographic Information File) files to PDB (Protein Data Bank) format using PyMOL.
+**Description**: Downloads biological assembly CIF files from the RCSB PDB for given PDB IDs. It can download a single file or batch download multiple files from a list or a default list in the script. The files are downloaded as `.cif.gz` and decompressed by default.
 
 **Key Functions**:
-- `convert_cif_to_pdb(input_dir)`: Converts all CIF files in a directory to PDB format.
-- `main()`: Main function to run the conversion process.
+- `download_pdb_assembly(pdb_id, output_dir, assembly_id, decompress)`: Downloads a single PDB assembly.
+- `batch_download(pdb_ids, output_dir, ...)`: Downloads multiple PDB assemblies.
+- `main()`: Parses command-line arguments for single and batch modes.
 
 **Usage**:
+For a single PDB ID:
+```bash
+python utils/pdb_assembly_downloader.py single 9DLW -o path/to/output
 ```
-python cif_to_pdb_converter.py
-```
-
-**Note**: Must be run from PyMOL since it relies on PyMOL's command interface.
-
-### superpose.py
-
-**Description**: Superposes AlphaFold model structures onto experimental structures and calculates RMSD (Root Mean Square Deviation).
-
-**Key Functions**:
-- `superpose_cif(pdb_code, exp_dir, pred_dir, output_dir)`: Superposes structures and calculates RMSD.
-- `parse_arguments()`: Parses command-line arguments.
-- `main()`: Main function to run the superposition workflow.
-
-**Usage**:
-```
-python superpose.py -pdb PDB_CODE [PDB_CODE ...]
+For batch downloading from a file:
+```bash
+python utils/pdb_assembly_downloader.py batch --input-file pdb_ids.txt --output-dir path/to/output
 ```
 
-**Dependencies**: ProDy, MDTraj, NumPy
-
-### rmsd_calculator.py
-
-**Description**: Calculates RMSD between protein structures in PyMOL, specifically comparing models generated with different approaches.
-
-**Key Functions**:
-- `find_chain_by_sequence(sequence, model_name)`: Finds a chain matching a specific sequence.
-- `detect_models()`: Detects original, SMILES, and CCD models loaded in PyMOL.
-- `process_protein_chain(protein_type, sequence, original_model, smiles_model, ccd_model)`: Processes protein chains and calculates RMSD.
-- `calculate_rmsd()`: Main function to calculate RMSD between structures.
-
-**Usage**: This script should be run within PyMOL:
-```
-# In PyMOL after loading models
-run utils/rmsd_calculator.py
-calculate_rmsd
-```
-
-**Note**: Must be run from PyMOL as it depends on the PyMOL environment.
-
-### molecular_properties.py
-
-**Description**: Calculates various molecular properties for compounds using RDKit.
-
-**Key Functions**:
-- `calculate_molecular_properties(df, smiles_column)`: Calculates properties like MW, LogP, etc.
-- `parse_arguments()`: Parses command-line arguments.
-- `print_summary(df, property_columns)`: Prints a summary of calculated properties.
-- `main()`: Main function to run the property calculation workflow.
-
-**Usage**:
-```
-python molecular_properties.py --input <input_csv> --output <output_csv> [--smiles_column <column_name>]
-```
-
-**Dependencies**: RDKit, Pandas, NumPy
-
-### compute_dockq.py
-
-**Description**: Analyzes protein structure models by computing DockQ scores between AlphaFold models and reference PDB structures.
-
-**Key Functions**:
-- `run_dockq(model_path, reference_path, output_json)`: Runs DockQ analysis for a single model.
-- `extract_pdb_id(filename)`: Extracts the PDB ID from a filename.
-- `process_models(af_models_dir, reference_dir, output_dir)`: Processes multiple models.
-- `main()`: Main function to run the DockQ analysis workflow.
-
-**Usage**:
-```
-python compute_dockq.py
-```
-
-**Dependencies**: DockQ command-line tool
+**Dependencies**: `requests`
 
 ### cif_converter.py
 
@@ -112,53 +46,80 @@ python compute_dockq.py
 
 **Usage**:
 ```
-python cif_converter.py input.cif output.txt
+python utils/cif_converter.py input.cif output.txt
 ```
 
-### compare_predictions.py
+### modify_input.py
 
-**Description**: Compares predicted protein structures with experimental structures using RMSD of alpha carbon atoms.
+**Description**: A script to modify AlphaFold 3 JSON input files. It can update the random seed used for predictions and convert the JSON files to the YAML format required by Boltz-1.
 
 **Key Functions**:
-- `get_parser(file_path)`: Determines the appropriate parser based on file extension.
-- `compare_structures(pred_path, exp_path)`: Compares structures using RMSD.
-- `process_files(exp_file, pred_file)`: Processes a pair of structure files.
-- `parse_arguments()`: Parses command-line arguments.
-- `main()`: Main function to run the comparison workflow.
+- `update_json_with_seed(json_path, new_seed, output_folder)`: Updates the `modelSeeds` and `name` in a JSON file.
+- `convert_to_boltz1_yaml(json_path, output_folder)`: Converts an AlphaFold 3 JSON file to a Boltz-1 compatible YAML file.
+- `main()`: Main function to process arguments for updating seed and/or converting to YAML.
 
 **Usage**:
+To update a seed:
+```bash
+python utils/modify_input.py --input path/to/json --seed 42 --output path/to/output
 ```
-python compare_predictions.py [-id PDB_ID] [-e EXP_FILE] [-p PRED_FILE]
+To convert to YAML:
+```bash
+python utils/modify_input.py --input path/to/json --yaml --output path/to/output
 ```
 
-**Dependencies**: Biopython, NumPy
+**Dependencies**: `PyYAML`
 
-### summary_confidences_merger.py
+### evaluation.py
 
-**Description**: Walks through a directory structure containing AlphaFold3 confidence files and merges them into a single Excel spreadsheet.
+**Description**: This script automates the comprehensive evaluation of structure predictions from models like AlphaFold 3 and Boltz-1. It processes prediction outputs, compares them to reference structures, and calculates a wide range of metrics:
+- Overall RMSD (C-alpha atoms)
+- Component-wise RMSD for Protein of Interest (POI) and E3 Ligase
+- PROTAC/Ligand RMSD
+- DockQ, iRMSD, and LRMSD scores for interface quality
+- Model confidence scores (pTM, ipTM, etc.)
+- Physicochemical properties of ligands from SMILES strings.
+
+The script is highly automated, using analysis files to identify protein chains and a sophisticated method to identify the primary ligand. It compiles all results into a single CSV file.
 
 **Key Functions**:
-- `process_confidence_files(base_dir)`: Processes AlphaFold confidence files.
-- `create_excel_report(rows, output_path)`: Creates an Excel report from processed data.
-- `main()`: Main function to execute the script.
+- `process_pdb_folder(...)`: Processes all prediction results for a given PDB ID.
+- `compute_rmsd_with_pymol(...)`: Computes C-alpha RMSD between two structures.
+- `compute_ligand_rmsd_with_pymol(...)`: Computes RMSD for the ligand.
+- `calculate_component_rmsd(...)`: Calculates RMSD for specific components like POI and E3.
+- `run_dockq(...)`: Executes the DockQ tool.
+- `calculate_molecular_properties_from_smiles(...)`: Calculates molecular properties using RDKit.
 
 **Usage**:
+The script can be run on directories containing prediction outputs, categorized by molecule type (e.g., PROTAC, glue).
+```bash
+# Analyze AlphaFold 3 predictions
+python utils/evaluation.py --protac path/to/protac_predictions --model_type AlphaFold3 --output results.csv
+
+# Analyze Boltz-1 predictions
+python utils/evaluation.py --glue path/to/glue_predictions --model_type Boltz1 --output results.csv
 ```
-python summary_confidences_merger.py
-```
 
-**Dependencies**: Pandas
+**Note**: This script requires a local installation of PyMOL for structural alignments and the DockQ command-line tool.
 
-## Running Scripts that Require PyMOL
+**Dependencies**: `PyMOL`, `RDKit`, `Pandas`, `NumPy`, `requests`, `DockQ` (command-line tool).
 
-For scripts that require PyMOL (`cif_to_pdb_converter.py` and `rmsd_calculator.py`), you need to run them from within the PyMOL application:
+### model_adapters.py
 
-1. Launch PyMOL
-2. Use the PyMOL command line to run the script:
-   ```
-   run /path/to/utils/script_name.py
-   ```
-3. For `rmsd_calculator.py`, after loading the script, run the command:
-   ```
-   calculate_rmsd
-   ``` 
+**Description**: This module provides a set of adapter classes to create a unified interface for handling outputs from different structure prediction models, namely AlphaFold 3 and Boltz-1. It abstracts away the differences in file naming conventions and confidence score formats, allowing evaluation scripts to process outputs from either model seamlessly. This script is not intended to be run directly but is used as a helper module by `evaluation.py`.
+
+**Key Components**:
+- `ModelAdapter`: An abstract base class defining the adapter interface.
+- `AlphaFoldAdapter`: An adapter specifically for handling AlphaFold 3 output files.
+- `Boltz1Adapter`: An adapter specifically for handling Boltz-1 output files.
+- `get_model_adapter(model_type)`: A factory function that returns the appropriate adapter based on the model name.
+
+**Usage**:
+This module is imported and used by other scripts. For example, in `evaluation.py`:
+```python
+from model_adapters import get_model_adapter
+
+# ...
+model_adapter = get_model_adapter("AlphaFold3")
+model_path, json_path = model_adapter.get_model_paths(...)
+``` 
